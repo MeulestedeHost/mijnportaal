@@ -96,6 +96,19 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 
 .footer { background: var(--surface); border-top: 1px solid var(--border); padding: 1.5rem 0; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
 
+.kinderen-list { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
+.kind-item { background: var(--surface); border-radius: var(--radius); padding: 1rem 1.25rem; box-shadow: var(--shadow); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+.kind-item__name { font-weight: 600; font-size: 1.05rem; color: var(--text); }
+.kind-item__actions { display: flex; gap: 0.5rem; }
+
+.sticker-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
+.sticker-lists .card h2 { margin-bottom: 1rem; font-size: 1.05rem; }
+.sticker-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+.sticker-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; gap: 0.5rem; flex-wrap: wrap; }
+.sticker-item__nummer { font-weight: 600; }
+.sticker-item__actions { display: flex; gap: 0.4rem; }
+.sticker-item--empty { color: var(--text-muted); justify-content: center; border-style: dashed; }
+
 @media (max-width: 640px) {
   .hero h1 { font-size: 1.75rem; }
   .hero { padding: 2.5rem 1rem 2rem; }

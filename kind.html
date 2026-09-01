@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panini Ruilportaal — Kinddetail</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="/dashboard.html" class="brand">
+        <span class="brand__logo">◆</span>
+        <span class="brand__name">Panini Ruilportaal</span>
+      </a>
+      <div class="navbar__actions">
+        <a href="/dashboard.html" class="btn btn--outline btn--sm">← Dashboard</a>
+        <button class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main">
+    <h1 id="kind-naam">Laden…</h1>
+    <p id="kind-geboortejaar" class="form-meta"></p>
+
+    <div class="card">
+      <h2>Sticker toevoegen</h2>
+      <form id="sticker-form" novalidate>
+        <input type="hidden" id="sticker-id" />
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="sticker-nummer" class="form-label">Nummer <span class="required">*</span></label>
+            <input type="text" id="sticker-nummer" class="form-input" required maxlength="20" />
+          </div>
+          <div class="form-group">
+            <label for="sticker-status" class="form-label">Status <span class="required">*</span></label>
+            <select id="sticker-status" class="form-input" required>
+              <option value="HEEFT">Heeft</option>
+              <option value="ZOEKT">Zoekt</option>
+              <option value="RUILT">Ruilt</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary" id="sticker-submit-btn">Toevoegen</button>
+          <button type="button" class="btn btn--outline" id="sticker-cancel-btn">Annuleren</button>
+        </div>
+      </form>
+      <div id="sticker-message" class="message" role="alert" aria-live="polite"></div>
+    </div>
+
+    <div class="sticker-lists">
+      <section class="card">
+        <h2>Gezocht</h2>
+        <ul id="zoekt-list" class="sticker-list"></ul>
+      </section>
+      <section class="card">
+        <h2>Beschikbaar voor ruil</h2>
+        <ul id="ruilt-list" class="sticker-list"></ul>
+      </section>
+      <section class="card">
+        <h2>Eigen collectie</h2>
+        <ul id="heeft-list" class="sticker-list"></ul>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Panini Ruilportaal — Gebouwd op Cloudflare Pages &amp; Supabase</p>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/supabase.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/kinderen.js"></script>
+  <script type="module" src="/js/stickers.js"></script>
+</body>
+</html>
