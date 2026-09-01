@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portaal — Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="/dashboard.html" class="brand">
+        <span class="brand__logo">◆</span>
+        <span class="brand__name">MijnPortaal</span>
+      </a>
+      <div class="navbar__actions">
+        <span id="user-email" class="navbar__user"></span>
+        <button class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main">
+    <div class="dashboard-header">
+      <h1>Mijn formulieren</h1>
+      <button class="btn btn--primary" id="new-form-btn">＋ Nieuw formulier</button>
+    </div>
+
+    <div id="form-container" class="card hidden">
+      <h2 id="form-title">Nieuw formulier</h2>
+      <form id="data-form" novalidate>
+        <input type="hidden" id="form-id" name="id" />
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="voornaam" class="form-label">Voornaam <span class="required">*</span></label>
+            <input type="text" id="voornaam" name="voornaam" class="form-input" required maxlength="100" />
+          </div>
+
+          <div class="form-group">
+            <label for="naam" class="form-label">Naam <span class="required">*</span></label>
+            <input type="text" id="naam" name="naam" class="form-input" required maxlength="100" />
+          </div>
+
+          <div class="form-group">
+            <label for="email" class="form-label">E-mailadres <span class="required">*</span></label>
+            <input type="email" id="form-email" name="email" class="form-input" required maxlength="255" />
+          </div>
+
+          <div class="form-group">
+            <label for="telefoon" class="form-label">Telefoonnummer</label>
+            <input type="tel" id="telefoon" name="telefoon" class="form-input" maxlength="20" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="opmerkingen" class="form-label">Opmerkingen</label>
+          <textarea id="opmerkingen" name="opmerkingen" class="form-input form-textarea" rows="4" maxlength="2000"></textarea>
+        </div>
+
+        <p class="form-meta" id="last-modified"></p>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary" id="save-btn">Opslaan</button>
+          <button type="button" class="btn btn--outline" id="cancel-btn">Annuleren</button>
+        </div>
+      </form>
+      <div id="form-message" class="message" role="alert" aria-live="polite"></div>
+    </div>
+
+    <div id="table-container" class="card">
+      <div id="loading" class="loading">Formulieren laden…</div>
+      <div id="empty-state" class="empty-state hidden">
+        <p>Je hebt nog geen formulieren.</p>
+        <button class="btn btn--primary" id="empty-new-btn">＋ Nieuw formulier</button>
+      </div>
+      <div id="table-wrapper" class="table-wrapper hidden">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Voornaam</th>
+              <th>Naam</th>
+              <th>E-mailadres</th>
+              <th>Telefoon</th>
+              <th>Laatst gewijzigd</th>
+              <th>Acties</th>
+            </tr>
+          </thead>
+          <tbody id="forms-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>MijnPortaal — Gebouwd op Cloudflare Pages &amp; Supabase</p>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/supabase.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/form.js"></script>
+  <script type="module" src="/js/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portaal — Inloggen</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="/" class="brand">
+        <span class="brand__logo">◆</span>
+        <span class="brand__name">MijnPortaal</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container main">
+    <div class="card login-card">
+      <h1>Aanmelden</h1>
+      <p class="login-card__hint">
+        Voer je e-mailadres in. We sturen je een eenmalige inlogcode.
+      </p>
+
+      <form id="login-form" novalidate>
+        <div class="form-group">
+          <label for="email" class="form-label">E-mailadres</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            class="form-input"
+            placeholder="naam@voorbeeld.nl"
+            required
+            autocomplete="email"
+          />
+        </div>
+
+        <button type="submit" class="btn btn--primary btn--block" id="login-btn">
+          Inlogcode versturen
+        </button>
+      </form>
+
+      <div id="otp-section" class="otp-section hidden">
+        <hr />
+        <p class="login-card__hint">
+          We hebben een 6-cijferige code naar je e-mail gestuurd. Voer deze hieronder in.
+        </p>
+        <form id="verify-form" novalidate>
+          <div class="form-group">
+            <label for="token" class="form-label">Inlogcode</label>
+            <input
+              type="text"
+              id="token"
+              name="token"
+              class="form-input"
+              placeholder="123456"
+              maxlength="6"
+              inputmode="numeric"
+              pattern="[0-9]{6}"
+              required
+            />
+          </div>
+          <button type="submit" class="btn btn--primary btn--block" id="verify-btn">
+            Verifiëren
+          </button>
+        </form>
+        <button type="button" class="btn btn--link" id="resend-btn">
+          Nieuwe code aanvragen
+        </button>
+      </div>
+
+      <div id="message" class="message" role="alert" aria-live="polite"></div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>MijnPortaal — Gebouwd op Cloudflare Pages &amp; Supabase</p>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/supabase.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+</body>
+</html>
