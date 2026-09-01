@@ -1,0 +1,98 @@
+<!-- Panini Ruilportaal — Supabase e-mailtemplate voor de Magic Link
+     Plakken in: Supabase → Authentication → Emails → "Magic Link"
+     Onderwerp:  Je inloglink voor het Panini Ruilportaal
+     Variabele {{ .ConfirmationURL }} wordt door Supabase ingevuld. -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;margin:0;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background-color:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+        <!-- Kop -->
+        <tr>
+          <td style="background-color:#0b4a9e;padding:24px 32px;">
+            <p style="margin:0;color:#ffffff;font-size:18px;font-weight:700;line-height:1.3;">
+              Panini Ruilportaal
+            </p>
+            <p style="margin:4px 0 0;color:#c8dcf7;font-size:13px;line-height:1.4;">
+              Een initiatief van Meulestede vzw
+            </p>
+          </td>
+        </tr>
+
+        <!-- Inhoud -->
+        <tr>
+          <td style="padding:32px;">
+            <h1 style="margin:0 0 12px;color:#1a1a2e;font-size:22px;line-height:1.3;">
+              Je inloglink staat klaar
+            </h1>
+
+            <p style="margin:0 0 16px;color:#5a6577;font-size:15px;line-height:1.6;">
+              Je vroeg net een inloglink aan voor het Panini Ruilportaal. Klik op de
+              knop hieronder en je bent meteen ingelogd — je hebt geen wachtwoord nodig.
+            </p>
+
+            <!-- Knop -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;">
+              <tr>
+                <td align="center" style="border-radius:8px;background-color:#1d6fe0;">
+                  <a href="{{ .ConfirmationURL }}"
+                     style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;border-radius:8px;">
+                    Inloggen
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 24px;color:#5a6577;font-size:13px;line-height:1.6;">
+              Werkt de knop niet? Kopieer dan deze link naar je browser:<br />
+              <a href="{{ .ConfirmationURL }}" style="color:#1d6fe0;word-break:break-all;">{{ .ConfirmationURL }}</a>
+            </p>
+
+            <!-- Uitleg -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#e8f1fd;border-radius:8px;margin-bottom:24px;">
+              <tr>
+                <td style="padding:16px 20px;">
+                  <p style="margin:0 0 8px;color:#0b4a9e;font-size:14px;font-weight:600;">
+                    Waarvoor dient dit portaal?
+                  </p>
+                  <p style="margin:0;color:#1a1a2e;font-size:14px;line-height:1.6;">
+                    In het Panini Ruilportaal beheer je de stickerverzameling van je
+                    kinderen: je voegt per kind toe welke stickers ze <strong>hebben</strong>,
+                    welke ze nog <strong>zoeken</strong> en welke ze willen
+                    <strong>ruilen</strong>. Zo zie je in één oogopslag wat er nog
+                    ontbreekt en wat er beschikbaar is om te ruilen met anderen.
+                  </p>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 8px;color:#5a6577;font-size:13px;line-height:1.6;">
+              <strong style="color:#1a1a2e;">Goed om weten:</strong> deze link werkt
+              maar één keer en blijft beperkte tijd geldig. Lukt het niet meer? Vraag
+              dan gewoon een nieuwe link aan op de inlogpagina.
+            </p>
+
+            <p style="margin:0;color:#5a6577;font-size:13px;line-height:1.6;">
+              Heb je zelf geen inloglink aangevraagd? Dan hoef je niets te doen — zonder
+              te klikken gebeurt er niets en krijgt niemand toegang tot je gegevens.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Voettekst -->
+        <tr>
+          <td style="background-color:#f4f6f9;border-top:1px solid #d8dee9;padding:20px 32px;">
+            <p style="margin:0 0 4px;color:#1a1a2e;font-size:13px;font-weight:600;">
+              Meulestede vzw
+            </p>
+            <p style="margin:0;color:#5a6577;font-size:13px;line-height:1.6;">
+              Vragen of hulp nodig? Mail naar
+              <a href="mailto:valentijn@meulestede.gent" style="color:#1d6fe0;">valentijn@meulestede.gent</a>
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>

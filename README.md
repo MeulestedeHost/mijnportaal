@@ -55,6 +55,39 @@ automatisch op het dashboard belandt en meteen ingelogd is —
 sessie uit de URL, en `persistSession`/`autoRefreshToken` zorgen voor
 automatisch sessieherstel bij een volgend bezoek.
 
+### E-mailtemplate
+
+De opgemaakte template staat in
+[email-templates/magic-link.html](email-templates/magic-link.html). Plak de
+inhoud in Supabase → Authentication → Emails → **Magic Link**, met als
+onderwerp bijvoorbeeld "Je inloglink voor het Panini Ruilportaal". Supabase
+vult `{{ .ConfirmationURL }}` zelf in.
+
+**Afzender.** Standaard verstuurt Supabase via `noreply@mail.app.supabase.io`
+met de naam "Supabase Auth". Om als **Meulestede vzw** te versturen is een
+eigen SMTP-server nodig: Authentication → Settings → SMTP Settings. Daar stel
+je sender name ("Meulestede vzw") en sender e-mail in. Zonder eigen SMTP geldt
+bovendien een strenge limiet van enkele mails per uur — voldoende om te testen,
+niet om in productie te draaien.
+
+### Aanmelden lukt niet: `otp_expired`
+
+Landt de link op `...#error=access_denied&error_code=otp_expired`, dan is de
+link verlopen of al gebruikt. Meest voorkomende oorzaken:
+
+- De link werd al eerder aangeklikt (of de pagina werd herladen) — een magic
+  link is eenmalig.
+- Een virusscanner of mailfilter opende de link automatisch vóór jou, waardoor
+  hij al opgebruikt was.
+- Er werd een oudere mail gebruikt terwijl er intussen een nieuwe link
+  aangevraagd was; enkel de laatste link werkt.
+- De geldigheidsduur staat te kort: Authentication → Providers → Email →
+  *Email OTP Expiration*.
+
+De app toont deze fout nu zelf op de inlogpagina met een leesbare uitleg (zie
+`leesAuthFoutUitUrl()` in [js/auth.js](js/auth.js)) in plaats van een lege
+pagina met enkel een foutcode in de URL.
+
 ## 4. Cloudflare Pages
 
 1. Push code naar GitHub (`MeulestedeHost/mijnportaal`).
