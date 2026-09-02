@@ -328,10 +328,13 @@ async function verversMatches() {
     return;
   }
 
-  const metNaam = rijen.some((r) => r.ander_kind);
-  uitleg.textContent = metNaam
-    ? "De beurs loopt: je ziet bij wie de sticker ligt."
-    : "Stickers die jij zoekt en die iemand anders dubbel heeft. Bij wie precies, zie je tijdens de ruilbeurs.";
+  // Bij een eigen broer of zus staat de voornaam er altijd bij; bij een ander
+  // gezin pas tijdens de beurs. Blijft er dus nog iets naamloos, dan is dat
+  // een ander gezin en klopt de uitleg over de beurs.
+  const naamloos = rijen.some((r) => !r.ander_kind);
+  uitleg.textContent = naamloos
+    ? "Stickers die jij zoekt en die iemand anders dubbel heeft. Bij wie precies, zie je tijdens de ruilbeurs."
+    : "Stickers die jij zoekt en die iemand anders dubbel heeft.";
 
   if (rijen.length === 0) {
     const leeg = document.createElement("li");
@@ -351,7 +354,12 @@ async function verversMatches() {
 
     const bij = document.createElement("span");
     bij.className = "sticker-item__bij";
-    bij.textContent = rij.ander_kind ? "bij " + rij.ander_kind : "bij iemand";
+    if (rij.eigen_gezin) {
+      bij.textContent = `bij ${rij.ander_kind} — je eigen verzamelaar`;
+      bij.classList.add("sticker-item__bij--eigen");
+    } else {
+      bij.textContent = rij.ander_kind ? "bij " + rij.ander_kind : "bij iemand";
+    }
 
     li.appendChild(label);
     li.appendChild(bij);

@@ -95,6 +95,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 .hidden { display: none !important; }
 
 .footer { background: var(--surface); border-top: 1px solid var(--border); padding: 1.5rem 0; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+.footer a { color: inherit; text-decoration: underline; }
 
 .kinderen-list { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
 .kind-item { background: var(--surface); border-radius: var(--radius); padding: 1rem 1.25rem; box-shadow: var(--shadow); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
@@ -105,6 +106,23 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 .kind-item__cijfer { font-size: 0.775rem; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.55rem; }
 .kind-item__cijfer--match { color: var(--cf-blue-dark); background: var(--cf-blue-light); border-color: var(--cf-blue-light); font-weight: 600; }
 .chip { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.5rem; }
+
+.dashboard-header__acties { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.ruil-link { margin-top: 1rem; }
+
+/* Staat de beurs open, dan verandert er iets aan wat je te zien krijgt —
+   dat mag opvallen. */
+.ruil-venster { margin-top: 1rem; font-size: 0.9rem; border-radius: 8px; padding: 0.75rem 1rem; border: 1px solid var(--border); background: var(--bg); color: var(--text-muted); }
+.ruil-venster--open { background: #eaf7ee; border-color: #cbe8d4; color: var(--success); font-weight: 600; }
+.ruil-venster--dicht { background: var(--cf-blue-light); border-color: #cbdff7; color: var(--cf-blue-dark); }
+
+.richting { font-size: 0.8rem; font-weight: 600; border-radius: 999px; padding: 0.1rem 0.6rem; white-space: nowrap; }
+.richting--zoekt { color: var(--cf-blue-dark); background: var(--cf-blue-light); }
+.richting--dubbel { color: var(--success); background: #eaf7ee; }
+.contact { font-size: 0.85rem; }
+.contact--dicht { color: var(--text-muted); font-style: italic; }
+.contact--open { color: var(--cf-blue-dark); font-weight: 600; }
+.contact--eigen { color: var(--success); }
 
 .inst-status { font-size: 0.85rem; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.75rem; }
 .inst-status--open { color: var(--success); background: #eaf7ee; border-color: #cbe8d4; font-weight: 600; }
@@ -154,6 +172,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .keuzevak__select { width: auto; min-width: 9rem; font-weight: 600; }
 
 .sticker-item__bij { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; }
+.sticker-item__bij--eigen { color: var(--success); font-weight: 600; }
 
 .verstuurd__icoon { font-size: 2.75rem; line-height: 1; text-align: center; margin-bottom: 0.75rem; }
 #verstuurd-card h1 { text-align: center; margin-bottom: 0.75rem; }

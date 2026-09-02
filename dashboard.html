@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Panini Ruilportaal — Dashboard</title>
+  <title>Panini Ruilportaal Meulestede — Dashboard</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
@@ -11,7 +11,7 @@
     <div class="container navbar__inner">
       <a href="/dashboard.html" class="brand">
         <span class="brand__logo">◆</span>
-        <span class="brand__name">Panini Ruilportaal</span>
+        <span class="brand__name">Panini Ruilportaal Meulestede</span>
       </a>
       <div class="navbar__actions">
         <span class="navbar__user">Welkom <span id="user-email"></span></span>
@@ -57,7 +57,10 @@
     <div id="main-dashboard" class="hidden">
       <div class="dashboard-header">
         <h1>Mijn verzamelaars</h1>
-        <button type="button" class="btn btn--primary" id="new-kind-btn">＋ Verzamelaar toevoegen</button>
+        <div class="dashboard-header__acties">
+          <a href="/ruilen.html" class="btn btn--primary">🤝 Ruilen</a>
+          <button type="button" class="btn btn--outline" id="new-kind-btn">＋ Verzamelaar toevoegen</button>
+        </div>
       </div>
 
       <div id="kind-form-container" class="card hidden">
@@ -100,7 +103,7 @@
 
   <footer class="footer">
     <div class="container">
-      <p>Panini Ruilportaal — Gebouwd op Cloudflare Pages &amp; Supabase</p>
+      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a></p>
     </div>
   </footer>
 
