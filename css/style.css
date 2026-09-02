@@ -109,6 +109,17 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 .sticker-item__actions { display: flex; gap: 0.4rem; }
 .sticker-item--empty { color: var(--text-muted); justify-content: center; border-style: dashed; }
 
+.sticker-suggesties { list-style: none; max-height: 260px; overflow-y: auto; margin-bottom: 1rem; border-radius: 8px; }
+.sticker-suggesties:not(:empty) { border: 1.5px solid var(--border); }
+.sticker-suggestie { display: block; width: 100%; text-align: left; padding: 0.7rem 0.875rem; border: none; border-bottom: 1px solid var(--border); background: var(--surface); font-family: var(--font); font-size: 0.95rem; color: var(--text); cursor: pointer; }
+.sticker-suggestie:last-child { border-bottom: none; }
+.sticker-suggestie:hover, .sticker-suggestie:focus { background: var(--cf-blue-light); outline: none; }
+.sticker-suggestie--leeg { color: var(--text-muted); cursor: default; font-size: 0.875rem; }
+.sticker-suggestie--leeg:hover { background: var(--surface); }
+
+.sticker-gekozen { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; background: var(--cf-blue-light); color: var(--cf-blue-dark); border-radius: 8px; padding: 0.7rem 0.875rem; margin-bottom: 1.25rem; font-weight: 600; font-size: 0.95rem; }
+.sticker-gekozen .btn--link { width: auto; margin: 0; padding: 0.25rem 0.5rem; }
+
 @media (max-width: 640px) {
   .hero h1 { font-size: 1.75rem; }
   .hero { padding: 2.5rem 1rem 2rem; }
