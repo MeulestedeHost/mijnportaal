@@ -16,6 +16,12 @@ const AUTH_FOUTEN = {
 
 const FOUT_OPSLAG_KEY = "panini-auth-fout";
 
+// Hoelang een magic link geldig blijft. MOET overeenkomen met de instelling in
+// Supabase → Authentication → Providers → Email → "Email OTP Expiration"
+// (standaard 3600 seconden = 1 uur). Staat ook letterlijk in de e-mailtemplate
+// email-templates/magic-link.html — pas beide aan als je de instelling wijzigt.
+const LINK_GELDIGHEID = "1 uur";
+
 document.addEventListener("DOMContentLoaded", async () => {
   // 1. Fout uit de magic-link redirect? Tonen (of meenemen naar de loginpagina).
   const urlFout = leesAuthFoutUitUrl();
@@ -91,18 +97,36 @@ function initLoginPage(alFoutGetoond) {
         },
       });
       if (error) throw error;
-      toonMelding(
-        messageEl,
-        "Magic link verstuurd! Controleer je e-mail (ook de spam-map) en klik op de link om in te loggen. De link werkt één keer.",
-        "success"
-      );
-      loginForm.reset();
+      toonBevestiging(email);
     } catch (err) {
       toonMelding(messageEl, "Fout: " + err.message, "error");
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Magic link versturen";
     }
-    loginBtn.disabled = false;
-    loginBtn.textContent = "Magic link versturen";
   });
+
+  document.getElementById("opnieuw-btn").addEventListener("click", toonFormulier);
+}
+
+// Vervangt het formulier door een bevestigingsscherm, zodat niemand in de
+// verleiding komt meteen een tweede link aan te vragen (die de eerste ongeldig
+// maakt, en het mailquotum opgebruikt).
+function toonBevestiging(email) {
+  document.getElementById("verstuurd-email").textContent = email;
+  document.getElementById("verstuurd-geldigheid").textContent = LINK_GELDIGHEID;
+  document.getElementById("login-card").classList.add("hidden");
+  document.getElementById("verstuurd-card").classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function toonFormulier() {
+  document.getElementById("verstuurd-card").classList.add("hidden");
+  document.getElementById("login-card").classList.remove("hidden");
+  document.getElementById("message").className = "message";
+  const loginBtn = document.getElementById("login-btn");
+  loginBtn.disabled = false;
+  loginBtn.textContent = "Magic link versturen";
+  document.getElementById("email").focus();
 }
 
 function initLogout() {

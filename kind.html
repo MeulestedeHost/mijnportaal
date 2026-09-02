@@ -15,7 +15,7 @@
       </a>
       <div class="navbar__actions">
         <a href="/dashboard.html" class="btn btn--outline btn--sm">← Dashboard</a>
-        <button class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
+        <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
       </div>
     </div>
   </header>
@@ -31,40 +31,41 @@
         <input type="hidden" id="sticker-id" />
         <input type="hidden" id="sticker-code" />
 
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="sticker-land" class="form-label">Land / groep</label>
+        <div class="zoekbalk">
+          <div class="form-group zoekbalk__zoek">
+            <label for="sticker-zoek" class="form-label">Zoek je sticker</label>
+            <input
+              type="text"
+              id="sticker-zoek"
+              class="form-input form-input--groot"
+              placeholder="Typ een nummer, code of naam — bv. 7, BEL7 of Courtois"
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="form-group zoekbalk__land">
+            <label for="sticker-land" class="form-label">Filter op land</label>
             <select id="sticker-land" class="form-input">
               <option value="">Alle landen</option>
             </select>
           </div>
-
-          <div class="form-group">
-            <label for="sticker-zoek" class="form-label">Zoek op nummer, code of naam</label>
-            <input
-              type="text"
-              id="sticker-zoek"
-              class="form-input"
-              placeholder="bv. 7, BEL7 of Courtois"
-              autocomplete="off"
-            />
-          </div>
         </div>
 
+        <p id="sticker-teller" class="sticker-teller"></p>
         <ul id="sticker-suggesties" class="sticker-suggesties"></ul>
 
-        <div id="sticker-gekozen" class="sticker-gekozen hidden">
-          <span id="sticker-gekozen-tekst"></span>
-          <button type="button" class="btn btn--link btn--sm" id="sticker-wis-btn">wissen</button>
-        </div>
-
-        <div class="form-group">
-          <label for="sticker-status" class="form-label">Status <span class="required">*</span></label>
-          <select id="sticker-status" class="form-input" required>
-            <option value="HEEFT">Heeft</option>
-            <option value="ZOEKT">Zoekt</option>
-            <option value="RUILT">Ruilt</option>
-          </select>
+        <div id="sticker-keuze" class="sticker-keuze hidden">
+          <div class="sticker-gekozen">
+            <span id="sticker-gekozen-tekst"></span>
+            <button type="button" class="btn btn--link btn--sm" id="sticker-wis-btn">wissen</button>
+          </div>
+          <div class="sticker-keuze__wat">
+            <label for="sticker-status" class="form-label">Wat wil ik?</label>
+            <select id="sticker-status" class="form-input" required>
+              <option value="ZOEKT">zoek ik</option>
+              <option value="RUILT">heb ik dubbel</option>
+            </select>
+          </div>
         </div>
 
         <div class="form-actions">
@@ -78,16 +79,17 @@
 
     <div class="sticker-lists">
       <section class="card">
-        <h2>Gezocht</h2>
+        <h2>Zoek ik</h2>
         <ul id="zoekt-list" class="sticker-list"></ul>
       </section>
       <section class="card">
-        <h2>Beschikbaar voor ruil</h2>
+        <h2>Heb ik dubbel</h2>
         <ul id="ruilt-list" class="sticker-list"></ul>
       </section>
       <section class="card">
-        <h2>Eigen collectie</h2>
-        <ul id="heeft-list" class="sticker-list"></ul>
+        <h2>Iemand heeft het dubbel</h2>
+        <p id="match-uitleg" class="form-meta"></p>
+        <ul id="match-list" class="sticker-list"></ul>
       </section>
     </div>
   </main>

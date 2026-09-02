@@ -15,7 +15,7 @@
       </a>
       <div class="navbar__actions">
         <span class="navbar__user">Welkom <span id="user-email"></span></span>
-        <button class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
+        <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
       </div>
     </div>
   </header>
@@ -25,7 +25,10 @@
 
     <div id="onboarding" class="card hidden">
       <h1>Welkom!</h1>
-      <p class="login-card__hint">Voeg je eerste verzamelaar toe.</p>
+      <p class="login-card__hint">
+        Voeg je eerste verzamelaar toe. Verzamel je zelf mee? Vink dan
+        “volwassene” aan en zet jezelf erbij.
+      </p>
       <form id="onboarding-form" novalidate>
         <div class="form-grid">
           <div class="form-group">
@@ -36,12 +39,16 @@
             <label for="ob-familienaam" class="form-label">Familienaam <span class="required">*</span></label>
             <input type="text" id="ob-familienaam" class="form-input" required maxlength="100" />
           </div>
-          <div class="form-group">
+          <div class="form-group" id="ob-geboortejaar-groep">
             <label for="ob-geboortejaar" class="form-label">Geboortejaar <span class="required">*</span></label>
-            <input type="number" id="ob-geboortejaar" class="form-input" required min="1900" max="2100" />
+            <input type="number" id="ob-geboortejaar" class="form-input" min="1900" max="2100" />
           </div>
         </div>
-        <button type="submit" class="btn btn--primary" id="ob-submit-btn">Kind toevoegen</button>
+        <label class="checkbox-rij">
+          <input type="checkbox" id="ob-volwassen" />
+          <span>Volwassene (bijvoorbeeld jijzelf) — geboortejaar niet nodig</span>
+        </label>
+        <button type="submit" class="btn btn--primary" id="ob-submit-btn">Verzamelaar toevoegen</button>
       </form>
       <div id="onboarding-message" class="message" role="alert" aria-live="polite"></div>
     </div>
@@ -49,11 +56,11 @@
     <div id="main-dashboard" class="hidden">
       <div class="dashboard-header">
         <h1>Mijn verzamelaars</h1>
-        <button class="btn btn--primary" id="new-kind-btn">＋ Kind toevoegen</button>
+        <button type="button" class="btn btn--primary" id="new-kind-btn">＋ Verzamelaar toevoegen</button>
       </div>
 
       <div id="kind-form-container" class="card hidden">
-        <h2 id="kind-form-title">Nieuw kind</h2>
+        <h2 id="kind-form-title">Nieuwe verzamelaar</h2>
         <form id="kind-form" novalidate>
           <input type="hidden" id="kind-id" />
           <div class="form-grid">
@@ -65,20 +72,28 @@
               <label for="kind-familienaam" class="form-label">Familienaam <span class="required">*</span></label>
               <input type="text" id="kind-familienaam" class="form-input" required maxlength="100" />
             </div>
-            <div class="form-group">
+            <div class="form-group" id="kind-geboortejaar-groep">
               <label for="kind-geboortejaar" class="form-label">Geboortejaar <span class="required">*</span></label>
-              <input type="number" id="kind-geboortejaar" class="form-input" required min="1900" max="2100" />
+              <input type="number" id="kind-geboortejaar" class="form-input" min="1900" max="2100" />
             </div>
           </div>
+          <label class="checkbox-rij">
+            <input type="checkbox" id="kind-volwassen" />
+            <span>Volwassene — geboortejaar niet nodig</span>
+          </label>
           <div class="form-actions">
             <button type="submit" class="btn btn--primary" id="kind-save-btn">Opslaan</button>
             <button type="button" class="btn btn--outline" id="kind-cancel-btn">Annuleren</button>
+            <button type="button" class="btn btn--link btn--verwijder hidden" id="kind-delete-btn">
+              Deze verzamelaar verwijderen
+            </button>
           </div>
         </form>
         <div id="kind-form-message" class="message" role="alert" aria-live="polite"></div>
       </div>
 
       <ul id="kinderen-ul" class="kinderen-list"></ul>
+      <p id="stats-hint" class="form-meta hidden"></p>
     </div>
   </main>
 

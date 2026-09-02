@@ -17,7 +17,8 @@
   </header>
 
   <main class="container main">
-    <div class="card login-card">
+    <!-- Stap 1: e-mailadres invoeren -->
+    <div class="card login-card" id="login-card">
       <h1>Aanmelden</h1>
       <p class="login-card__hint">
         Voer je e-mailadres in. We sturen je een magic link waarmee je zonder wachtwoord inlogt.
@@ -43,6 +44,50 @@
       </form>
 
       <div id="message" class="message" role="alert" aria-live="polite"></div>
+    </div>
+
+    <!-- Stap 2: bevestiging, vervangt het formulier volledig -->
+    <div class="card login-card hidden" id="verstuurd-card">
+      <div class="verstuurd__icoon" aria-hidden="true">📬</div>
+      <h1>Kijk in je mailbox</h1>
+      <p class="verstuurd__lead">
+        We stuurden een inloglink naar <strong id="verstuurd-email"></strong>.
+      </p>
+      <p class="login-card__hint">
+        Klik op de knop <strong>Inloggen</strong> in die mail en je bent binnen. De link
+        blijft <strong id="verstuurd-geldigheid"></strong> geldig en werkt
+        <strong>één keer</strong>.
+      </p>
+
+      <p class="verstuurd__label">Zo ziet de mail eruit:</p>
+      <div class="mailvoorbeeld" aria-label="Voorbeeld van de inlogmail">
+        <div class="mailvoorbeeld__meta">
+          <span class="mailvoorbeeld__afzender">Panini Ruilportaal</span>
+          <span class="mailvoorbeeld__onderwerp">Je inloglink voor het Panini Ruilportaal</span>
+        </div>
+        <div class="mailvoorbeeld__body">
+          <div class="mailvoorbeeld__kop">
+            <span class="mailvoorbeeld__merk">Panini Ruilportaal</span>
+            <span class="mailvoorbeeld__vzw">Een initiatief van Meulestede vzw</span>
+          </div>
+          <div class="mailvoorbeeld__inhoud">
+            <p class="mailvoorbeeld__titel">Je inloglink staat klaar</p>
+            <p class="mailvoorbeeld__tekst">
+              Klik op de knop hieronder en je bent meteen ingelogd — je hebt geen wachtwoord nodig.
+            </p>
+            <span class="mailvoorbeeld__knop">Inloggen</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="login-card__hint">
+        Nog niets na een paar minuten? Kijk zeker ook in je <strong>spam-map</strong> —
+        daar belandt de mail het vaakst.
+      </p>
+
+      <button type="button" class="btn btn--link" id="opnieuw-btn">
+        Toch geen mail ontvangen? Probeer opnieuw
+      </button>
     </div>
   </main>
 

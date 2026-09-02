@@ -1,23 +1,29 @@
-// stickers.js — Kinddetail-pagina: kindgegevens tonen + stickers beheren
-// (HEEFT / ZOEKT / RUILT) voor één kind.
+// stickers.js — Kinddetail-pagina: stickers beheren voor één verzamelaar.
 //
-// De sticker wordt gekozen uit public.sticker_catalogus (land + zoeken op
-// nummer/code/naam) in plaats van vrij ingetypt, zodat er geen tikfouten of
-// onbestaande nummers in de lijst terechtkomen. De kolom stickers.nummer
-// bewaart de catalogus-CODE (bv. "BEL7").
+// Twee statussen, meer niet: ZOEKT ("zoek ik") en RUILT ("heb ik dubbel").
+// Wat een kind al in het album heeft plakken we niet bij: dat is werk zonder
+// opbrengst, want ruilen draait enkel om zoeken en dubbels.
+//
+// De sticker wordt gekozen uit public.sticker_catalogus in plaats van vrij
+// ingetypt, zodat er geen tikfouten of onbestaande nummers in de lijst
+// belanden. De kolom stickers.nummer bewaart de catalogus-CODE (bv. "BEL7").
+//
+// Bediening is op een telefoon door een kind te doen: zoekveld eerst, de
+// lijst filtert al terwijl je typt, en één tik kiest de sticker.
 import { supabase, requireAuth } from "./supabase.js";
 import { getKind } from "./kinderen.js";
 
 const TABEL = "stickers";
-const STATUSSEN = ["HEEFT", "ZOEKT", "RUILT"];
-const MAX_SUGGESTIES = 60;
+const STATUSSEN = ["ZOEKT", "RUILT"];
+const STATUS_TEKST = { ZOEKT: "zoek ik", RUILT: "heb ik dubbel" };
+const MAX_SUGGESTIES = 200;
 const PAGINA = 1000; // PostgREST levert maximaal 1000 rijen per aanvraag
 
 let kindId;
 let catalogus = [];
 let catalogusPerCode = new Map();
-let gekozenSticker = null;
 let huidigeStickers = [];
+let statusPerCode = new Map(); // code -> status van DIT kind
 
 document.addEventListener("DOMContentLoaded", async () => {
   const form = document.getElementById("sticker-form");
@@ -35,7 +41,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     const kind = await getKind(kindId);
     document.getElementById("kind-naam").textContent = `${kind.voornaam} ${kind.familienaam}`;
-    document.getElementById("kind-geboortejaar").textContent = "Geboortejaar: " + kind.geboortejaar;
+    document.getElementById("kind-geboortejaar").textContent = kind.is_volwassen
+      ? "Volwassen verzamelaar"
+      : kind.geboortejaar
+      ? "Geboortejaar: " + kind.geboortejaar
+      : "";
   } catch (err) {
     document.getElementById("kind-naam").textContent = "Kind niet gevonden.";
     form.classList.add("hidden");
@@ -57,6 +67,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("sticker-zoek").addEventListener("input", toonSuggesties);
 
   await ververs();
+  document.getElementById("sticker-zoek").focus();
 });
 
 // ---------- catalogus ----------
@@ -101,9 +112,8 @@ function toonSuggesties() {
   const land = document.getElementById("sticker-land").value;
   const term = document.getElementById("sticker-zoek").value.trim().toLowerCase();
   const lijst = document.getElementById("sticker-suggesties");
+  const teller = document.getElementById("sticker-teller");
   lijst.innerHTML = "";
-
-  if (!land && !term) return; // niets gekozen, niets te tonen
 
   let kandidaten = land ? catalogus.filter((s) => s.land_naam === land) : catalogus;
   if (term) {
@@ -118,30 +128,48 @@ function toonSuggesties() {
   }
 
   if (kandidaten.length === 0) {
+    teller.textContent = "";
     const leeg = document.createElement("li");
-    leeg.className = "sticker-suggestie sticker-suggestie--leeg";
-    leeg.textContent = "Geen sticker gevonden.";
+    leeg.className = "sticker-suggestie-leeg";
+    leeg.textContent = "Geen sticker gevonden. Probeer een ander nummer of een stukje van de naam.";
     lijst.appendChild(leeg);
     return;
   }
 
+  const getoond = Math.min(kandidaten.length, MAX_SUGGESTIES);
+  teller.textContent =
+    kandidaten.length > MAX_SUGGESTIES
+      ? `${kandidaten.length} stickers gevonden — eerste ${getoond} getoond, typ verder om te verfijnen`
+      : `${kandidaten.length} sticker${kandidaten.length === 1 ? "" : "s"}`;
+
+  // Het huidige sticker-id: bij "Wijzig" moet die ene sticker wél kiesbaar
+  // blijven, ook al staat hij natuurlijk al in de lijst van dit kind.
+  const bewerktCode = document.getElementById("sticker-id").value
+    ? document.getElementById("sticker-code").value
+    : "";
+
   kandidaten.slice(0, MAX_SUGGESTIES).forEach((sticker) => {
+    const al = sticker.code === bewerktCode ? null : statusPerCode.get(sticker.code);
     const li = document.createElement("li");
-    const knop = document.createElement("button");
-    knop.type = "button";
-    knop.className = "sticker-suggestie";
-    knop.textContent = omschrijving(sticker);
-    knop.addEventListener("click", () => kiesSticker(sticker));
-    li.appendChild(knop);
+
+    if (al) {
+      // Staat al in de lijst van dit kind: tonen, maar niet nog eens te kiezen.
+      const span = document.createElement("span");
+      span.className = "sticker-suggestie sticker-suggestie--al";
+      span.title = omschrijving(sticker) + " — staat al in je lijst";
+      span.textContent = `${omschrijving(sticker)} · ${STATUS_TEKST[al]} ✓`;
+      li.appendChild(span);
+    } else {
+      const knop = document.createElement("button");
+      knop.type = "button";
+      knop.className = "sticker-suggestie";
+      knop.title = omschrijving(sticker);
+      knop.textContent = omschrijving(sticker);
+      knop.addEventListener("click", () => kiesSticker(sticker));
+      li.appendChild(knop);
+    }
     lijst.appendChild(li);
   });
-
-  if (kandidaten.length > MAX_SUGGESTIES) {
-    const meer = document.createElement("li");
-    meer.className = "sticker-suggestie sticker-suggestie--leeg";
-    meer.textContent = `nog ${kandidaten.length - MAX_SUGGESTIES} andere — verfijn je zoekterm`;
-    lijst.appendChild(meer);
-  }
 }
 
 function rangschik(sticker, term) {
@@ -152,29 +180,35 @@ function rangschik(sticker, term) {
 }
 
 function kiesSticker(sticker) {
-  gekozenSticker = sticker;
-  const vak = document.getElementById("sticker-gekozen");
+  const vak = document.getElementById("sticker-keuze");
   document.getElementById("sticker-code").value = sticker ? sticker.code : "";
   document.getElementById("sticker-submit-btn").disabled = !sticker;
+  werkStatusKeuzesBij(sticker);
 
   if (!sticker) {
     vak.classList.add("hidden");
     return;
   }
-  document.getElementById("sticker-gekozen-tekst").textContent = "Gekozen: " + omschrijving(sticker);
+  document.getElementById("sticker-gekozen-tekst").textContent = omschrijving(sticker);
   vak.classList.remove("hidden");
-  document.getElementById("sticker-suggesties").innerHTML = "";
-  document.getElementById("sticker-zoek").value = "";
+  vak.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+// "POR15 — Cristiano Ronaldo zoek ik" leest voor een kind een pak duidelijker
+// dan een kaal "ZOEKT" in een keuzelijst met de titel "Status".
+function werkStatusKeuzesBij(sticker) {
+  const select = document.getElementById("sticker-status");
+  const voorvoegsel = sticker ? omschrijving(sticker) + " " : "";
+  [...select.options].forEach((optie) => {
+    optie.textContent = voorvoegsel + STATUS_TEKST[optie.value];
+  });
 }
 
 // ---------- lijsten ----------
 
 async function ververs() {
   try {
-    const { data, error } = await supabase
-      .from(TABEL)
-      .select("*")
-      .eq("kind_id", kindId);
+    const { data, error } = await supabase.from(TABEL).select("*").eq("kind_id", kindId);
     if (error) throw error;
     huidigeStickers = data || [];
   } catch (err) {
@@ -182,10 +216,12 @@ async function ververs() {
     return;
   }
 
+  statusPerCode = new Map(huidigeStickers.map((s) => [s.nummer, s.status]));
   huidigeStickers.sort(vergelijkStickers);
   toonLijst("zoekt-list", huidigeStickers.filter((s) => s.status === "ZOEKT"));
   toonLijst("ruilt-list", huidigeStickers.filter((s) => s.status === "RUILT"));
-  toonLijst("heeft-list", huidigeStickers.filter((s) => s.status === "HEEFT"));
+  toonSuggesties();
+  await verversMatches();
 }
 
 function vergelijkStickers(a, b) {
@@ -203,7 +239,7 @@ function toonLijst(lijstId, stickers) {
   if (stickers.length === 0) {
     const leeg = document.createElement("li");
     leeg.className = "sticker-item sticker-item--empty";
-    leeg.textContent = "Geen stickers.";
+    leeg.textContent = "Nog niets.";
     ul.appendChild(leeg);
     return;
   }
@@ -238,6 +274,61 @@ function toonLijst(lijstId, stickers) {
   });
 }
 
+// ---------- matches ----------
+
+// get_matches() draait als security definer in de database: enkel zo kan ze
+// de stickers van andere gezinnen zien. Buiten het beursvenster geeft ze wel
+// de stickers terug maar niet bij wie ze liggen (ander_kind is dan null).
+async function verversMatches() {
+  const ul = document.getElementById("match-list");
+  const uitleg = document.getElementById("match-uitleg");
+  ul.innerHTML = "";
+
+  let rijen;
+  try {
+    const { data, error } = await supabase.rpc("get_matches", { p_kind_id: kindId });
+    if (error) throw error;
+    rijen = (data || []).filter((r) => r.richting === "jij_zoekt");
+  } catch (err) {
+    uitleg.textContent = "";
+    const leeg = document.createElement("li");
+    leeg.className = "sticker-item sticker-item--empty";
+    leeg.textContent = "Ruilkansen konden niet geladen worden.";
+    ul.appendChild(leeg);
+    return;
+  }
+
+  const metNaam = rijen.some((r) => r.ander_kind);
+  uitleg.textContent = metNaam
+    ? "De beurs loopt: je ziet bij wie de sticker ligt."
+    : "Stickers die jij zoekt en die iemand anders dubbel heeft. Bij wie precies, zie je tijdens de ruilbeurs.";
+
+  if (rijen.length === 0) {
+    const leeg = document.createElement("li");
+    leeg.className = "sticker-item sticker-item--empty";
+    leeg.textContent = "Nog geen ruilkansen.";
+    ul.appendChild(leeg);
+    return;
+  }
+
+  rijen.forEach((rij) => {
+    const li = document.createElement("li");
+    li.className = "sticker-item";
+
+    const label = document.createElement("span");
+    label.className = "sticker-item__nummer";
+    label.textContent = rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code;
+
+    const bij = document.createElement("span");
+    bij.className = "sticker-item__bij";
+    bij.textContent = rij.ander_kind ? "bij " + rij.ander_kind : "bij iemand";
+
+    li.appendChild(label);
+    li.appendChild(bij);
+    ul.appendChild(li);
+  });
+}
+
 // ---------- bewaren / bewerken / verwijderen ----------
 
 function bewerkSticker(sticker) {
@@ -248,7 +339,9 @@ function bewerkSticker(sticker) {
   const uitCatalogus = catalogusPerCode.get(sticker.nummer);
   if (uitCatalogus) {
     document.getElementById("sticker-land").value = uitCatalogus.land_naam;
+    document.getElementById("sticker-zoek").value = "";
     kiesSticker(uitCatalogus);
+    document.getElementById("sticker-status").value = sticker.status;
   } else {
     // Sticker van vóór de catalogus: code staat niet in de lijst.
     kiesSticker(null);
@@ -257,16 +350,17 @@ function bewerkSticker(sticker) {
       "error"
     );
   }
+  toonSuggesties();
   document.getElementById("sticker-form").scrollIntoView({ behavior: "smooth" });
 }
 
 function resetFormulier() {
-  document.getElementById("sticker-form").reset();
   document.getElementById("sticker-id").value = "";
-  document.getElementById("sticker-suggesties").innerHTML = "";
+  document.getElementById("sticker-zoek").value = "";
   document.getElementById("sticker-message").className = "message";
   document.getElementById("sticker-submit-btn").textContent = "Toevoegen";
   kiesSticker(null);
+  toonSuggesties();
 }
 
 async function bewaarSticker(e) {
@@ -280,14 +374,14 @@ async function bewaarSticker(e) {
     return;
   }
   if (!STATUSSEN.includes(status)) {
-    toonMelding("Kies een geldige status.", "error");
+    toonMelding("Kies eerst wat je met deze sticker wil.", "error");
     return;
   }
 
   const dubbel = huidigeStickers.find((s) => s.nummer === code && s.id !== id);
   if (dubbel) {
     toonMelding(
-      `${code} staat al in de lijst met status "${dubbel.status}". Pas die aan in plaats van een tweede rij toe te voegen.`,
+      `${code} staat al in je lijst bij "${STATUS_TEKST[dubbel.status]}". Wijzig die regel in plaats van er een tweede bij te zetten.`,
       "error"
     );
     return;
@@ -305,6 +399,8 @@ async function bewaarSticker(e) {
     }
     resetFormulier();
     await ververs();
+    // Meteen klaar voor de volgende sticker: dat scheelt een tik per sticker.
+    document.getElementById("sticker-zoek").focus();
   } catch (err) {
     toonMelding("Fout bij opslaan: " + err.message, "error");
     knop.disabled = false;
