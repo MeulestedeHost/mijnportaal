@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panini Ruilportaal — Instellingen</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="/dashboard.html" class="brand">
+        <span class="brand__logo">◆</span>
+        <span class="brand__name">Panini Ruilportaal</span>
+      </a>
+      <div class="navbar__actions">
+        <a href="/dashboard.html" class="btn btn--outline btn--sm">← Dashboard</a>
+        <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main">
+    <div id="inst-loading" class="loading">Laden…</div>
+
+    <div id="inst-geen-toegang" class="card hidden">
+      <h1>Geen toegang</h1>
+      <p class="login-card__hint">
+        Deze pagina is voor de beheerders van de ruilbeurs. Ben jij dat wel, maar zie je
+        toch dit scherm? Dan staat je account nog niet in de beheerderslijst —
+        zie <code>sql/007_instellingen.sql</code>.
+      </p>
+      <a href="/dashboard.html" class="btn btn--primary">Terug naar het dashboard</a>
+    </div>
+
+    <div id="inst-paneel" class="hidden">
+      <div class="dashboard-header">
+        <h1>Instellingen</h1>
+      </div>
+
+      <form id="inst-form" novalidate>
+        <section class="card">
+          <h2>Wanneer staat de ruilmodule open?</h2>
+          <p class="form-meta">
+            Buiten dit venster zien gezinnen wél hoevéél ruilkansen ze hebben, maar niet
+            bij wie de sticker ligt — daar staat dan “bij iemand”. Tijdens het venster
+            verschijnt de voornaam van het andere kind. Die grens ligt in de database,
+            dus ook wie de API rechtstreeks aanspreekt komt er niet omheen.
+          </p>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="inst-start" class="form-label">Start <span class="required">*</span></label>
+              <input type="datetime-local" id="inst-start" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label for="inst-einde" class="form-label">Einde <span class="required">*</span></label>
+              <input type="datetime-local" id="inst-einde" class="form-input" required />
+            </div>
+          </div>
+          <p id="inst-status" class="inst-status"></p>
+        </section>
+
+        <section class="card">
+          <h2>Glansstickers</h2>
+          <p class="form-meta">
+            Naast gewone stickers bestaan er glansvarianten met dezelfde nummers:
+            <strong>BEL2s</strong> naast <strong>BEL2</strong>. In de Europese albums
+            zitten die niet. Staat dit uit, dan bestaan ze voor de app niet meer: ze
+            verschijnen niet in de zoeklijst, tellen niet mee als ruilkans en zitten niet
+            in de cijfers op het dashboard.
+          </p>
+          <label class="checkbox-rij">
+            <input type="checkbox" id="inst-glans" />
+            <span>Glansstickers tonen (54 stickers: Duitsland, België, Frankrijk)</span>
+          </label>
+          <p class="form-meta">
+            Al ingevoerde glansstickers blijven in de lijst van dat kind staan — er
+            verdwijnt niets buiten iemands medeweten. Ze definitief wissen kan met de
+            query onderaan <code>sql/007_instellingen.sql</code>.
+          </p>
+        </section>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary" id="inst-save-btn">Opslaan</button>
+          <button type="button" class="btn btn--outline" id="inst-reset-btn">Wijzigingen ongedaan maken</button>
+        </div>
+        <div id="inst-message" class="message" role="alert" aria-live="polite"></div>
+      </form>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Panini Ruilportaal — Gebouwd op Cloudflare Pages &amp; Supabase</p>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/supabase.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/instellingen.js"></script>
+</body>
+</html>

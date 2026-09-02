@@ -54,31 +54,39 @@
         We stuurden een inloglink naar <strong id="verstuurd-email"></strong>.
       </p>
       <p class="login-card__hint">
-        Klik op de knop <strong>Inloggen</strong> in die mail en je bent binnen. De link
+        Klik op de link <strong>Sign in</strong> in die mail en je bent binnen. De link
         blijft <strong id="verstuurd-geldigheid"></strong> geldig en werkt
         <strong>één keer</strong>.
       </p>
 
       <p class="verstuurd__label">Zo ziet de mail eruit:</p>
+      <!-- Dit voorbeeld toont de mail die Supabase vandaag verstuurt: Engels,
+           van "Supabase Auth". Wordt de eigen template uit
+           email-templates/magic-link.html in Supabase gezet, dan moet dit
+           voorbeeld mee aangepast worden — een voorbeeld dat niet klopt met
+           wat er binnenkomt is erger dan geen voorbeeld. -->
       <div class="mailvoorbeeld" aria-label="Voorbeeld van de inlogmail">
         <div class="mailvoorbeeld__meta">
-          <span class="mailvoorbeeld__afzender">Panini Ruilportaal</span>
-          <span class="mailvoorbeeld__onderwerp">Je inloglink voor het Panini Ruilportaal</span>
+          <span class="mailvoorbeeld__afzender">Supabase Auth &lt;noreply@mail.app.supabase.io&gt;</span>
+          <span class="mailvoorbeeld__onderwerp">Your sign-in link</span>
         </div>
-        <div class="mailvoorbeeld__body">
-          <div class="mailvoorbeeld__kop">
-            <span class="mailvoorbeeld__merk">Panini Ruilportaal</span>
-            <span class="mailvoorbeeld__vzw">Een initiatief van Meulestede vzw</span>
-          </div>
-          <div class="mailvoorbeeld__inhoud">
-            <p class="mailvoorbeeld__titel">Je inloglink staat klaar</p>
-            <p class="mailvoorbeeld__tekst">
-              Klik op de knop hieronder en je bent meteen ingelogd — je hebt geen wachtwoord nodig.
-            </p>
-            <span class="mailvoorbeeld__knop">Inloggen</span>
-          </div>
+        <div class="mailvoorbeeld__inhoud">
+          <p class="mailvoorbeeld__titel">Your sign-in link</p>
+          <p class="mailvoorbeeld__tekst">
+            Follow the link below to sign in. This link expires shortly and can only be used once.
+          </p>
+          <span class="mailvoorbeeld__link">Sign in</span>
+        </div>
+        <div class="mailvoorbeeld__voet">
+          You're receiving this email because you signed up for an application powered by Supabase
         </div>
       </div>
+
+      <p class="login-card__hint">
+        De mail is in het <strong>Engels</strong> en komt van <strong>Supabase Auth</strong> —
+        dat hoort zo. Zoek in je mailbox op <strong>“Your sign-in link”</strong> en klik daarin
+        op <strong>Sign in</strong>.
+      </p>
 
       <p class="login-card__hint">
         Nog niets na een paar minuten? Kijk zeker ook in je <strong>spam-map</strong> —
@@ -93,7 +101,7 @@
 
   <footer class="footer">
     <div class="container">
-      <p>Panini Ruilportaal — Gebouwd op Cloudflare Pages &amp; Supabase</p>
+      <p>Panini Ruilportaal — Gebouwd door Valentijn Rombaut op Cloudflare Pages Supabase</p>
     </div>
   </footer>
 

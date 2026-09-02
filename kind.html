@@ -51,26 +51,24 @@
           </div>
         </div>
 
+        <p class="sticker-instructie">Tik één sticker aan en klik daarna op Toevoegen.</p>
         <p id="sticker-teller" class="sticker-teller"></p>
         <ul id="sticker-suggesties" class="sticker-suggesties"></ul>
 
-        <div id="sticker-keuze" class="sticker-keuze hidden">
-          <div class="sticker-gekozen">
-            <span id="sticker-gekozen-tekst"></span>
-            <button type="button" class="btn btn--link btn--sm" id="sticker-wis-btn">wissen</button>
-          </div>
-          <div class="sticker-keuze__wat">
-            <label for="sticker-status" class="form-label">Wat wil ik?</label>
-            <select id="sticker-status" class="form-input" required>
+        <div id="sticker-keuze" class="keuzevak hidden">
+          <h3 class="keuzevak__titel">Wat wil ik doen?</h3>
+          <p class="keuzevak__zin">
+            <span class="sticker-gekozen" id="sticker-gekozen-tekst"></span>
+            <select id="sticker-status" class="form-input keuzevak__select" required
+                    aria-label="Wat wil ik doen met deze sticker?">
               <option value="ZOEKT">zoek ik</option>
               <option value="RUILT">heb ik dubbel</option>
             </select>
+          </p>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary" id="sticker-submit-btn" disabled>Toevoegen</button>
+            <button type="button" class="btn btn--outline" id="sticker-cancel-btn">Annuleren</button>
           </div>
-        </div>
-
-        <div class="form-actions">
-          <button type="submit" class="btn btn--primary" id="sticker-submit-btn" disabled>Toevoegen</button>
-          <button type="button" class="btn btn--outline" id="sticker-cancel-btn">Annuleren</button>
         </div>
       </form>
 

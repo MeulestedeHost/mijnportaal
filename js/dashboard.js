@@ -24,8 +24,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   wireVolwassenVinkjes();
   document.getElementById("new-kind-btn").addEventListener("click", () => openKindForm());
 
+  toonBeheerLink();
   await refreshKinderen();
 });
+
+// De link verbergen is gemak, geen beveiliging: instellingen.html controleert
+// het recht opnieuw en RLS weigert hoe dan ook elke schrijfpoging.
+async function toonBeheerLink() {
+  try {
+    const { data, error } = await supabase.rpc("is_beheerder");
+    if (error) throw error;
+    if (data) document.getElementById("beheer-link").classList.remove("hidden");
+  } catch (err) {
+    /* functie bestaat nog niet (sql/007) — link blijft gewoon verborgen */
+  }
+}
 
 // Het geboortejaar is voor een volwassene niet relevant; het veld verdwijnt
 // dan in plaats van een verplicht vak te blijven dat niemand wil invullen.

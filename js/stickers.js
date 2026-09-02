@@ -24,6 +24,7 @@ let catalogus = [];
 let catalogusPerCode = new Map();
 let huidigeStickers = [];
 let statusPerCode = new Map(); // code -> status van DIT kind
+let kiesbaar = []; // wat er nu in de lijst staat en aangeklikt kan worden
 
 document.addEventListener("DOMContentLoaded", async () => {
   const form = document.getElementById("sticker-form");
@@ -53,8 +54,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
+    const toonGlans = await glansstickersAan();
     catalogus = await laadCatalogus();
+    // catalogusPerCode bevat wél alles: een kind dat vroeger BEL2s invoerde,
+    // moet die regel in zijn lijst nog steeds met naam zien staan.
     catalogusPerCode = new Map(catalogus.map((s) => [s.code, s]));
+    if (!toonGlans) catalogus = catalogus.filter((s) => !s.glans);
     vulLandKeuzelijst();
   } catch (err) {
     toonMelding("Stickerlijst kon niet geladen worden: " + err.message, "error");
@@ -62,15 +67,29 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   form.addEventListener("submit", bewaarSticker);
   document.getElementById("sticker-cancel-btn").addEventListener("click", resetFormulier);
-  document.getElementById("sticker-wis-btn").addEventListener("click", () => kiesSticker(null));
   document.getElementById("sticker-land").addEventListener("change", toonSuggesties);
   document.getElementById("sticker-zoek").addEventListener("input", toonSuggesties);
+  document.getElementById("sticker-zoek").addEventListener("keydown", enterInZoekveld);
 
   await ververs();
   document.getElementById("sticker-zoek").focus();
 });
 
 // ---------- catalogus ----------
+
+// De Europese albums hebben geen glansvarianten (BEL2s naast BEL2). Of ze
+// meetellen staat in public.instellingen en is te wijzigen op de
+// instellingenpagina. Bestaat de kolom nog niet, dan houden we ze verborgen:
+// dat is het geval waar deze schakelaar voor bedoeld is.
+async function glansstickersAan() {
+  const { data, error } = await supabase
+    .from("instellingen")
+    .select("toon_glans")
+    .eq("id", 1)
+    .maybeSingle();
+  if (error || !data) return false;
+  return Boolean(data.toon_glans);
+}
 
 async function laadCatalogus() {
   const alles = [];
@@ -129,6 +148,7 @@ function toonSuggesties() {
 
   if (kandidaten.length === 0) {
     teller.textContent = "";
+    kiesbaar = [];
     const leeg = document.createElement("li");
     leeg.className = "sticker-suggestie-leeg";
     leeg.textContent = "Geen sticker gevonden. Probeer een ander nummer of een stukje van de naam.";
@@ -136,19 +156,27 @@ function toonSuggesties() {
     return;
   }
 
-  const getoond = Math.min(kandidaten.length, MAX_SUGGESTIES);
-  teller.textContent =
-    kandidaten.length > MAX_SUGGESTIES
-      ? `${kandidaten.length} stickers gevonden — eerste ${getoond} getoond, typ verder om te verfijnen`
-      : `${kandidaten.length} sticker${kandidaten.length === 1 ? "" : "s"}`;
-
   // Het huidige sticker-id: bij "Wijzig" moet die ene sticker wél kiesbaar
   // blijven, ook al staat hij natuurlijk al in de lijst van dit kind.
   const bewerktCode = document.getElementById("sticker-id").value
     ? document.getElementById("sticker-code").value
     : "";
 
-  kandidaten.slice(0, MAX_SUGGESTIES).forEach((sticker) => {
+  const getoond = kandidaten.slice(0, MAX_SUGGESTIES);
+  kiesbaar = getoond.filter(
+    (s) => s.code === bewerktCode || !statusPerCode.has(s.code)
+  );
+
+  // Blijft er precies één over, dan is Enter sneller dan mikken op een knopje.
+  if (kiesbaar.length === 1 && kandidaten.length === 1) {
+    teller.textContent = "Nog één sticker over — druk op Enter om ze te kiezen.";
+  } else if (kandidaten.length > MAX_SUGGESTIES) {
+    teller.textContent = `${kandidaten.length} stickers gevonden — eerste ${getoond.length} getoond, typ verder om te verfijnen`;
+  } else {
+    teller.textContent = `${kandidaten.length} sticker${kandidaten.length === 1 ? "" : "s"}`;
+  }
+
+  getoond.forEach((sticker) => {
     const al = sticker.code === bewerktCode ? null : statusPerCode.get(sticker.code);
     const li = document.createElement("li");
 
@@ -179,29 +207,31 @@ function rangschik(sticker, term) {
   return 3;
 }
 
+// Enter in het zoekveld: staat er nog precies één sticker in de lijst, dan is
+// die duidelijk bedoeld. Kiezen en meteen naar de keuzelijst springen, zodat
+// nummer intikken → Enter → Enter volstaat om iets toe te voegen.
+function enterInZoekveld(e) {
+  if (e.key !== "Enter") return;
+  e.preventDefault(); // anders verstuurt de browser het formulier
+  if (kiesbaar.length !== 1) return;
+  kiesSticker(kiesbaar[0]);
+  document.getElementById("sticker-status").focus();
+}
+
 function kiesSticker(sticker) {
   const vak = document.getElementById("sticker-keuze");
   document.getElementById("sticker-code").value = sticker ? sticker.code : "";
   document.getElementById("sticker-submit-btn").disabled = !sticker;
-  werkStatusKeuzesBij(sticker);
 
   if (!sticker) {
     vak.classList.add("hidden");
     return;
   }
+  // Enkel de sticker in het blauw; wat je ermee wil staat er als los woord
+  // naast, zodat het samen één zin vormt: "POR15 — Ronaldo   zoek ik".
   document.getElementById("sticker-gekozen-tekst").textContent = omschrijving(sticker);
   vak.classList.remove("hidden");
   vak.scrollIntoView({ behavior: "smooth", block: "nearest" });
-}
-
-// "POR15 — Cristiano Ronaldo zoek ik" leest voor een kind een pak duidelijker
-// dan een kaal "ZOEKT" in een keuzelijst met de titel "Status".
-function werkStatusKeuzesBij(sticker) {
-  const select = document.getElementById("sticker-status");
-  const voorvoegsel = sticker ? omschrijving(sticker) + " " : "";
-  [...select.options].forEach((optie) => {
-    optie.textContent = voorvoegsel + STATUS_TEKST[optie.value];
-  });
 }
 
 // ---------- lijsten ----------
@@ -343,8 +373,11 @@ function bewerkSticker(sticker) {
     kiesSticker(uitCatalogus);
     document.getElementById("sticker-status").value = sticker.status;
   } else {
-    // Sticker van vóór de catalogus: code staat niet in de lijst.
+    // Sticker van vóór de catalogus: code staat niet in de lijst. Het keuzevak
+    // blijft open (met Toevoegen uit) zodat Annuleren bereikbaar blijft.
     kiesSticker(null);
+    document.getElementById("sticker-gekozen-tekst").textContent = "nog geen sticker gekozen";
+    document.getElementById("sticker-keuze").classList.remove("hidden");
     toonMelding(
       `"${sticker.nummer}" staat niet in de stickerlijst. Kies hierboven de juiste sticker.`,
       "error"

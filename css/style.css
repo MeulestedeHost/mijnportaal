@@ -106,6 +106,10 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 .kind-item__cijfer--match { color: var(--cf-blue-dark); background: var(--cf-blue-light); border-color: var(--cf-blue-light); font-weight: 600; }
 .chip { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.5rem; }
 
+.inst-status { font-size: 0.85rem; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.75rem; }
+.inst-status--open { color: var(--success); background: #eaf7ee; border-color: #cbe8d4; font-weight: 600; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.05em 0.35em; }
+
 .checkbox-rij { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.25rem; font-size: 0.9rem; cursor: pointer; }
 .checkbox-rij input { width: 1.1rem; height: 1.1rem; accent-color: var(--cf-blue-primary); }
 
@@ -138,12 +142,16 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 .zoekbalk { display: grid; grid-template-columns: 2fr 1fr; gap: 0 1.25rem; }
 .form-input--groot { font-size: 1.05rem; padding: 0.75rem 0.875rem; }
 
-/* De gekozen sticker in het blauw, met er meteen naast de keuze wat je
-   ermee wil. Dat is de hele beslissing die een kind moet nemen. */
-.sticker-keuze { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 0.75rem 1.25rem; margin-bottom: 1.25rem; }
-.sticker-gekozen { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; background: var(--cf-blue-light); color: var(--cf-blue-dark); border-radius: 8px; padding: 0.7rem 0.875rem; font-weight: 600; font-size: 1rem; }
-.sticker-gekozen .btn--link { width: auto; margin: 0; padding: 0.25rem 0.5rem; }
-.sticker-keuze__wat .form-input { min-width: 15rem; }
+/* Het keuzevak staat als een eigen, afgerond kaartje onder de zoeklijst: de
+   gekozen sticker plus wat je ermee wil vormen samen één zin die een kind
+   kan lezen — "POR15 — Cristiano Ronaldo  zoek ik". De blauwe balk is niet
+   breder dan de stickernaam zelf, anders leest het niet meer als een zin. */
+.sticker-instructie { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem; }
+.keuzevak { border: 1.5px solid var(--cf-blue-primary); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1.25rem; background: var(--surface); }
+.keuzevak__titel { font-size: 1rem; margin-bottom: 0.75rem; color: var(--cf-blue-dark); }
+.keuzevak__zin { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1rem; }
+.sticker-gekozen { display: inline-block; background: var(--cf-blue-light); color: var(--cf-blue-dark); border-radius: 8px; padding: 0.4rem 0.7rem; font-weight: 700; font-size: 1rem; }
+.keuzevak__select { width: auto; min-width: 9rem; font-weight: 600; }
 
 .sticker-item__bij { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; }
 
@@ -156,21 +164,19 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 .mailvoorbeeld__meta { padding: 0.6rem 0.875rem; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; flex-direction: column; gap: 0.15rem; }
 .mailvoorbeeld__afzender { font-size: 0.8rem; font-weight: 700; color: var(--text); }
 .mailvoorbeeld__onderwerp { font-size: 0.8rem; color: var(--text-muted); }
-.mailvoorbeeld__kop { background: var(--cf-blue-dark); padding: 0.7rem 0.875rem; display: flex; flex-direction: column; gap: 0.1rem; }
-.mailvoorbeeld__merk { color: #fff; font-size: 0.85rem; font-weight: 700; }
-.mailvoorbeeld__vzw { color: #c8dcf7; font-size: 0.7rem; }
 .mailvoorbeeld__inhoud { padding: 0.875rem; }
-.mailvoorbeeld__titel { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.35rem; }
+.mailvoorbeeld__titel { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.35rem; }
 .mailvoorbeeld__tekst { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem; line-height: 1.5; }
-.mailvoorbeeld__knop { display: inline-block; background: var(--cf-blue-primary); color: #fff; font-size: 0.8rem; font-weight: 600; padding: 0.45rem 1.25rem; border-radius: 6px; }
+.mailvoorbeeld__link { display: inline-block; color: var(--cf-blue-primary); font-size: 0.85rem; text-decoration: underline; }
+.mailvoorbeeld__voet { padding: 0.6rem 0.875rem; border-top: 1px solid var(--border); background: var(--bg); font-size: 0.7rem; color: var(--text-muted); text-align: center; line-height: 1.4; }
 
 @media (max-width: 640px) {
   .hero h1 { font-size: 1.75rem; }
   .hero { padding: 2.5rem 1rem 2rem; }
   .form-grid { grid-template-columns: 1fr; }
   .zoekbalk { grid-template-columns: 1fr; }
-  .sticker-keuze { grid-template-columns: 1fr; align-items: stretch; }
-  .sticker-keuze__wat .form-input { min-width: 0; }
+  .keuzevak { padding: 1rem; }
+  .keuzevak__select { width: 100%; min-width: 0; }
   .sticker-suggesties { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   .card { padding: 1.25rem; }
   .navbar__user { display: none; }
