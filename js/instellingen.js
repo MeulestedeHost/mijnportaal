@@ -5,6 +5,7 @@
 // die public.is_beheerder() aanroept). Iemand zonder beheerdersrecht die de
 // API rechtstreeks aanspreekt, krijgt daar nul rijen bijgewerkt.
 import { supabase, requireAuth } from "./supabase.js";
+import { normaliseerTelefoon, toonTelefoon } from "./whatsapp.js";
 
 let origineel = null;
 let userId = null;
@@ -55,7 +56,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 async function laadInstellingen() {
   const { data, error } = await supabase
     .from("instellingen")
-    .select("beurs_start,beurs_einde,toon_glans")
+    .select("beurs_start,beurs_einde,toon_glans,whatsapp_nummer,whatsapp_bericht")
     .eq("id", 1)
     .single();
   if (error) throw error;
@@ -67,6 +68,8 @@ function vulFormulier() {
   document.getElementById("inst-start").value = naarInvoerveld(origineel.beurs_start);
   document.getElementById("inst-einde").value = naarInvoerveld(origineel.beurs_einde);
   document.getElementById("inst-glans").checked = Boolean(origineel.toon_glans);
+  document.getElementById("inst-wa-nummer").value = toonTelefoon(origineel.whatsapp_nummer);
+  document.getElementById("inst-wa-bericht").value = origineel.whatsapp_bericht || "";
   toonVensterStatus();
   document.getElementById("inst-message").className = "message";
 }
@@ -128,6 +131,20 @@ async function bewaar(e) {
     return;
   }
 
+  // Leeg mag: dan is er geen WhatsApp-knop. Onleesbaar niet — de database heeft
+  // er een CHECK op staan, en die foutmelding leest niemand graag.
+  const waInvoer = document.getElementById("inst-wa-nummer").value.trim();
+  const waNummer = waInvoer ? normaliseerTelefoon(waInvoer) : null;
+  if (waInvoer && !waNummer) {
+    toonMelding(
+      messageEl,
+      "Dat WhatsApp-nummer herken ik niet. Schrijf het als 0470 12 34 56 of +32 470 12 34 56.",
+      "error"
+    );
+    return;
+  }
+  const waBericht = document.getElementById("inst-wa-bericht").value.trim();
+
   const knop = document.getElementById("inst-save-btn");
   knop.disabled = true;
   knop.textContent = "Opslaan…";
@@ -138,10 +155,12 @@ async function bewaar(e) {
         beurs_start: start.toISOString(),
         beurs_einde: einde.toISOString(),
         toon_glans: document.getElementById("inst-glans").checked,
+        whatsapp_nummer: waNummer,
+        whatsapp_bericht: waBericht || null,
         updated_by: userId, // wie de beurs verzette, is achteraf de eerste vraag
       })
       .eq("id", 1)
-      .select("beurs_start,beurs_einde,toon_glans");
+      .select("beurs_start,beurs_einde,toon_glans,whatsapp_nummer,whatsapp_bericht");
     if (error) throw error;
     // RLS weigert stil: geen recht betekent nul bijgewerkte rijen, geen fout.
     if (!data || data.length === 0) {

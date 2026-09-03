@@ -25,10 +25,13 @@ gebruiker die dat kind beheert.
    `kinderen` en `stickers` aan, met Row Level Security. **Let op:** dit
    script dropt eerst een eventueel bestaande `kinderen`/`stickers`-tabel
    (met alle rijen) voordat het ze herbouwt.
-4. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
-   Wachtwoord-authenticatie is niet nodig: deze app gebruikt uitsluitend
-   Magic Links.
-5. Settings → API: kopieer de Project URL + anon/publishable key.
+4. Voer daarna de migraties in volgorde uit: `003` → `005` → `006` → `007` →
+   `008` → `009_gezin_en_whatsapp.sql`. Enkel `002` en de blokken die het
+   zelf aankondigen zijn destructief; `009` is dat niet.
+5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
+   Wachtwoord-authenticatie is niet nodig: deze app gebruikt Magic Links en
+   (optioneel) Google — zie §5.
+6. Settings → API: kopieer de Project URL + anon/publishable key.
 
 ## 2. App configureren
 
@@ -99,6 +102,60 @@ pagina met enkel een foutcode in de URL.
 Statische HTML/CSS/JS zonder build-stap; Supabase JS wordt via een ESM-CDN
 (jsdelivr) geladen — volledig compatibel met Cloudflare Pages.
 
+## 5. Aanmelden met Google
+
+De aanmeldpagina heeft naast de magic link een Google-knop
+(`meldAanMetGoogle()` in [js/auth.js](js/auth.js)). Twee instellingen in
+Supabase moeten kloppen, anders eindigt de gebruiker op een foutpagina van
+Google:
+
+1. **Authentication → Providers → Google**: aan, met de client-id en secret
+   uit de Google Cloud Console. De redirect-URI die Google nodig heeft, staat
+   op diezelfde Supabase-pagina (`https://<project>.supabase.co/auth/v1/callback`).
+2. **Authentication → URL Configuration → Redirect URLs**: `.../dashboard.html`
+   moet erin staan — dezelfde lijst als voor de magic link.
+
+Google en de magic link leiden naar hetzelfde account zolang het om hetzelfde
+e-mailadres gaat: Supabase koppelt beide identiteiten aan één rij in
+`auth.users`. Voor het portaal maakt de manier van aanmelden dus niet uit — de
+database kijkt naar het e-mailadres in het token (`public.jwt_email()`).
+
+## 6. Twee volwassenen op één gezin
+
+Sinds `sql/009_gezin_en_whatsapp.sql` hoort een verzamelaar bij een **gezin**
+in plaats van bij één login. Op `gezin.html` zet een ouder de naam en het
+e-mailadres van de tweede volwassene klaar; die persoon meldt zich gewoon aan
+op dat adres (magic link óf Google) en wordt bij zijn eerste login automatisch
+gekoppeld door `public.gezin_koppel_mij()`, die het dashboard bij elke lading
+aanroept. Er vertrekt geen uitnodigingsmail vanuit het portaal — dat zou een
+Edge Function met de service-role key vragen.
+
+Voorwaarde: het adres in de uitnodiging moet gelijk zijn aan het adres waarmee
+die persoon aanmeldt. Bij Google is dat het adres van het Google-account; wie
+zich met een ander adres aanmeldt, blijft ongekoppeld en ziet de uitnodiging
+gewoon openstaan.
+
+Beide volwassenen hebben gelijke rechten: elk ziet en bewerkt alle
+verzamelaars van het gezin, en elk kan de ander loskoppelen. Wie loskoppelt,
+neemt de verzamelaars mee die hij zelf aanmaakte (`kinderen.user_id` wijst nog
+altijd naar de maker).
+
+## 7. WhatsApp
+
+Twee losstaande dingen:
+
+- **Tussen gezinnen.** Een gezin kan op `gezin.html` één gsm-nummer bewaren en
+  aanvinken of het gedeeld mag worden. `get_matches()` geeft dat nummer enkel
+  terug tijdens het beursvenster, aan een ánder gezin dat een match heeft. In
+  de kolom *Contacteren* op `ruilen.html` verschijnt dan een wa.me-knop met een
+  vooraf ingevuld bericht. Staat het vinkje uit of is de beurs voorbij, dan
+  komt het nummer niet eens uit de database.
+- **De organisator.** Eén nummer voor de hele beurs, in te vullen op
+  `instellingen.html` (kolommen `whatsapp_nummer` / `whatsapp_bericht` op
+  `public.instellingen`, enkel schrijfbaar voor beheerders). Staat het leeg,
+  dan toont de site nergens een knop. Het nummer is enkel leesbaar voor wie
+  ingelogd is en staat dus niet in de publieke bronbestanden.
+
 ## Database structuur
 
 **kinderen**
@@ -148,19 +205,30 @@ te voegen. Daarna toont het dashboard de lijst met verzamelaars.
 ## Frontend
 
 - `js/supabase.js` — Supabase-client + `getCurrentUser()`/`requireAuth()`.
-- `js/auth.js` — login (magic link) en logout.
-- `js/kinderen.js` — CRUD voor kinderen.
+- `js/auth.js` — login (magic link + Google) en logout.
+- `js/kinderen.js` — CRUD voor kinderen; filtert niet zelf op `user_id`, want
+  wat je ziet en mag wijzigen beslist RLS (gezinsbreed sinds `009`).
 - `js/stickers.js` — kinddetailpagina: kindgegevens + CRUD voor stickers.
 - `js/dashboard.js` — dashboard: onboarding-wizard en kinderenlijst.
+- `js/ruilen.js` — ruilkansen van het hele gezin, met de kolom *Contacteren*.
+- `js/gezin.js` — tweede volwassene toevoegen, gsm-nummer van het gezin.
+- `js/whatsapp.js` — nummers normaliseren naar E.164 en wa.me-links bouwen.
+- `js/instellingen.js` — beheerpagina: beursvenster, glans, organisatornummer.
 
 ES Modules, geen build-stap, geen framework.
 
 ## Beveiliging
 
 - Uitsluitend de anon/publishable key in clientcode (publiek, veilig).
-- Authenticatie enkel via Supabase Magic Link — geen wachtwoorden.
-- Row Level Security: gebruikers zien/bewerken enkel eigen kinderen en
-  stickers van eigen kinderen.
+- Authenticatie via Supabase Magic Link of Google — geen wachtwoorden.
+- Row Level Security: gebruikers zien/bewerken enkel de kinderen van hun eigen
+  gezin en de stickers van die kinderen. De vergelijking loopt sinds `009` via
+  `public.gezin_sleutel()`: je gezin_id, of je eigen user_id als je alleen
+  werkt. Wie nooit een tweede volwassene toevoegt, houdt dus exact de oude
+  afscherming.
+- Van een ánder gezin komt er niets terug behalve een voornaam, en enkel
+  tijdens het beursvenster — geen e-mailadres, familienaam, user_id of
+  kind_id. Een gsm-nummer enkel wanneer dat gezin het expliciet deelt.
 - Inputvalidatie op voornaam, familienaam, geboortejaar, stickernummer en
   status.
 - Veilige rendering via `textContent` (nooit `innerHTML` met gebruikersdata)

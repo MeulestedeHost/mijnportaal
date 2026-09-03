@@ -11,6 +11,8 @@
   --danger: #e5484d;
   --danger-light: #fef0f0;
   --success: #2a9d4f;
+  --wa-groen: #25d366;
+  --wa-groen-dark: #1da851;
   --radius: 10px;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
@@ -61,6 +63,22 @@ a { color: var(--cf-blue-primary); text-decoration: none; }
 .btn--danger { background: transparent; color: var(--danger); border-color: var(--danger); }
 .btn--danger:hover:not(:disabled) { background: var(--danger-light); }
 
+/* WhatsApp in zijn eigen groen: een knop die een gesprek opent met iemand
+   buiten dit portaal, hoort er niet uit te zien als de knoppen die je hier
+   dagelijks indrukt. */
+.btn--wa { background: var(--wa-groen); color: #fff; border-color: var(--wa-groen); }
+.btn--wa:hover:not(:disabled) { background: var(--wa-groen-dark); border-color: var(--wa-groen-dark); }
+
+/* Google schrijft voor hoe zijn knop eruit mag zien: witte achtergrond,
+   grijze rand, het logo in kleur links van de tekst. */
+.btn--google { background: #fff; color: #3c4043; border-color: var(--border); font-weight: 500; }
+.btn--google:hover:not(:disabled) { background: #f7f8fa; border-color: #c6ccd6; }
+.btn__google-logo { width: 18px; height: 18px; flex: none; }
+
+/* "of met een magic link" met een lijntje links en rechts. */
+.login-scheiding { display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0; color: var(--text-muted); font-size: 0.8rem; }
+.login-scheiding::before, .login-scheiding::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
 .form-group { margin-bottom: 1.25rem; }
 .form-label { display: block; margin-bottom: 0.375rem; font-weight: 600; font-size: 0.9rem; }
 .required { color: var(--danger); }
@@ -102,6 +120,9 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 .kind-item__name { font-weight: 600; font-size: 1.05rem; color: var(--text); }
 .kind-item__actions { display: flex; gap: 0.5rem; }
 .kind-item__info { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem 0.75rem; }
+/* Het e-mailadres onder een gezinslid: aanwezig, maar het mag de naam niet
+   overstemmen — en het moet breken op een smal scherm. */
+.kind-item__bij { font-size: 0.8rem; color: var(--text-muted); word-break: break-all; }
 .kind-item__cijfers { display: flex; gap: 0.4rem; flex-wrap: wrap; width: 100%; }
 .kind-item__cijfer { font-size: 0.775rem; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.55rem; }
 .kind-item__cijfer--match { color: var(--cf-blue-dark); background: var(--cf-blue-light); border-color: var(--cf-blue-light); font-weight: 600; }
@@ -121,8 +142,13 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 .richting--dubbel { color: var(--success); background: #eaf7ee; }
 .contact { font-size: 0.85rem; }
 .contact--dicht { color: var(--text-muted); font-style: italic; }
-.contact--open { color: var(--cf-blue-dark); font-weight: 600; }
+/* Naam en WhatsApp-knop staan naast elkaar zolang het past, en onder elkaar
+   op een telefoon — de knop mag nooit uit de tabel duwen. */
+.contact--open { color: var(--cf-blue-dark); font-weight: 600; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .contact--eigen { color: var(--success); }
+
+/* De regel met de WhatsApp-knop van de organisator: tekst en knop op één lijn. */
+.organisator { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 1rem; }
 
 .inst-status { font-size: 0.85rem; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.75rem; }
 .inst-status--open { color: var(--success); background: #eaf7ee; border-color: #cbe8d4; font-weight: 600; }

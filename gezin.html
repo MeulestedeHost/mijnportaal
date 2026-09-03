@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panini Ruilportaal Meulestede — Ons gezin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="/dashboard.html" class="brand">
+        <span class="brand__logo">◆</span>
+        <span class="brand__name">Panini Ruilportaal Meulestede</span>
+      </a>
+      <div class="navbar__actions">
+        <a href="/dashboard.html" class="btn btn--outline btn--sm">← Dashboard</a>
+        <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main">
+    <div id="gezin-loading" class="loading">Laden…</div>
+
+    <div id="gezin-paneel" class="hidden">
+      <div class="dashboard-header">
+        <h1>Ons gezin</h1>
+      </div>
+
+      <div id="gezin-message" class="message" role="alert" aria-live="polite"></div>
+
+      <section class="card">
+        <h2>Volwassenen</h2>
+        <p class="form-meta">
+          Iedereen in deze lijst logt in met zijn eigen e-mailadres en komt in
+          <strong>dezelfde omgeving</strong> terecht: dezelfde verzamelaars, dezelfde
+          stickers, dezelfde ruilkansen. Beide volwassenen hebben gelijke rechten.
+        </p>
+        <ul id="gezin-leden" class="kinderen-list"></ul>
+      </section>
+
+      <section class="card hidden" id="uitnodigingen-kaart">
+        <h2>Staat klaar</h2>
+        <p class="form-meta">
+          Deze persoon is nog niet ingelogd. Bij zijn eerste aanmelding op dat adres
+          wordt hij automatisch aan het gezin gekoppeld.
+        </p>
+        <ul id="gezin-uitnodigingen" class="kinderen-list"></ul>
+      </section>
+
+      <section class="card" id="uitnodig-kaart">
+        <h2>Tweede volwassene toevoegen</h2>
+        <p class="form-meta">
+          Vul de naam en het e-mailadres van de andere ouder in. Er vertrekt geen mail
+          vanuit het portaal: die persoon meldt zich gewoon aan op
+          <a href="/login.html">de aanmeldpagina</a> met dát adres — met een magic link
+          of met de Google-knop — en belandt meteen in dit gezin. Het adres moet
+          overeenkomen met het adres waarmee hij aanmeldt; bij Google is dat het adres
+          van het Google-account.
+        </p>
+        <form id="uitnodig-form" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="uitnodig-voornaam" class="form-label">Voornaam <span class="required">*</span></label>
+              <input type="text" id="uitnodig-voornaam" class="form-input" required maxlength="100" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="uitnodig-familienaam" class="form-label">Familienaam <span class="required">*</span></label>
+              <input type="text" id="uitnodig-familienaam" class="form-input" required maxlength="100" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="uitnodig-email" class="form-label">E-mailadres <span class="required">*</span></label>
+              <input type="email" id="uitnodig-email" class="form-input" required maxlength="255" autocomplete="off" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn--primary" id="uitnodig-btn">Volwassene toevoegen</button>
+        </form>
+        <div id="uitnodig-message" class="message" role="alert" aria-live="polite"></div>
+      </section>
+
+      <section class="card hidden" id="uitnodig-vol">
+        <h2>Tweede volwassene toevoegen</h2>
+        <p class="form-meta">
+          Dit gezin telt al twee volwassenen. Wil je iemand anders toevoegen, koppel dan
+          eerst iemand los of trek de openstaande uitnodiging in. (Meer dan twee kan,
+          maar dat is een bewuste keuze in de database — zie <code>c_max_leden</code> in
+          <code>sql/009_gezin_en_whatsapp.sql</code>.)
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Jouw naam</h2>
+        <p class="form-meta">
+          Alleen om elkaar in de lijst hierboven te herkennen. Je logt in met
+          <strong id="naam-email"></strong>; dat adres is niet zichtbaar voor andere
+          gezinnen.
+        </p>
+        <form id="naam-form" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="naam-voornaam" class="form-label">Voornaam</label>
+              <input type="text" id="naam-voornaam" class="form-input" maxlength="100" />
+            </div>
+            <div class="form-group">
+              <label for="naam-familienaam" class="form-label">Familienaam</label>
+              <input type="text" id="naam-familienaam" class="form-input" maxlength="100" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn--outline" id="naam-btn">Naam opslaan</button>
+        </form>
+        <div id="naam-message" class="message" role="alert" aria-live="polite"></div>
+      </section>
+
+      <section class="card">
+        <h2>WhatsApp tijdens de ruilbeurs</h2>
+        <p class="form-meta">
+          Eén gsm-nummer voor het hele gezin. Zet je het vinkje aan, dan verschijnt bij
+          elke ruilkans van een ánder gezin een WhatsApp-knop naar dit nummer — maar
+          enkel <strong>terwijl de ruilbeurs bezig is</strong>. Daarbuiten geeft de
+          database het nummer niet eens terug, net zomin als de voornaam. Zet je het
+          vinkje uit, dan ziet niemand het ooit en blijft alles bij “zoek elkaar op de
+          beurs”.
+        </p>
+        <form id="contact-form" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="contact-telefoon" class="form-label">Gsm-nummer</label>
+              <input type="tel" id="contact-telefoon" class="form-input" maxlength="24"
+                     placeholder="0470 12 34 56" autocomplete="tel" />
+            </div>
+          </div>
+          <label class="checkbox-rij">
+            <input type="checkbox" id="contact-delen" />
+            <span>Toon dit nummer aan andere gezinnen tijdens de ruilbeurs</span>
+          </label>
+          <button type="submit" class="btn btn--primary" id="contact-btn">Opslaan</button>
+        </form>
+        <div id="contact-message" class="message" role="alert" aria-live="polite"></div>
+        <p class="form-meta organisator hidden" id="organisator-knop">
+          Een vraag over de beurs zelf?
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a></p>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/supabase.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/gezin.js"></script>
+</body>
+</html>

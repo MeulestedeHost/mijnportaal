@@ -22,6 +22,7 @@
   </header>
 
   <main class="container main">
+    <div id="gezin-hint" class="message" role="status" aria-live="polite"></div>
     <div id="loading" class="loading">Laden…</div>
 
     <div id="onboarding" class="card hidden">
@@ -60,6 +61,7 @@
         <div class="dashboard-header__acties">
           <a href="/ruilen.html" class="btn btn--primary">🤝 Ruilen</a>
           <button type="button" class="btn btn--outline" id="new-kind-btn">＋ Verzamelaar toevoegen</button>
+          <a href="/gezin.html" class="btn btn--outline">👪 Ons gezin</a>
         </div>
       </div>
 
@@ -98,6 +100,11 @@
 
       <ul id="kinderen-ul" class="kinderen-list"></ul>
       <p id="stats-hint" class="form-meta hidden"></p>
+      <!-- Staat er geen nummer in de instellingen, dan blijft deze regel
+           verborgen: js/whatsapp.js toont ze pas als er iets te klikken valt. -->
+      <p class="form-meta organisator hidden" id="organisator-knop">
+        Een vraag over de beurs?
+      </p>
     </div>
   </main>
 

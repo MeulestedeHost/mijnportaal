@@ -7,8 +7,14 @@
 // een ander gezin geen naam. Die grens ligt in de database: get_matches geeft
 // de voornaam buiten het venster gewoon niet terug. Wat hier gebeurt is dus
 // presentatie, geen beveiliging.
+//
+// Hetzelfde geldt voor de WhatsApp-knop: get_matches geeft ander_whatsapp enkel
+// terug tijdens het beursvenster, en enkel wanneer dát gezin zijn nummer wil
+// delen (vinkje op gezin.html). Staat er geen nummer, dan blijft het bij
+// "zoek elkaar op de beurs" — de knop verschijnt dan gewoon niet.
 import { supabase, requireAuth } from "./supabase.js";
 import { loadKinderen } from "./kinderen.js";
+import { whatsappKnop, toonOrganisatorKnop } from "./whatsapp.js";
 
 const RICHTING = {
   jij_zoekt: { tekst: "zoekt deze", klasse: "richting--zoekt" },
@@ -25,11 +31,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!user) return;
 
   await toonVenster();
+  toonOrganisatorKnop("organisator-knop", "💬 WhatsApp de organisator");
 
   const loading = document.getElementById("ruil-loading");
   let kinderen;
   try {
-    kinderen = await loadKinderen(user.id);
+    kinderen = await loadKinderen();
   } catch (err) {
     loading.textContent = "Fout bij laden: " + err.message;
     return;
@@ -197,11 +204,11 @@ function bouwRij(kind, rij) {
   wat.appendChild(label);
   tr.appendChild(wat);
 
-  tr.appendChild(contactCel(rij));
+  tr.appendChild(contactCel(kind, rij));
   return tr;
 }
 
-function contactCel(rij) {
+function contactCel(kind, rij) {
   const td = document.createElement("td");
 
   if (rij.eigen_gezin) {
@@ -211,12 +218,29 @@ function contactCel(rij) {
   }
   if (beursOpen && rij.ander_kind) {
     td.className = "contact contact--open";
-    td.textContent = `Zoek ${rij.ander_kind} op de beurs`;
+    const naam = document.createElement("span");
+    naam.textContent = `Zoek ${rij.ander_kind} op de beurs`;
+    td.appendChild(naam);
+
+    // Deelt dat gezin zijn nummer, dan hoeft niemand te zoeken. Het bericht is
+    // vooraf ingevuld: wie er belt, over welke sticker het gaat en welke kant
+    // de ruil op moet. Zo begint het gesprek niet bij "hallo, wie ben jij?".
+    const knop = whatsappKnop(rij.ander_whatsapp, ruilBericht(kind, rij), "💬 WhatsApp");
+    if (knop) td.appendChild(knop);
     return td;
   }
   td.className = "contact contact--dicht";
   td.textContent = "Beschikbaar tijdens de ruilbeurs";
   return td;
+}
+
+function ruilBericht(kind, rij) {
+  const sticker = rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code;
+  const zin =
+    rij.richting === "jij_zoekt"
+      ? `${kind.voornaam} zoekt ${sticker}, en ${rij.ander_kind} heeft die dubbel`
+      : `${kind.voornaam} heeft ${sticker} dubbel, en ${rij.ander_kind} zoekt die`;
+  return `Dag! Via het Panini Ruilportaal Meulestede: ${zin}. Zullen we ruilen?`;
 }
 
 function melding(tekst) {

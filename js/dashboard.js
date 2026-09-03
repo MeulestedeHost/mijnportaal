@@ -3,8 +3,12 @@
 // Een "verzamelaar" is een rij in public.kinderen. Volwassenen staan in
 // dezelfde tabel met is_volwassen = true en zonder geboortejaar: ze ruilen
 // op precies dezelfde manier mee.
+//
+// De lijst is van het GEZIN, niet van één login: sinds sql/009 kunnen twee
+// ouders op dezelfde verzamelaars werken. Wie wat ziet, beslist RLS.
 import { requireAuth, supabase } from "./supabase.js";
 import { loadKinderen, addKind, updateKind, deleteKind, isValidGeboortejaar } from "./kinderen.js";
+import { toonOrganisatorKnop } from "./whatsapp.js";
 
 let user;
 let statistieken = new Map(); // kind_id -> { zoekt, dubbel, matches }
@@ -19,14 +23,39 @@ document.addEventListener("DOMContentLoaded", async () => {
   const emailEl = document.getElementById("user-email");
   if (emailEl) emailEl.textContent = user.email;
 
+  await koppelAanGezin();
+
   wireOnboardingForm();
   wireKindForm();
   wireVolwassenVinkjes();
   document.getElementById("new-kind-btn").addEventListener("click", () => openKindForm());
 
   toonBeheerLink();
+  toonOrganisatorKnop("organisator-knop", "💬 WhatsApp de organisator");
   await refreshKinderen();
 });
+
+// De tweede ouder wordt aan het gezin gekoppeld bij zijn eerste login: staat er
+// een uitnodiging klaar op zijn adres, dan hangt deze RPC hem eraan. Ze draait
+// bij elke lading van het dashboard, want daar kom je hoe dan ook langs — of je
+// nu met een magic link of met Google inlogde. Bestaat de functie nog niet
+// (sql/009 niet gedraaid), dan gebeurt er eenvoudigweg niets.
+async function koppelAanGezin() {
+  try {
+    const { data, error } = await supabase.rpc("gezin_koppel_mij");
+    if (error) throw error;
+    const rij = Array.isArray(data) ? data[0] : data;
+    if (rij && rij.melding) {
+      const hint = document.getElementById("gezin-hint");
+      hint.textContent = rij.gekoppeld
+        ? rij.melding + " Je ziet nu de verzamelaars van het hele gezin."
+        : rij.melding;
+      hint.className = "message message--show message--" + (rij.gekoppeld ? "success" : "error");
+    }
+  } catch (err) {
+    /* sql/009 nog niet gedraaid — het dashboard werkt gewoon zoals vroeger */
+  }
+}
 
 // De link verbergen is gemak, geen beveiliging: instellingen.html controleert
 // het recht opnieuw en RLS weigert hoe dan ook elke schrijfpoging.
@@ -72,7 +101,7 @@ async function refreshKinderen() {
 
   let kinderen;
   try {
-    kinderen = await loadKinderen(user.id);
+    kinderen = await loadKinderen();
   } catch (err) {
     loading.textContent = "Fout bij laden: " + err.message;
     return;
@@ -239,7 +268,7 @@ function wireKindForm() {
     try {
       const payload = bouwPayload(voornaam, familienaam, geboortejaar, isVolwassen);
       if (id) {
-        await updateKind(id, user.id, payload);
+        await updateKind(id, payload);
       } else {
         await addKind(user.id, payload);
       }
@@ -295,7 +324,7 @@ async function handleDeleteKind(id) {
   const naam = document.getElementById("kind-voornaam").value.trim();
   if (!confirm(`${naam || "Deze verzamelaar"} en al zijn stickers verwijderen?`)) return;
   try {
-    await deleteKind(id, user.id);
+    await deleteKind(id);
     closeKindForm();
     await refreshKinderen();
   } catch (err) {

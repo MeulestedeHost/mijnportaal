@@ -106,6 +106,44 @@ function initLoginPage(alFoutGetoond) {
   });
 
   document.getElementById("opnieuw-btn").addEventListener("click", toonFormulier);
+
+  const googleBtn = document.getElementById("google-btn");
+  if (googleBtn) googleBtn.addEventListener("click", () => meldAanMetGoogle(googleBtn, messageEl));
+}
+
+// Aanmelden met Google. Voor het portaal is dit gewoon een tweede deur naar
+// hetzelfde account: Supabase levert dezelfde sessie op, met hetzelfde
+// e-mailadres in het token. Staat er een uitnodiging klaar voor de tweede
+// ouder op dát adres, dan koppelt public.gezin_koppel_mij() hem net zo goed
+// als bij een magic link — die functie kijkt naar het e-mailadres, niet naar
+// de manier van aanmelden.
+//
+// Twee dingen moeten hiervoor in Supabase goed staan, anders eindigt de
+// gebruiker op een foutpagina van Google:
+//   1. Authentication → Providers → Google: aan, met de client-id en secret
+//      uit de Google Cloud Console.
+//   2. Authentication → URL Configuration → Redirect URLs: het adres hieronder
+//      (https://.../dashboard.html) moet in de lijst staan.
+async function meldAanMetGoogle(knop, messageEl) {
+  knop.disabled = true;
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        // Zelfde bestemming als de magic link, en met window.location.origin
+        // werkt dit ook op een preview-deploy of lokaal, zonder aparte build.
+        redirectTo: `${window.location.origin}/dashboard.html`,
+        // Twee ouders delen vaak één laptop: laat Google altijd vragen met
+        // welk account je binnenkomt, in plaats van stil het vorige te nemen.
+        queryParams: { prompt: "select_account" },
+      },
+    });
+    if (error) throw error;
+    // Geen foutmelding: de browser vertrekt nu naar Google.
+  } catch (err) {
+    toonMelding(messageEl, "Aanmelden met Google lukte niet: " + err.message, "error");
+    knop.disabled = false;
+  }
 }
 
 // Vervangt het formulier door een bevestigingsscherm, zodat niemand in de
