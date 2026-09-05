@@ -17,17 +17,14 @@
   </header>
 
   <main class="container main">
-    <!-- Nieuwsblok: puur statisch, geen JavaScript. Losstaand van het
-         aanmeldformulier eronder — raakt js/auth.js of #login-card op geen
-         enkele manier aan. Voor een volgend evenement of bericht: dit hele
-         <section>-blok kopiëren en de tekst, titel, badge en link vervangen. -->
-    <section class="nieuwsblok">
-      <span class="nieuwsblok__badge">✨ NIEUW</span>
-      <div class="nieuwsblok__layout">
-        <div class="nieuwsblok__illustratie" aria-hidden="true">
-          <span class="nieuwsblok__medaillon">⚽</span>
-          <span class="nieuwsblok__medaillon">🌍</span>
-        </div>
+    <!-- Nieuws en aanmelden naast elkaar (op mobiel: onder elkaar). Het
+         nieuwsblok is puur statisch, geen JavaScript, en raakt js/auth.js of
+         #login-card op geen enkele manier aan. Voor een volgend evenement of
+         bericht: enkel de <section class="nieuwsblok"> kopiëren en de tekst,
+         titel, badge en link vervangen — de layout eromheen blijft staan. -->
+    <div class="aanmeld-layout">
+      <section class="nieuwsblok">
+        <span class="nieuwsblok__badge">✨ NIEUW</span>
         <div class="nieuwsblok__inhoud">
           <h2 class="nieuwsblok__titel">🎉 FIFA Panini Ruilbeurs Meulestede</h2>
           <div class="nieuwsblok__tekst">
@@ -67,103 +64,105 @@
             rel="noopener noreferrer"
           >🔗 Bekijk het evenement</a>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Stap 1: e-mailadres invoeren -->
-    <div class="card login-card" id="login-card">
-      <h1>Aanmelden</h1>
-      <p class="login-card__hint">
-        Meld je aan met Google, of laat je een magic link mailen. Beide brengen je naar
-        hetzelfde account, zolang het om hetzelfde e-mailadres gaat.
-      </p>
-
-      <!-- Google eerst: één klik, geen mailbox nodig. Wie liever geen Google
-           gebruikt, scrollt gewoon door naar het e-mailveld eronder. -->
-      <button type="button" class="btn btn--google btn--block" id="google-btn">
-        <svg class="btn__google-logo" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
-          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
-          <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>
-          <path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/>
-          <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/>
-        </svg>
-        Aanmelden met Google
-      </button>
-
-      <p class="login-scheiding"><span>of met een magic link</span></p>
-
-      <form id="login-form" novalidate>
-        <div class="form-group">
-          <label for="email" class="form-label">E-mailadres</label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            class="form-input"
-            placeholder="naam@voorbeeld.nl"
-            required
-            autocomplete="email"
-          />
-        </div>
-
-        <button type="submit" class="btn btn--primary btn--block" id="login-btn">
-          Magic link versturen
-        </button>
-      </form>
-
-      <div id="message" class="message" role="alert" aria-live="polite"></div>
-    </div>
-
-    <!-- Stap 2: bevestiging, vervangt het formulier volledig -->
-    <div class="card login-card hidden" id="verstuurd-card">
-      <div class="verstuurd__icoon" aria-hidden="true">📬</div>
-      <h1>Kijk in je mailbox</h1>
-      <p class="verstuurd__lead">
-        We stuurden een inloglink naar <strong id="verstuurd-email"></strong>.
-      </p>
-      <p class="login-card__hint">
-        Klik op de link <strong>Sign in</strong> in die mail en je bent binnen. De link
-        blijft <strong id="verstuurd-geldigheid"></strong> geldig en werkt
-        <strong>één keer</strong>.
-      </p>
-
-      <p class="verstuurd__label">Zo ziet de mail eruit:</p>
-      <!-- Dit voorbeeld toont de mail die Supabase vandaag verstuurt: Engels,
-           van "Supabase Auth". Wordt de eigen template uit
-           email-templates/magic-link.html in Supabase gezet, dan moet dit
-           voorbeeld mee aangepast worden — een voorbeeld dat niet klopt met
-           wat er binnenkomt is erger dan geen voorbeeld. -->
-      <div class="mailvoorbeeld" aria-label="Voorbeeld van de inlogmail">
-        <div class="mailvoorbeeld__meta">
-          <span class="mailvoorbeeld__afzender">Supabase Auth &lt;noreply@mail.app.supabase.io&gt;</span>
-          <span class="mailvoorbeeld__onderwerp">Your sign-in link</span>
-        </div>
-        <div class="mailvoorbeeld__inhoud">
-          <p class="mailvoorbeeld__titel">Your sign-in link</p>
-          <p class="mailvoorbeeld__tekst">
-            Follow the link below to sign in. This link expires shortly and can only be used once.
+      <div class="aanmeld-layout__login">
+        <!-- Stap 1: e-mailadres invoeren -->
+        <div class="card login-card" id="login-card">
+          <h1>Aanmelden</h1>
+          <p class="login-card__hint">
+            Meld je aan met Google, of laat je een magic link mailen. Beide brengen je naar
+            hetzelfde account, zolang het om hetzelfde e-mailadres gaat.
           </p>
-          <span class="mailvoorbeeld__link">Sign in</span>
+
+          <!-- Google eerst: één klik, geen mailbox nodig. Wie liever geen Google
+               gebruikt, scrollt gewoon door naar het e-mailveld eronder. -->
+          <button type="button" class="btn btn--google btn--block" id="google-btn">
+            <svg class="btn__google-logo" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+              <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>
+              <path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/>
+              <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/>
+            </svg>
+            Aanmelden met Google
+          </button>
+
+          <p class="login-scheiding"><span>of met een magic link</span></p>
+
+          <form id="login-form" novalidate>
+            <div class="form-group">
+              <label for="email" class="form-label">E-mailadres</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                class="form-input"
+                placeholder="naam@voorbeeld.nl"
+                required
+                autocomplete="email"
+              />
+            </div>
+
+            <button type="submit" class="btn btn--primary btn--block" id="login-btn">
+              Magic link versturen
+            </button>
+          </form>
+
+          <div id="message" class="message" role="alert" aria-live="polite"></div>
         </div>
-        <div class="mailvoorbeeld__voet">
-          You're receiving this email because you signed up for an application powered by Supabase
+
+        <!-- Stap 2: bevestiging, vervangt het formulier volledig -->
+        <div class="card login-card hidden" id="verstuurd-card">
+          <div class="verstuurd__icoon" aria-hidden="true">📬</div>
+          <h1>Kijk in je mailbox</h1>
+          <p class="verstuurd__lead">
+            We stuurden een inloglink naar <strong id="verstuurd-email"></strong>.
+          </p>
+          <p class="login-card__hint">
+            Klik op de link <strong>Sign in</strong> in die mail en je bent binnen. De link
+            blijft <strong id="verstuurd-geldigheid"></strong> geldig en werkt
+            <strong>één keer</strong>.
+          </p>
+
+          <p class="verstuurd__label">Zo ziet de mail eruit:</p>
+          <!-- Dit voorbeeld toont de mail die Supabase vandaag verstuurt: Engels,
+               van "Supabase Auth". Wordt de eigen template uit
+               email-templates/magic-link.html in Supabase gezet, dan moet dit
+               voorbeeld mee aangepast worden — een voorbeeld dat niet klopt met
+               wat er binnenkomt is erger dan geen voorbeeld. -->
+          <div class="mailvoorbeeld" aria-label="Voorbeeld van de inlogmail">
+            <div class="mailvoorbeeld__meta">
+              <span class="mailvoorbeeld__afzender">Supabase Auth &lt;noreply@mail.app.supabase.io&gt;</span>
+              <span class="mailvoorbeeld__onderwerp">Your sign-in link</span>
+            </div>
+            <div class="mailvoorbeeld__inhoud">
+              <p class="mailvoorbeeld__titel">Your sign-in link</p>
+              <p class="mailvoorbeeld__tekst">
+                Follow the link below to sign in. This link expires shortly and can only be used once.
+              </p>
+              <span class="mailvoorbeeld__link">Sign in</span>
+            </div>
+            <div class="mailvoorbeeld__voet">
+              You're receiving this email because you signed up for an application powered by Supabase
+            </div>
+          </div>
+
+          <p class="login-card__hint">
+            De mail is in het <strong>Engels</strong> en komt van <strong>Supabase Auth</strong> —
+            dat hoort zo. Zoek in je mailbox op <strong>“Your sign-in link”</strong> en klik daarin
+            op <strong>Sign in</strong>.
+          </p>
+
+          <p class="login-card__hint">
+            Nog niets na een paar minuten? Kijk zeker ook in je <strong>spam-map</strong> —
+            daar belandt de mail het vaakst.
+          </p>
+
+          <button type="button" class="btn btn--link" id="opnieuw-btn">
+            Toch geen mail ontvangen? Probeer opnieuw
+          </button>
         </div>
       </div>
-
-      <p class="login-card__hint">
-        De mail is in het <strong>Engels</strong> en komt van <strong>Supabase Auth</strong> —
-        dat hoort zo. Zoek in je mailbox op <strong>“Your sign-in link”</strong> en klik daarin
-        op <strong>Sign in</strong>.
-      </p>
-
-      <p class="login-card__hint">
-        Nog niets na een paar minuten? Kijk zeker ook in je <strong>spam-map</strong> —
-        daar belandt de mail het vaakst.
-      </p>
-
-      <button type="button" class="btn btn--link" id="opnieuw-btn">
-        Toch geen mail ontvangen? Probeer opnieuw
-      </button>
     </div>
   </main>
 

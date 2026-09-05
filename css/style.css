@@ -577,14 +577,23 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .wr-kaart--mini .leaflet-control-attribution { font-size: 9px; }
 
 /* ============================================================
-   Nieuwsblok (aanmeldpagina)
+   Aanmeldpagina: nieuwsblok naast de aanmeldkaart
    ============================================================
-   Statisch, geen JavaScript. Losstaand van .login-card: dit blok mag
-   verwijderd of hergebruikt worden zonder de aanmeldflow te raken. */
+   Statisch, geen JavaScript. Beide kolommen zijn losstaand van elkaar: het
+   nieuwsblok mag verwijderd of hergebruikt worden zonder de aanmeldflow
+   (rechts) te raken, en omgekeerd. */
+.aanmeld-layout { display: flex; align-items: flex-start; gap: 1.5rem; }
+.aanmeld-layout__login { flex: 0 0 380px; }
+/* .login-card centreert zichzelf normaal met margin: auto (zie de basisregel
+   hierboven) — dat is voor de plek waar de kaart alleen op de pagina staat.
+   Hier staat hij al in een kolom met een vaste breedte, dus die marge zou de
+   kaart enkel scheeftrekken. */
+.aanmeld-layout__login .login-card { margin: 0; }
+
 .nieuwsblok {
   position: relative;
-  max-width: var(--max-width);
-  margin: 0 auto 2rem;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 1.75rem 2rem;
   border-radius: 16px;
   background: linear-gradient(135deg, var(--cf-blue-light) 0%, #ffffff 55%);
@@ -612,33 +621,28 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
   box-shadow: 0 0 0 6px rgba(232, 185, 35, 0.2), var(--shadow);
 }
 
-.nieuwsblok__layout { display: flex; align-items: flex-start; gap: 1.75rem; padding-right: 4rem; }
-
-/* Emoji-medaillons: geen afbeeldingsbestand nodig, en consistent met de
-   grote emoji-iconen die de rest van de site (Wereldreis) al gebruikt. */
-.nieuwsblok__illustratie { display: flex; flex-direction: column; gap: 0.75rem; flex: none; }
-.nieuwsblok__medaillon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 4rem;
-  height: 4rem;
-  border-radius: 50%;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  font-size: 1.9rem;
-}
-
-.nieuwsblok__inhoud { min-width: 0; }
+/* padding-right houdt de tekst uit de buurt van de badge in de hoek. Ruimer
+   dan de badge zelf breed is: de badge hangt met right:1rem net buiten de
+   padding van de kaart, dus deze marge moet ook dat stukje overbruggen. */
+.nieuwsblok__inhoud { min-width: 0; padding-right: 6rem; }
 .nieuwsblok__titel { font-size: 1.4rem; color: var(--cf-blue-dark); margin-bottom: 0.75rem; line-height: 1.3; }
 .nieuwsblok__tekst { display: flex; flex-direction: column; gap: 0.65rem; color: var(--text); font-size: 0.95rem; line-height: 1.55; margin-bottom: 1.25rem; }
 .nieuwsblok__knop { display: inline-flex; }
 
+/* Onder elkaar zodra het naast elkaar te krap zou worden: bij 900px blijft er
+   voor het nieuwsblok, naast de vaste 380px aanmeldkolom, nog maar zo'n 500px
+   over — genoeg voor de knop en de titel, te weinig om de lopende tekst
+   prettig te lezen. */
+@media (max-width: 900px) {
+  .aanmeld-layout { flex-direction: column; }
+  .aanmeld-layout__login { flex-basis: auto; width: 100%; }
+  .aanmeld-layout__login .login-card { margin: 0 auto; }
+}
+
 @media (max-width: 640px) {
   .nieuwsblok { padding: 1.5rem 1.25rem; border-radius: 12px; }
-  .nieuwsblok__badge { position: static; align-self: flex-start; margin-bottom: 1rem; }
-  .nieuwsblok__layout { flex-direction: column; align-items: stretch; padding-right: 0; gap: 1rem; }
-  .nieuwsblok__illustratie { flex-direction: row; justify-content: center; }
+  .nieuwsblok__badge { position: static; margin-bottom: 1rem; }
+  .nieuwsblok__inhoud { padding-right: 0; }
   .nieuwsblok__titel { font-size: 1.2rem; text-align: center; }
   .nieuwsblok__knop { width: 100%; justify-content: center; }
 }
