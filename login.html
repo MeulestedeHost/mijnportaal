@@ -17,6 +17,59 @@
   </header>
 
   <main class="container main">
+    <!-- Nieuwsblok: puur statisch, geen JavaScript. Losstaand van het
+         aanmeldformulier eronder — raakt js/auth.js of #login-card op geen
+         enkele manier aan. Voor een volgend evenement of bericht: dit hele
+         <section>-blok kopiëren en de tekst, titel, badge en link vervangen. -->
+    <section class="nieuwsblok">
+      <span class="nieuwsblok__badge">✨ NIEUW</span>
+      <div class="nieuwsblok__layout">
+        <div class="nieuwsblok__illustratie" aria-hidden="true">
+          <span class="nieuwsblok__medaillon">⚽</span>
+          <span class="nieuwsblok__medaillon">🌍</span>
+        </div>
+        <div class="nieuwsblok__inhoud">
+          <h2 class="nieuwsblok__titel">🎉 FIFA Panini Ruilbeurs Meulestede</h2>
+          <div class="nieuwsblok__tekst">
+            <p>⚽🌍 Wat begon als een eenvoudig idee, is uitgegroeid tot een echt succes!</p>
+            <p>
+              Op zaterdag 6 september verwelkomen we in het Cultureel Centrum Meulestede
+              maar liefst <strong>80 ingeschreven</strong> jonge FIFA Panini-verzamelaars
+              voor onze grote ruilbeurs.
+            </p>
+            <p>
+              Naast de fysieke ruilbeurs lanceren we een volledig zelf ontwikkeld
+              <strong>Panini Ruilportaal</strong>. Kinderen kunnen er hun dubbele en
+              gezochte stickers beheren en ook na de beurs verder ruilen.
+            </p>
+            <p>
+              🌍 De blikvanger is zonder twijfel de nieuwe <strong>FIFA Wereldreis</strong>:
+              een interactieve wereldkaart die gekoppeld is aan de stickercollectie.
+            </p>
+            <p>
+              Kinderen zien in één oogopslag welke landen ze al verzameld hebben, welke
+              landen bijna compleet zijn en hoe hun verzameling zich verspreidt over de
+              wereld.
+            </p>
+            <p>
+              Zo wordt stickers verzamelen meer dan alleen ruilen. Het wordt een digitale
+              ontdekkingsreis langs de landen van het WK 2026.
+            </p>
+            <p>
+              🚀 Vers van de pers, kindvriendelijk en ontwikkeld voor onze jonge
+              verzamelaars en hun ouders.
+            </p>
+          </div>
+          <a
+            class="btn btn--primary btn--lg nieuwsblok__knop"
+            href="https://www.ccmeulestede.be/events/ruilbeurs-verzamelingen-panini-fifa-2026-en-meer"
+            target="_blank"
+            rel="noopener noreferrer"
+          >🔗 Bekijk het evenement</a>
+        </div>
+      </div>
+    </section>
+
     <!-- Stap 1: e-mailadres invoeren -->
     <div class="card login-card" id="login-card">
       <h1>Aanmelden</h1>
