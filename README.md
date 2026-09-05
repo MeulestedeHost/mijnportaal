@@ -162,11 +162,47 @@ Twee losstaande dingen:
 Een wereldkaart bovenop dezelfde stickerlijst: elk land van het album staat als
 stip op de kaart, gekleurd naar hoe ver die verzamelaar staat. Te bereiken via
 **🌍 FIFA Wereldreis** op het dashboard, met een samenvattende widget onderaan
-datzelfde dashboard. Nodig: `sql/010_wereldreis.sql`.
+datzelfde dashboard. `wereldreis.html` is een volwaardige kaartpagina — de kaart
+vult vrijwel het hele scherm (`.wr-hero` in `css/style.css`, 100vh min de
+navbalk), met de tellers, de legende en de uitleg pas eronder voor wie
+doorscrolt. Nodig: `sql/010_wereldreis.sql`.
 
-Dit is **fase 1** van drie. Fase 2 voegt voetbalinformatie per land toe, fase 3
-landinfo, talen, foto's en badges. De blauwe en gele stip naast de groene staan
-er al klaar, nog leeg.
+Dit is **fase 1**. De doelgroep is een kind van een jaar of acht: grote,
+klikbare stippen met een zachte glow, speelse iconen (🏆🧩🔍🔁) in plaats van een
+kale tellerrij, en een korte ondertitel ("Tik op een land voor meer info") in
+plaats van een instructieblok.
+
+### Vijf categorieën, drie zichtbaar
+
+Elk land heeft een driehoekje van stippen: 🧩 stickers linksonder (gekleurd naar
+percentage, met de glow), ⚽ voetbal boven en 📍 land rechtsonder (allebei nog
+dof — ze wachten op een volgende fase). Op een telefoon en in de ministip op het
+dashboard blijft enkel de stickerstip staan, gecentreerd op het land: daar is
+geen ruimte voor een driehoekje, en de twee andere stippen zijn toch nog leeg.
+
+De architectuur is voorbereid op alle **vijf** categorieën uit de eindvisie:
+`CATEGORIEEN` in `js/wereldreis.js` bevat naast stickers, voetbal en land ook
+**talen** en **foto's**, elk met een label, icoon en placeholderzin, maar met
+`zichtbaar: false` — ze tekenen dus nog geen stip en krijgen geen popupsectie.
+Een latere fase hoeft geen tekencode te schrijven: `zichtbaar`/`actief` op
+`true` zetten en een `popup(land)`-functie schrijven volstaat. De stip, de
+legende, de popupsectie en de "wat komt er nog"-tekst volgen dan vanzelf overal
+waar `ZICHTBARE_CATEGORIEEN` gebruikt wordt.
+
+De popup van een land toont daardoor nu al drie nette secties (icoon + label +
+inhoud) in plaats van "de echte info plus twee losse zinnetjes": Stickers met de
+percentages, Voetbal en Land met hun letterlijke placeholderzin
+("Voetbalinformatie verschijnt in de volgende update.", "Meer over dit land
+verschijnt in een volgende update.").
+
+### Vaste driehoeksplaatsing, geen toeval
+
+Elke stip krijgt in `css/style.css` een **vaste pixel-offset** op basis van zijn
+CSS-klasse (`.wr-stip--stickers`, `.wr-stip--voetbal`, `.wr-stip--land`) — geen
+JavaScript-geometrie, geen `Math.random()`. Dezelfde stip staat dus bij elke
+herlading op exact dezelfde plek ten opzichte van het land, op elk zoomniveau:
+Leaflet herberekent enkel het ankerpunt van de marker, niet de afmetingen of
+offsets van het icoon.
 
 ### Het rekenmodel
 
@@ -181,8 +217,12 @@ heeft = totaal aantal stickers van het land − gezochte stickers
 Eén gevolg om te kennen voor je het scherm voor het eerst ziet: **een
 verzamelaar die nog niets aanduidde, staat overal op 100 %.** De reis begint dus
 vol en loopt leeg naarmate een kind invult wat het mist. De pagina zet daar een
-zin bij zolang er niets is aangeduid, zodat het niet als een bug leest. Een
-land geldt als *ontdekt* wanneer het op 100 % staat.
+zin bij zolang er niets is aangeduid, zodat het niet als een bug leest.
+
+Een land heet hier **voltooid**, niet "ontdekt": dit datamodel kan niet
+betrouwbaar bepalen wanneer een land voor het eerst iets kreeg, enkel hoe ver
+het nu staat. "Voltooid" (100 %) is de enige uitspraak die het rekenmodel wél
+hard kan maken.
 
 Glansvarianten tellen enkel mee wanneer `toon_glans` aanstaat — dezelfde regel
 als `kind_statistieken()` en `get_matches()`.
@@ -192,8 +232,8 @@ als `kind_statistieken()` en `get_matches()`.
 | Bestand | Rol |
 |---|---|
 | `sql/010_wereldreis.sql` | `wereldreis_landen(kind_id)`: één rij per land met totaal, gezocht, dubbel, heeft en procent |
-| `js/wereldreis.js` | coördinaten, kleurenschaal, lagen, kaart tekenen — gedeeld door de pagina en de widget |
-| `js/wereldkaart.js` | `wereldreis.html`: verzamelaarskiezer, tellers, legende |
+| `js/wereldreis.js` | coördinaten, kleurenschaal, `CATEGORIEEN`, kaart tekenen, popup — gedeeld door de pagina en de widget |
+| `js/wereldkaart.js` | `wereldreis.html`: hero, verzamelaarskiezer, tellers, legende |
 | `js/wereldreis-widget.js` | het blok onderaan `dashboard.html` |
 | `css/leaflet.css` | Leaflet 1.9.4, lokaal — zie hieronder |
 
@@ -202,10 +242,18 @@ grens uit een landenbestand. Reden: Engeland en Schotland zijn in het album twee
 aparte reeksen, en elk landenbestand met grenzen laat ze allebei op "Verenigd
 Koninkrijk" vallen. Met punten houdt elk zijn eigen plek — en Curaçao ook.
 
-**Fase 2 en 3 aanzetten** hoeft geen tekencode. In `js/wereldreis.js` staat
-`LAGEN`: drie laagbeschrijvingen met een `actief`-vlag en een `popup(land)`.
-Zet `actief` op `true`, schrijf die ene functie, en de stip en de popup volgen
-vanzelf — op de kaart, in de legende en in de widget.
+### De hero en de navbalk
+
+`.wr-hero` rekent zijn hoogte uit als `100vh` (met een `100dvh`-verbetering
+voor mobiel) min de hoogte van de navbalk. Die navbalk is normaal een vaste
+`60px` (`--wr-navbar-hoogte`), maar de merknaam "Panini Ruilportaal Meulestede"
+kan op een smal scherm over twee of drie regels breken — en op deze pagina, met
+de extra "← Dashboard"-knop naast de merknaam, eerder dan elders. De navbalk
+zelf blijft dan keurig 60px hoog, maar de tekst overschrijdt die doos zichtbaar.
+`pasNavbarHoogteAan()` in `js/wereldkaart.js` meet dat overschot op (normaal 0)
+en zet het in `--wr-navbar-overschot`, dat de hero zowel een stukje naar beneden
+duwt (`margin-top`) als van zijn hoogte aftrekt. Dit raakt bewust geen bestaande
+navbar- of brand-CSS — de correctie zit volledig aan de kant van de wereldreis.
 
 ### Leaflet en de Content-Security-Policy
 

@@ -1,6 +1,6 @@
 // wereldreis-widget.js — het blokje onderaan het dashboard
 //
-// Een mini-wereldkaart, het aantal ontdekte landen, een voortgangsbalk en een
+// Een mini-wereldkaart, het aantal voltooide landen, een voortgangsbalk en een
 // knop naar de grote kaart. Meer niet: het dashboard gaat over je verzamelaars,
 // de wereldreis heeft een eigen pagina.
 //
@@ -116,7 +116,7 @@ async function ververs(kindId) {
   }
 
   const s = samenvatting(landen);
-  document.getElementById("wr-widget-ontdekt").textContent = `${s.ontdekt} / ${s.landen}`;
+  document.getElementById("wr-widget-voltooid").textContent = `${s.voltooid} / ${s.landen}`;
   document.getElementById("wr-widget-stickers").textContent =
     `${s.stickersHeeft} van de ${s.stickersTotaal} stickers · ${s.procent} %`;
 

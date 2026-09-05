@@ -15,7 +15,7 @@ import {
   balk,
   trapVoor,
   LEGENDE,
-  LAGEN,
+  ZICHTBARE_CATEGORIEEN,
   bewaarKeuze,
   leesKeuze,
 } from "./wereldreis.js";
@@ -47,6 +47,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   vulKiezer();
   tekenLegende();
+  pasNavbarHoogteAan();
 
   // De kaart pas aanmaken wanneer het paneel zichtbaar is: Leaflet meet de
   // hoogte van zijn container bij het opstarten, en een verborgen div is nul
@@ -62,7 +63,48 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   await toon(kiezer.value);
+
+  // De hero neemt de volledige beschikbare hoogte in via calc(100vh - …), en
+  // die hoogte verschuift op een telefoon zodra de adresbalk in- of uitschuift.
+  // Leaflet meet zijn container maar één keer bij het opstarten, dus zonder
+  // deze regel blijft er soms een grijze rand hangen na zo'n herschikking.
+  window.addEventListener("resize", herschikKaart);
 });
+
+let herschikTimer;
+function herschikKaart() {
+  clearTimeout(herschikTimer);
+  herschikTimer = setTimeout(() => {
+    pasNavbarHoogteAan();
+    if (kaart) kaart.invalidateSize();
+  }, 150);
+}
+
+// css/style.css rekent de hoogte van de hero uit als 100vh min de navbalk
+// (--wr-navbar-hoogte, vaste 60px — dat klopt vrijwel altijd, want
+// .navbar__inner heeft zelf een vaste height en buigt niet voor zijn inhoud).
+//
+// Eén scenario breekt die aanname: wrapt de merknaam "Panini Ruilportaal
+// Meulestede" op een smal scherm over twee of drie regels — en op deze
+// pagina, met de extra "← Dashboard"-knop naast de merknaam, gebeurt dat
+// eerder dan elders — dan blijft .navbar__inner keurig 60px hoog, maar de
+// tekst overschrijdt die doos gewoon zichtbaar. Zonder correctie zou de hero
+// daar middenin beginnen. We meten dat overschot (normaal 0) en trekken het
+// via --wr-navbar-overschot van de hero af: als top-marge, om onder de
+// overschrijdende tekst te beginnen, én van de hoogte, om toch tot de
+// onderkant van het scherm te reiken. Dit raakt bewust geen bestaande
+// navbar- of brand-CSS.
+function pasNavbarHoogteAan() {
+  const navbar = document.querySelector(".navbar");
+  if (!navbar) return;
+  const eigenOnderkant = navbar.getBoundingClientRect().bottom;
+  let onderkant = eigenOnderkant;
+  navbar.querySelectorAll("*").forEach((el) => {
+    onderkant = Math.max(onderkant, el.getBoundingClientRect().bottom);
+  });
+  const overschot = Math.max(0, Math.ceil(onderkant - eigenOnderkant));
+  document.documentElement.style.setProperty("--wr-navbar-overschot", overschot + "px");
+}
 
 // De keuzelijst verdwijnt niet bij één verzamelaar — hij toont dan gewoon die
 // ene naam. Een lijst die soms wel en soms niet bestaat, maakt de pagina
@@ -112,10 +154,16 @@ async function toon(kindId) {
 }
 
 function toonCijfers(s) {
-  zet("wr-ontdekt", `${s.ontdekt} / ${s.landen}`);
+  zet("wr-voltooid", `${s.voltooid} / ${s.landen}`);
   zet("wr-stickers", `${s.stickersHeeft} / ${s.stickersTotaal}`);
   zet("wr-gezocht", String(s.gezocht));
   zet("wr-dubbel", String(s.dubbel));
+
+  // Dezelfde twee kerncijfers staan compact in de kop van de hero, zodat ze
+  // meteen zichtbaar zijn zonder naar beneden te scrollen naar de volle
+  // tellerrij.
+  zet("wr-hero-voltooid", `${s.voltooid}/${s.landen}`);
+  zet("wr-hero-stickers", `${s.stickersHeeft}/${s.stickersTotaal}`);
 }
 
 function toonVoortgang(s) {
@@ -133,7 +181,7 @@ function toonVoortgang(s) {
     regel.textContent =
       "Je hebt nog niets aangeduid, dus staat alles op 100 %. Zet op de stickerpagina van deze verzamelaar aan wat hij nog zoekt — de kaart kleurt dan meteen mee.";
   } else {
-    regel.textContent = `${s.procent} % van het album verzameld — ${s.ontdekt} van de ${s.landen} landen is compleet.`;
+    regel.textContent = `${s.procent} % van het album verzameld — ${s.voltooid} van de ${s.landen} landen is voltooid.`;
   }
   vak.appendChild(regel);
 }
@@ -191,11 +239,15 @@ function tekenLegende() {
   });
 
   // De uitleg bij de drie stippen per land. Ze komt uit dezelfde lijst als de
-  // stippen zelf, zodat fase 2 en 3 hier niets moeten bijschrijven.
+  // stippen zelf (ZICHTBARE_CATEGORIEEN), zodat een latere fase hier niets
+  // hoeft bij te schrijven — talen en foto's verschijnen hier vanzelf zodra
+  // ze op 'zichtbaar' gezet worden.
   const uitleg = document.getElementById("wr-stiplegende");
   uitleg.textContent =
     "Elk land heeft drie stippen: " +
-    LAGEN.map((l) => (l.actief ? l.label : `${l.label} (fase ${l.fase})`)).join(", ") +
+    ZICHTBARE_CATEGORIEEN.map((c) => `${c.icoon} ${c.label}${c.actief ? "" : " (binnenkort)"}`).join(
+      ", "
+    ) +
     ". Op een telefoon blijft enkel de stickerstip staan — anders liggen ze op elkaar.";
 }
 

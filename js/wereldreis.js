@@ -5,19 +5,28 @@
 // coördinaten, de kleurenschaal, het ophalen van de cijfers en het tekenen van
 // een Leaflet-kaart met stippen.
 //
-// FASE 2 EN 3. De stippen zijn bewust geen losse code maar één lijst, LAGEN
-// hieronder. Elke laag beschrijft zichzelf: welke kleur, welk opschrift, en
-// wat er in de popup komt. Fase 2 (voetbalinformatie) en fase 3 (landinfo,
-// talen, foto's, badges) hoeven dus geen tekencode te schrijven — ze zetten
-// 'actief' op true en vullen 'popup' in. Zolang actief false is, tekent de
-// kaart een doffe stip met "komt eraan", en dat is precies wat fase 1 moet
-// tonen.
+// VIJF CATEGORIEËN. De stippen en popupsecties zijn bewust geen losse code
+// maar één lijst, CATEGORIEEN hieronder — voorbereid op alle vijf categorieën
+// uit de eindvisie (stickers, voetbal, land, talen, foto's), ook al toont
+// fase 1 er maar drie. Elke categorie beschrijft zichzelf: welk icoon, welke
+// kleurklasse, en wat er in de popup komt.
+//   - 'zichtbaar' bepaalt of de categorie NU al een stip en een popupsectie
+//     krijgt. Fase 1 zet dit enkel aan voor stickers, voetbal en land; talen
+//     en foto's staan klaar (met label, icoon en placeholdertekst) maar
+//     blijven onzichtbaar tot een latere fase ze aanzet.
+//   - 'actief' bepaalt of die stip écht gegevens toont (kleur naar
+//     verzamelpercentage, een gevulde popup) of nog een dof "komt eraan"-punt
+//     is met een placeholderzin. Enkel stickers is actief in fase 1.
+// Een latere fase hoeft dus geen tekencode te schrijven: 'zichtbaar' en
+// 'actief' aanzetten en een 'popup'-functie schrijven volstaat — de stip, de
+// legende en de popup volgen vanzelf.
 //
 // LEAFLET. Wordt als globale L geladen via een <script>-tag in de pagina, niet
 // als module: de Content-Security-Policy in _headers laat scripts enkel toe van
 // 'self' en cdn.jsdelivr.net, en de stylesheet enkel van 'self' (vandaar
 // css/leaflet.css lokaal). Diezelfde CSP verbiedt style-attributen in HTML —
-// daarom kleuren de stippen via CSS-klassen en niet via style="".
+// daarom kleuren en positioneren de stippen via CSS-klassen en niet via
+// style="".
 import { supabase } from "./supabase.js";
 
 // ---------- coördinaten ----------
@@ -99,38 +108,79 @@ export function trapVoor(procent) {
 
 export const LEGENDE = TRAPPEN;
 
-// ---------- lagen ----------
+// ---------- categorieën ----------
 
-// De drie stippen van de opdracht. 'actief: false' betekent: wel tekenen, maar
-// dof en met een "komt eraan"-regel in de popup. Fase 2 en 3 zetten hem aan en
-// schrijven een popup(land) die een element teruggeeft.
-export const LAGEN = [
+// Alle vijf categorieën uit de eindvisie. 'zichtbaar: false' betekent: geen
+// stip, geen popupsectie — de categorie bestaat enkel als voorbereiding.
+// 'actief: false' (maar wel zichtbaar) betekent: wel een dof stipje en een
+// popupsectie, maar met een placeholderzin in plaats van echte gegevens.
+export const CATEGORIEEN = [
   {
     id: "stickers",
     label: "Stickers",
+    icoon: "🧩",
     fase: 1,
+    zichtbaar: true,
     actief: true,
     // De stickerstip is de enige die van kleur verandert: hij draagt het cijfer.
     klasseVoor: (land) => "wr-stip--stickers " + trapVoor(land.procent).klasse,
     popup: (land) => stickerPopup(land),
+    placeholder: null,
   },
   {
     id: "voetbal",
     label: "Voetbal",
+    icoon: "⚽",
     fase: 2,
+    zichtbaar: true,
     actief: false,
     klasseVoor: () => "wr-stip--voetbal",
     popup: null,
+    placeholder: "Voetbalinformatie verschijnt in de volgende update.",
   },
   {
-    id: "landinfo",
-    label: "Landinfo",
+    id: "land",
+    label: "Land",
+    icoon: "📍",
     fase: 3,
+    zichtbaar: true,
     actief: false,
-    klasseVoor: () => "wr-stip--landinfo",
+    klasseVoor: () => "wr-stip--land",
     popup: null,
+    placeholder: "Meer over dit land verschijnt in een volgende update.",
+  },
+  // Talen en foto's staan klaar voor een latere fase, maar tekenen in fase 1
+  // nog geen stip en krijgen geen popupsectie: 'zichtbaar' blijft false tot
+  // die fase ze aanzet. Er is dan geen enkele tekencode meer nodig — enkel
+  // deze twee regels aanpassen.
+  {
+    id: "talen",
+    label: "Talen",
+    icoon: "🗣️",
+    fase: 3,
+    zichtbaar: false,
+    actief: false,
+    klasseVoor: () => "wr-stip--talen",
+    popup: null,
+    placeholder: "Taalinformatie verschijnt in een volgende update.",
+  },
+  {
+    id: "fotos",
+    label: "Foto's",
+    icoon: "📷",
+    fase: 3,
+    zichtbaar: false,
+    actief: false,
+    klasseVoor: () => "wr-stip--fotos",
+    popup: null,
+    placeholder: "Foto's verschijnen in een volgende update.",
   },
 ];
+
+// De categorieën die in de huidige fase echt een stip en een popupsectie
+// krijgen — overal elders in dit bestand en in js/wereldkaart.js gebruikt in
+// plaats van rechtstreeks over CATEGORIEEN te lopen.
+export const ZICHTBARE_CATEGORIEEN = CATEGORIEEN.filter((c) => c.zichtbaar);
 
 // ---------- gegevens ----------
 
@@ -148,16 +198,18 @@ export async function laadLanden(kindId) {
   }));
 }
 
-// De cijfers boven de kaart en in de widget. "Ontdekt" is hier: elk plaatje van
-// dat land geplakt, dus 100 %. Een lagere drempel zou niets betekenen — wie nog
-// niets aanduidde staat overal op 100 %, en dan is "je hebt er minstens één"
-// waar voor iedereen, altijd.
+// De cijfers boven de kaart en in de widget. "Voltooid" is hier: elk plaatje
+// van dat land geplakt, dus 100 %. Niet "ontdekt" — dat datamodel kan niet
+// betrouwbaar bepalen wánneer een land voor het eerst iets kreeg, enkel hoe
+// ver het nu staat. Een lagere drempel dan 100 % zou bovendien niets
+// betekenen: wie nog niets aanduidde staat overal op 100 %, en dan is "je
+// hebt er minstens één" waar voor iedereen, altijd.
 export function samenvatting(landen) {
   const opKaart = landen.filter((l) => l.opKaart);
   const stickersTotaal = landen.reduce((som, l) => som + l.totaal, 0);
   const stickersHeeft = landen.reduce((som, l) => som + l.heeft, 0);
   return {
-    ontdekt: opKaart.filter((l) => l.procent >= 100).length,
+    voltooid: opKaart.filter((l) => l.procent >= 100).length,
     landen: opKaart.length,
     stickersHeeft,
     stickersTotaal,
@@ -260,16 +312,31 @@ export function tekenLanden(kaart, landen, { mini = false } = {}) {
 // waarde van een gebruiker in: land_naam en de cijfers staan in de catalogus,
 // de klassen komen uit dit bestand. De popup — waar wél tekst uit de databank
 // in belandt — bouwen we verderop wél met textContent.
+//
+// De volgorde van de stippen (voetbal, land, stickers) bepaalt welke plek elke
+// stip krijgt in de driehoeksopstelling uit css/style.css — daar staan per
+// klasse vaste, niet-willekeurige offsets (wr-stip--voetbal boven,
+// wr-stip--land rechtsonder, wr-stip--stickers linksonder), zodat een land
+// altijd dezelfde opstelling toont. Op een klein scherm of de ministip op het
+// dashboard blijft alleen de stickerstip staan, en die wordt daar herzet naar
+// het midden — zie de media query en .wr-kaart--mini in css/style.css.
 function stippenHtml(land, mini) {
-  const lagen = mini ? LAGEN.filter((l) => l.actief) : LAGEN;
-  const stippen = lagen
-    .map((laag) => `<span class="wr-stip ${laag.klasseVoor(land)}"></span>`)
+  const categorieen = mini
+    ? ZICHTBARE_CATEGORIEEN.filter((c) => c.actief)
+    : ZICHTBARE_CATEGORIEEN;
+  const stippen = categorieen
+    .map((cat) => `<span class="wr-stip ${cat.klasseVoor(land)}"></span>`)
     .join("");
   return `<span class="wr-stip-groep">${stippen}</span>`;
 }
 
 // ---------- popup ----------
 
+// Eén sectie per zichtbare categorie, elk met dezelfde kop (icoon + label) —
+// zo leest de popup als één geheel in plaats van "de stickerinfo, plus twee
+// losse zinnetjes". Fase 2 en 3 hoeven deze opbouw niet aan te raken: zodra
+// hun categorie 'actief' wordt, verschijnt hun popup(land) hier vanzelf in
+// plaats van de placeholderzin.
 function bouwPopup(land) {
   const vak = document.createElement("div");
   vak.className = "wr-popup";
@@ -284,11 +351,31 @@ function bouwPopup(land) {
   code.textContent = land.land_code;
   titel.appendChild(code);
 
-  LAGEN.forEach((laag) => {
-    vak.appendChild(laag.actief && laag.popup ? laag.popup(land) : wachtRegel(laag));
+  ZICHTBARE_CATEGORIEEN.forEach((cat) => {
+    const inhoud = cat.actief && cat.popup ? cat.popup(land) : placeholderInhoud(cat);
+    vak.appendChild(sectie(cat, inhoud));
   });
 
   return vak;
+}
+
+function sectie(cat, inhoud) {
+  const wrap = document.createElement("div");
+  wrap.className = "wr-popup__sectie";
+
+  const kop = document.createElement("p");
+  kop.className = "wr-popup__sectie-kop";
+  const icoon = document.createElement("span");
+  icoon.className = "wr-popup__sectie-icoon";
+  icoon.textContent = cat.icoon;
+  const label = document.createElement("span");
+  label.textContent = cat.label;
+  kop.appendChild(icoon);
+  kop.appendChild(label);
+
+  wrap.appendChild(kop);
+  wrap.appendChild(inhoud);
+  return wrap;
 }
 
 function stickerPopup(land) {
@@ -320,10 +407,10 @@ function stickerPopup(land) {
   return blok;
 }
 
-function wachtRegel(laag) {
+function placeholderInhoud(cat) {
   const p = document.createElement("p");
   p.className = "wr-popup__wacht";
-  p.textContent = `${laag.label} — komt in fase ${laag.fase}`;
+  p.textContent = cat.placeholder;
   return p;
 }
 

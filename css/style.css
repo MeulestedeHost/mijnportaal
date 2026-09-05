@@ -242,48 +242,148 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   --wr-midden: #e8833a;   /* 25 – 74 %  */
   --wr-laag: #98a2b3;     /* 0 – 24 %   */
   --wr-voetbal: #1d6fe0;  /* fase 2, nog leeg */
-  --wr-landinfo: #e8b923; /* fase 3, nog leeg */
+  --wr-land: #e8b923;     /* fase 3, nog leeg */
+  /* Dezelfde vier kleuren, maar als rgba: de glow-animatie hieronder heeft een
+     doorzichtige versie nodig voor de buitenste ring van de box-shadow, en CSS
+     kan een hex-kleur niet zelf van een alfakanaal voorzien. */
+  --wr-vol-glow: rgba(42, 157, 79, 0.55);
+  --wr-hoog-glow: rgba(232, 185, 35, 0.55);
+  --wr-midden-glow: rgba(232, 131, 58, 0.55);
+  --wr-laag-glow: rgba(152, 162, 179, 0.55);
+  /* Gelijk aan de vaste hoogte in .navbar__inner. */
+  --wr-navbar-hoogte: 60px;
+  /* Normaal 0: hoeveel de inhoud van de navbalk (meestal de merknaam, als die
+     op een smal scherm wrapt) buiten zijn eigen 60px-hoge doos uitsteekt.
+     js/wereldkaart.js meet dit op zodra de pagina laadt en bij elke resize, en
+     zet deze variabele — zonder JavaScript blijft ze op 0 en is er geen
+     correctie. */
+  --wr-navbar-overschot: 0px;
 }
 
 .form-meta--plat { margin-bottom: 0; }
+
+/* ---------- de hero: de kaart als volledige pagina ---------- */
+/* height staat twee keer: vh als basis die overal werkt, dvh erna als
+   verbetering op mobiel — daar telt vh de volledige viewport mee, óók het
+   stuk achter de adresbalk, wat op een telefoon een stuk kaart onder de vouw
+   duwt. Ondersteunt een browser dvh niet, dan wint gewoon de vh-regel. */
+.wr-hero {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--wr-navbar-overschot);
+  height: calc(100vh - var(--wr-navbar-hoogte) - var(--wr-navbar-overschot));
+  height: calc(100dvh - var(--wr-navbar-hoogte) - var(--wr-navbar-overschot));
+  min-height: 480px;
+  background: linear-gradient(135deg, #eaf4ff 0%, #f4f6f9 55%, #fdf6e3 100%);
+}
+
+.wr-hero__bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.25rem;
+  padding: 0.75rem 1.25rem;
+}
+
+.wr-hero__titel { display: flex; align-items: center; gap: 0.6rem; }
+.wr-hero__icoon { font-size: 2.1rem; line-height: 1; }
+.wr-hero__titel h1 { font-size: 1.35rem; color: var(--cf-blue-dark); line-height: 1.2; }
+.wr-hero__ondertitel { margin: 0.1rem 0 0; font-size: 0.8rem; color: var(--text-muted); }
+
+.wr-hero__stats { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+/* Pilvormige chips in plaats van de rechthoekige tegels elders op de site:
+   dit is de speelse, meteen-zichtbare samenvatting, de volledige tellerrij
+   met uitleg staat verderop onder de kaart voor wie doorscrolt. */
+.wr-hero__stat { display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(255, 255, 255, 0.85); border-radius: 999px; padding: 0.4rem 0.9rem; font-weight: 700; font-size: 0.875rem; color: var(--cf-blue-dark); box-shadow: var(--shadow); white-space: nowrap; }
+
+.wr-hero__kiezer { display: flex; align-items: center; gap: 0.5rem; }
+.wr-hero__kiezer-label { margin: 0; font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
 
 /* De kaart. z-index: 0 maakt hier een eigen stapelcontext: zonder die regel
    klimmen Leaflets zoomknoppen (z-index 800) bij het scrollen over de sticky
    navigatiebalk heen. */
 .wr-kaart { position: relative; z-index: 0; height: min(70vh, 560px); min-height: 320px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
+/* De hero-kaart vult de rest van de hero op: flex:1 laat hem meegroeien met
+   het beschikbare stuk scherm, min-height:0 is nodig omdat een flex-kind
+   anders weigert kleiner te worden dan zijn inhoud en de hero buiten de
+   viewport zou duwen. */
+.wr-kaart.wr-kaart--hero { flex: 1 1 auto; min-height: 0; border-radius: 0; border: none; }
 /* De minikaart krijgt een vaste maat rond de wereld op zoomtrap 0: daar is de
    wereld 256 bij 143 pixels, en een breder vak zou enkel achtergrond bijzetten
    (er zijn geen tegels naast de wereld wanneer noWrap aanstaat). */
 .wr-kaart--mini { width: 100%; height: 156px; min-height: 0; background: var(--surface); }
-.wr-kaartkaart { padding: 1rem; }
 
-/* Stippen. De marker zelf is 0 bij 0 groot en staat exact op het punt; de
-   groep eronder wordt met een transform gecentreerd. Zo blijft de afstand
-   tussen de drie stippen dezelfde op elk zoomniveau — met echte coördinaten
-   per stip zouden ze bij uitzoomen op elkaar kruipen. */
-/* De marker krijgt van Leaflet zijn afmeting inline uit iconSize [0, 0]; deze
-   regel is er zodat een lezer niet gaat zoeken waar die nul vandaan komt. */
+/* ---------- stippen ---------- */
+/* De marker zelf is 0 bij 0 groot en staat exact op het landpunt; de groep
+   eronder wordt met een transform gecentreerd. Elke stip krijgt daarna zijn
+   EIGEN vaste pixel-offset (hieronder) om de driehoeksopstelling te vormen —
+   dat blijft zo op elk zoomniveau, want Leaflet herberekent enkel het
+   ankerpunt, niet de afmetingen of offsets van het icoon zelf. Dezelfde stip
+   staat dus altijd op dezelfde plek ten opzichte van het land: geen
+   toevalspositie per herlading. */
 .wr-marker { width: 0; height: 0; }
-.wr-stip-groep { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 3px; pointer-events: auto; }
-.wr-stip { display: block; width: 15px; height: 15px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45); background: var(--wr-laag); }
+.wr-stip-groep { position: absolute; left: 0; top: 0; pointer-events: auto; }
+.wr-stip { position: absolute; display: block; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); background: var(--wr-laag); width: 24px; height: 24px; transform: translate(-50%, -50%); }
 .wr-stip--stickers.wr-vol { background: var(--wr-vol); }
 .wr-stip--stickers.wr-hoog { background: var(--wr-hoog); }
 .wr-stip--stickers.wr-midden { background: var(--wr-midden); }
 .wr-stip--stickers.wr-laag { background: var(--wr-laag); }
 
-/* De twee stippen van fase 2 en 3 staan er al, maar doffer en kleiner: ze
-   moeten aankondigen dat er iets komt zonder de kleur van de stickerstip te
-   verstoren. Zodra hun laag in js/wereldreis.js op actief gaat, volstaat het
-   die doffe opmaak hier weg te halen. */
-.wr-stip--voetbal, .wr-stip--landinfo { width: 9px; height: 9px; border-width: 1.5px; opacity: 0.45; }
-.wr-stip--voetbal { background: var(--wr-voetbal); }
-.wr-stip--landinfo { background: var(--wr-landinfo); }
+/* Driehoek: stickers linksonder, voetbal boven, land rechtsonder — vaste
+   offsets in pixels, dus altijd dezelfde vorm. */
+.wr-stip--stickers { top: 12px; left: -18px; z-index: 3; }
+.wr-stip--voetbal   { top: -20px; left: 0; z-index: 2; }
+.wr-stip--land       { top: 12px; left: 18px; z-index: 2; }
 
-/* Popup: de cijfers van één land. */
-.wr-popup { min-width: 190px; }
-.wr-popup__titel { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: baseline; gap: 0.4rem; }
+/* De twee stippen van fase 2 en 3 staan er al, maar doffer en kleiner: ze
+   moeten aankondigen dat er iets komt zonder de stickerstip te verdringen.
+   Zodra hun categorie in js/wereldreis.js op 'actief' gaat, volstaat het die
+   doffe opmaak hier weg te halen. */
+.wr-stip--voetbal, .wr-stip--land { width: 16px; height: 16px; border-width: 2px; opacity: 0.5; }
+.wr-stip--voetbal { background: var(--wr-voetbal); }
+.wr-stip--land { background: var(--wr-land); }
+
+/* Glow: een pulserende ring die vanuit de stickerstip naar buiten groeit en
+   wegdooft — duidelijker dan een platte schaduw, en meteen zichtbaar dat dit
+   het stipje is waarop je moet tikken. Enkel 'transform' en 'opacity'
+   animeren: dat zijn de twee eigenschappen die de browser puur op de
+   compositor kan afhandelen, dus zonder her-lay-out of herteken bij elk
+   frame — belangrijk zodra tientallen landen tegelijk pulseren. Enkel op de
+   stickerstip (de interactieve, informatieve stip) en nooit op de ministip
+   van het dashboard: die is niet klikbaar en mag niet om aandacht vragen. */
+.wr-kaart:not(.wr-kaart--mini) .wr-stip--stickers { --wr-glow-kleur: var(--wr-laag-glow); }
+.wr-kaart:not(.wr-kaart--mini) .wr-stip--stickers.wr-vol { --wr-glow-kleur: var(--wr-vol-glow); }
+.wr-kaart:not(.wr-kaart--mini) .wr-stip--stickers.wr-hoog { --wr-glow-kleur: var(--wr-hoog-glow); }
+.wr-kaart:not(.wr-kaart--mini) .wr-stip--stickers.wr-midden { --wr-glow-kleur: var(--wr-midden-glow); }
+.wr-kaart:not(.wr-kaart--mini) .wr-stip--stickers::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: var(--wr-glow-kleur);
+  pointer-events: none;
+  animation: wr-glow 2.4s ease-out infinite;
+}
+@keyframes wr-glow {
+  0%   { transform: scale(0.9); opacity: 0.6; }
+  70%, 100% { transform: scale(1.9); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wr-stip--stickers::after { animation: none !important; opacity: 0 !important; }
+}
+
+/* Popup: kop + drie secties (stickers, voetbal, land), elk met hun eigen
+   icoon en label — zo leest de popup als één samenhangend geheel in plaats
+   van "de echte info plus twee losse zinnetjes". */
+.wr-popup { min-width: 200px; }
+.wr-popup__titel { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: baseline; gap: 0.4rem; }
 .wr-popup__code { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-muted); }
-.wr-popup__blok { margin-bottom: 0.6rem; }
+.wr-popup__sectie + .wr-popup__sectie { border-top: 1px dashed var(--border); margin-top: 0.5rem; padding-top: 0.5rem; }
+.wr-popup__sectie-kop { display: flex; align-items: center; gap: 0.4rem; font-weight: 700; font-size: 0.8rem; margin-bottom: 0.3rem; color: var(--text); }
+.wr-popup__sectie-icoon { font-size: 1rem; }
+.wr-popup__blok { margin-bottom: 0.1rem; }
 .wr-popup__procent { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.35rem; }
 .wr-popup__procent.wr-vol { color: var(--wr-vol); }
 .wr-popup__procent.wr-hoog { color: #8a6d05; }
@@ -292,7 +392,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .wr-popup__cijfers { display: grid; grid-template-columns: auto auto; gap: 0.1rem 0.75rem; margin-top: 0.5rem; font-size: 0.85rem; }
 .wr-popup__cijfers dt { color: var(--text-muted); }
 .wr-popup__cijfers dd { font-weight: 600; text-align: right; }
-.wr-popup__wacht { font-size: 0.775rem; color: var(--text-muted); font-style: italic; border-top: 1px dashed var(--border); padding-top: 0.35rem; margin-top: 0.35rem; }
+.wr-popup__wacht { font-size: 0.8rem; color: var(--text-muted); font-style: italic; margin: 0; }
 
 /* Voortgangsbalk — ook in de popup en in de widget. De breedte zet
    js/wereldreis.js via el.style, want een style-attribuut in de HTML zou de
@@ -303,20 +403,28 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .wr-balk__vulling.wr-hoog { background: var(--wr-hoog); }
 .wr-balk__vulling.wr-midden { background: var(--wr-midden); }
 
-/* Tellers boven de kaart. */
+/* Tellers onder de kaart, met een icoon per cijfer voor wat meer speelsheid
+   en visuele hiërarchie dan een kale rij getallen. */
 .wr-cijfers { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
 .wr-cijfer { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.15rem; }
+.wr-cijfer__icoon { font-size: 1.15rem; line-height: 1; margin-bottom: 0.1rem; }
 .wr-cijfer__getal { font-size: 1.5rem; font-weight: 700; color: var(--cf-blue-dark); line-height: 1.15; }
+.wr-cijfer__getal--trofee { display: inline-flex; align-items: center; gap: 0.4rem; }
 .wr-cijfer__label { font-size: 0.775rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Iets minder ruimte boven dan de standaard .main-padding: dit stuk volgt
+   direct op de kleurrijke hero, geen kale navbar, dus het overgangswitruimte
+   mag krapper. */
+.wr-onder { padding-top: 1.5rem; }
 
 .wr-voortgang { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
 .wr-voortgang__tekst { margin: 0.6rem 0 0; }
 
-.wr-legende { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin-top: 0.875rem; font-size: 0.8rem; color: var(--text-muted); }
+.wr-legende { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); }
 .wr-legende__item { display: flex; align-items: center; gap: 0.4rem; }
 /* In de legende staat de stip in de tekst en niet op een kaart: daar hoort
    geen absolute plaatsing bij. */
-.wr-legende .wr-stip { position: static; flex: none; }
+.wr-legende .wr-stip { position: static; flex: none; width: 15px; height: 15px; border-width: 2px; }
 .wr-stiplegende { margin: 0.6rem 0 0; }
 
 /* De regel van PANINI en FWC onder de kaart, met dezelfde kleurcode. */
@@ -326,7 +434,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .wr-tegel.wr-midden { color: #a1521a; background: #fdeee2; border-color: #f4d4b8; }
 
 .wr-kiezer__label { align-self: center; margin: 0; color: var(--text-muted); }
-.wr-kiezer__select { width: auto; min-width: 11rem; font-weight: 600; }
+.wr-kiezer__select { width: auto; min-width: 11rem; font-weight: 600; border-radius: 999px; }
 
 /* De widget onderaan het dashboard: kaart links, cijfers rechts. */
 .wr-widget__kop { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
@@ -346,14 +454,20 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .wr-widget__balkvak { width: 100%; max-width: 320px; }
 
 @media (max-width: 640px) {
+  .wr-hero__bar { padding: 0.6rem 1rem; }
+  .wr-hero__icoon { font-size: 1.75rem; }
+  .wr-hero__titel h1 { font-size: 1.15rem; }
+  .wr-hero__ondertitel { display: none; }
+
   /* "Eén centrale marker" op een telefoon: de twee lege stippen van fase 2 en
-     3 verdwijnen, zodat de stickerstip alleen en gecentreerd op het land
-     staat — en groot genoeg om met een duim te raken. */
-  .leaflet-container .wr-stip--voetbal, .leaflet-container .wr-stip--landinfo { display: none; }
-  .leaflet-container .wr-stip--stickers { width: 19px; height: 19px; }
+     3 verdwijnen, en de stickerstip zelf verliest zijn driehoekoffset zodat
+     hij alleen en gecentreerd op het land staat — groot genoeg om met een
+     duim te raken. */
+  .leaflet-container .wr-stip--voetbal, .leaflet-container .wr-stip--land { display: none; }
+  .leaflet-container .wr-stip--stickers { top: 0; left: 0; width: 28px; height: 28px; }
   /* Enkel de grote kaart mag op een telefoon het scherm vullen; de minikaart
      op het dashboard houdt haar eigen hoogte. */
-  .wr-kaart:not(.wr-kaart--mini) { height: 60vh; min-height: 280px; }
+  .wr-kaart:not(.wr-kaart--mini):not(.wr-kaart--hero) { height: 60vh; min-height: 280px; }
   .wr-widget__inhoud { grid-template-columns: 1fr; }
   .wr-widget__kaartvak { width: 100%; max-width: 264px; margin: 0 auto; }
   .wr-cijfer__getal { font-size: 1.25rem; }
@@ -362,7 +476,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 }
 
 /* De minikaart op het dashboard toont nooit meer dan de stickerstip, ook op
-   een breed scherm: het is een voorproefje, geen werkblad. */
-.wr-kaart--mini .wr-stip--voetbal, .wr-kaart--mini .wr-stip--landinfo { display: none; }
-.wr-kaart--mini .wr-stip { width: 11px; height: 11px; border-width: 1.5px; }
+   een breed scherm: het is een voorproefje, geen werkblad. Zonder driehoek-
+   offset staat hij netjes in het midden van het landpunt, net als op mobiel. */
+.wr-kaart--mini .wr-stip--voetbal, .wr-kaart--mini .wr-stip--land { display: none; }
+.wr-kaart--mini .wr-stip--stickers { top: 0; left: 0; width: 11px; height: 11px; border-width: 1.5px; }
 .wr-kaart--mini .leaflet-control-attribution { font-size: 9px; }

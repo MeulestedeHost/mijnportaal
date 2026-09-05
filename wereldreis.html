@@ -24,44 +24,69 @@
     </div>
   </header>
 
-  <main class="container main">
-    <div class="dashboard-header">
-      <h1>🌍 FIFA Wereldreis</h1>
-      <div class="dashboard-header__acties">
-        <label for="wr-kind" class="form-label wr-kiezer__label">Verzamelaar</label>
-        <select id="wr-kind" class="form-input wr-kiezer__select"></select>
-      </div>
-    </div>
-
-    <div id="wr-loading" class="loading">Laden…</div>
+  <div id="wr-loading" class="loading">Laden…</div>
+  <div class="container">
     <div id="wr-fout" class="message" role="alert" aria-live="polite"></div>
+  </div>
 
-    <div id="wr-paneel" class="hidden">
-      <section class="card">
-        <p class="form-meta form-meta--plat">
-          Elk land van het album staat als stip op de kaart. Tik erop en je ziet hoeveel
-          stickers van dat land al geplakt zijn. De kleur van de stip zegt in één
-          oogopslag hoe ver je staat.
-        </p>
-      </section>
+  <main id="wr-paneel" class="hidden">
+    <!-- De kaart is nu de pagina: de hero neemt vrijwel de volledige
+         viewporthoogte in (zie .wr-hero in css/style.css — 100vh min de
+         hoogte van de navbar hierboven), zodat een kind meteen de wereld ziet
+         in plaats van eerst langs tekst en tellers te moeten scrollen. -->
+    <section class="wr-hero">
+      <div class="wr-hero__bar">
+        <div class="wr-hero__titel">
+          <span class="wr-hero__icoon" aria-hidden="true">🌍</span>
+          <div>
+            <h1>FIFA Wereldreis</h1>
+            <p class="wr-hero__ondertitel">Tik op een land voor meer info</p>
+          </div>
+        </div>
 
+        <div class="wr-hero__stats">
+          <span class="wr-hero__stat">
+            <span aria-hidden="true">🏆</span>
+            <span id="wr-hero-voltooid">–</span> voltooid
+          </span>
+          <span class="wr-hero__stat">
+            <span aria-hidden="true">🧩</span>
+            <span id="wr-hero-stickers">–</span> stickers
+          </span>
+        </div>
+
+        <div class="wr-hero__kiezer">
+          <label for="wr-kind" class="wr-hero__kiezer-label">Verzamelaar</label>
+          <select id="wr-kind" class="form-input wr-kiezer__select"></select>
+        </div>
+      </div>
+
+      <div id="wr-kaart" class="wr-kaart wr-kaart--hero" role="application"
+           aria-label="Wereldkaart met alle landen uit het album"></div>
+    </section>
+
+    <div class="container main wr-onder">
       <!-- De vier tellers. Ze worden door js/wereldkaart.js gevuld; de
            opschriften staan hier zodat de pagina ook zonder JavaScript nog
            leesbaar is als skelet. -->
       <div class="wr-cijfers">
         <div class="wr-cijfer">
-          <span class="wr-cijfer__getal" id="wr-ontdekt">–</span>
-          <span class="wr-cijfer__label">ontdekte landen</span>
+          <span class="wr-cijfer__icoon" aria-hidden="true">🏆</span>
+          <span class="wr-cijfer__getal" id="wr-voltooid">–</span>
+          <span class="wr-cijfer__label">voltooide landen</span>
         </div>
         <div class="wr-cijfer">
+          <span class="wr-cijfer__icoon" aria-hidden="true">🧩</span>
           <span class="wr-cijfer__getal" id="wr-stickers">–</span>
           <span class="wr-cijfer__label">stickers in bezit</span>
         </div>
         <div class="wr-cijfer">
+          <span class="wr-cijfer__icoon" aria-hidden="true">🔍</span>
           <span class="wr-cijfer__getal" id="wr-gezocht">–</span>
           <span class="wr-cijfer__label">nog gezocht</span>
         </div>
         <div class="wr-cijfer">
+          <span class="wr-cijfer__icoon" aria-hidden="true">🔁</span>
           <span class="wr-cijfer__getal" id="wr-dubbel">–</span>
           <span class="wr-cijfer__label">dubbel</span>
         </div>
@@ -69,15 +94,13 @@
 
       <div id="wr-voortgang" class="wr-voortgang"></div>
 
-      <section class="card wr-kaartkaart">
-        <div id="wr-kaart" class="wr-kaart" role="application"
-             aria-label="Wereldkaart met alle landen uit het album"></div>
+      <section class="card">
         <div class="wr-legende" id="wr-legende"></div>
         <p class="form-meta wr-stiplegende" id="wr-stiplegende"></p>
       </section>
 
       <section class="card">
-        <h2>Niet op de kaart</h2>
+        <h2>📌 Niet op de kaart</h2>
         <p class="form-meta">
           Twee reeksen uit het album horen bij geen enkel land. Ze tellen wél mee in de
           cijfers hierboven.
@@ -86,11 +109,11 @@
       </section>
 
       <section class="card">
-        <h2>Wat komt er nog?</h2>
+        <h2>✨ Wat komt er nog?</h2>
         <p class="form-meta form-meta--plat">
-          De blauwe en gele stip naast elke groene staan er al, maar zijn nog leeg.
-          In <strong>fase 2</strong> vullen we ze met voetbalinformatie per land, in
-          <strong>fase 3</strong> met landinfo, talen, foto’s en badges.
+          De ⚽- en 📍-stip naast elke stickerstip staan er al, maar zijn nog leeg. In de
+          volgende updates vullen we ze met voetbalinformatie en landinfo per land, en
+          komen daarna 🗣️ talen en 📷 foto's erbij.
         </p>
       </section>
     </div>
