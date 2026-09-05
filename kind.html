@@ -24,53 +24,42 @@
     <h1 id="kind-naam">Laden…</h1>
     <p id="kind-geboortejaar" class="form-meta"></p>
 
-    <div class="card">
-      <h2>Sticker toevoegen</h2>
+    <div class="card" id="sticker-kaart">
+      <h2>Stickers beheren</h2>
+      <p class="form-meta">
+        Kies een land, vink aan wat je zoekt en zet met + en − hoeveel je er dubbel hebt. Klik
+        daarna op <strong>Bewaar wijzigingen</strong> — dat werkt de hele lijst in één keer bij.
+      </p>
 
-      <form id="sticker-form" novalidate>
-        <input type="hidden" id="sticker-id" />
-        <input type="hidden" id="sticker-code" />
+      <div class="form-group">
+        <label for="sticker-land" class="form-label">Land</label>
+        <select id="sticker-land" class="form-input form-input--groot">
+          <option value="">Kies een land…</option>
+        </select>
+      </div>
 
-        <div class="zoekbalk">
-          <div class="form-group zoekbalk__zoek">
-            <label for="sticker-zoek" class="form-label">Zoek je sticker</label>
-            <input
-              type="text"
-              id="sticker-zoek"
-              class="form-input form-input--groot"
-              placeholder="Typ een nummer, code of naam — bv. 7, BEL7 of Courtois"
-              autocomplete="off"
-            />
-          </div>
+      <div class="form-group hidden" id="sticker-filter-vak">
+        <label for="sticker-zoek" class="form-label">Zoeken binnen dit land</label>
+        <input
+          type="text"
+          id="sticker-zoek"
+          class="form-input"
+          placeholder="Typ een nummer of naam om de lijst te verkorten"
+          autocomplete="off"
+        />
+      </div>
 
-          <div class="form-group zoekbalk__land">
-            <label for="sticker-land" class="form-label">Filter op land</label>
-            <select id="sticker-land" class="form-input">
-              <option value="">Alle landen</option>
-            </select>
-          </div>
+      <p id="sticker-teller" class="sticker-teller"></p>
+      <p id="sticker-leeg" class="form-meta hidden">Kies hierboven eerst een land.</p>
+      <ul id="sticker-checklist" class="sticker-checklist"></ul>
+
+      <div id="sticker-bewaarbalk" class="sticker-bewaarbalk hidden">
+        <span id="sticker-wijzigingen-tekst" class="sticker-wijzigingen-tekst"></span>
+        <div class="form-actions">
+          <button type="button" class="btn btn--primary" id="sticker-bewaar-btn">Bewaar wijzigingen</button>
+          <button type="button" class="btn btn--outline" id="sticker-annuleer-btn">Annuleren</button>
         </div>
-
-        <p class="sticker-instructie">Tik één sticker aan en klik daarna op Toevoegen.</p>
-        <p id="sticker-teller" class="sticker-teller"></p>
-        <ul id="sticker-suggesties" class="sticker-suggesties"></ul>
-
-        <div id="sticker-keuze" class="keuzevak hidden">
-          <h3 class="keuzevak__titel">Wat wil ik doen?</h3>
-          <p class="keuzevak__zin">
-            <span class="sticker-gekozen" id="sticker-gekozen-tekst"></span>
-            <select id="sticker-status" class="form-input keuzevak__select" required
-                    aria-label="Wat wil ik doen met deze sticker?">
-              <option value="ZOEKT">zoek ik</option>
-              <option value="RUILT">heb ik dubbel</option>
-            </select>
-          </p>
-          <div class="form-actions">
-            <button type="submit" class="btn btn--primary" id="sticker-submit-btn" disabled>Toevoegen</button>
-            <button type="button" class="btn btn--outline" id="sticker-cancel-btn">Annuleren</button>
-          </div>
-        </div>
-      </form>
+      </div>
 
       <div id="sticker-message" class="message" role="alert" aria-live="polite"></div>
     </div>

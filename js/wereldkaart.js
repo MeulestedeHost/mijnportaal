@@ -230,7 +230,7 @@ function tekenLegende() {
     item.className = "wr-legende__item";
 
     const stip = document.createElement("span");
-    stip.className = "wr-stip wr-stip--stickers " + trap.klasse;
+    stip.className = "wr-icoon wr-icoon--stickers " + trap.klasse;
 
     const tekst = document.createElement("span");
     tekst.textContent = `${trap.bereik} — ${trap.label}`;
@@ -240,17 +240,16 @@ function tekenLegende() {
     vak.appendChild(item);
   });
 
-  // De uitleg bij de drie stippen per land. Ze komt uit dezelfde lijst als de
-  // stippen zelf (ZICHTBARE_CATEGORIEEN), zodat een latere fase hier niets
-  // hoeft bij te schrijven — talen en foto's verschijnen hier vanzelf zodra
-  // ze op 'zichtbaar' gezet worden.
+  // De uitleg bij de vijf iconen per land. Ze komt uit dezelfde lijst als de
+  // iconen zelf (ZICHTBARE_CATEGORIEEN), zodat een latere, zesde categorie
+  // hier niets hoeft bij te schrijven.
   const uitleg = document.getElementById("wr-stiplegende");
   uitleg.textContent =
-    "Elk land heeft drie stippen: " +
+    "Elk land heeft vijf iconen: " +
     ZICHTBARE_CATEGORIEEN.map((c) => `${c.icoon} ${c.label}${c.actief ? "" : " (binnenkort)"}`).join(
       ", "
     ) +
-    ". Op een telefoon blijft enkel de stickerstip staan — anders liggen ze op elkaar.";
+    ". Tik op een icoon voor de bijhorende info over dat land.";
 }
 
 function zet(id, tekst) {

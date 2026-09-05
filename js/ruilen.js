@@ -187,7 +187,9 @@ function bouwRij(kind, rij) {
   const tr = document.createElement("tr");
 
   const sticker = document.createElement("td");
-  sticker.textContent = rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code;
+  // ×N enkel tonen als het er meer dan één is: "×1" leert niemand iets bij.
+  const suffix = rij.aantal > 1 ? ` ×${rij.aantal}` : "";
+  sticker.textContent = (rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code) + suffix;
   tr.appendChild(sticker);
 
   const land = document.createElement("td");
@@ -236,10 +238,11 @@ function contactCel(kind, rij) {
 
 function ruilBericht(kind, rij) {
   const sticker = rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code;
+  const aantal = rij.aantal > 1 ? ` (${rij.aantal} exemplaren)` : "";
   const zin =
     rij.richting === "jij_zoekt"
-      ? `${kind.voornaam} zoekt ${sticker}, en ${rij.ander_kind} heeft die dubbel`
-      : `${kind.voornaam} heeft ${sticker} dubbel, en ${rij.ander_kind} zoekt die`;
+      ? `${kind.voornaam} zoekt ${sticker}, en ${rij.ander_kind} heeft die dubbel${aantal}`
+      : `${kind.voornaam} heeft ${sticker} dubbel${aantal}, en ${rij.ander_kind} zoekt die`;
   return `Dag! Via het Panini Ruilportaal Meulestede: ${zin}. Zullen we ruilen?`;
 }
 

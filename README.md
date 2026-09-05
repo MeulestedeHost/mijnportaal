@@ -10,7 +10,7 @@ Pages; data en authenticatie via Supabase.
 ```
 auth.users
     └── kinderen (voornaam, familienaam, geboortejaar)
-             └── stickers (nummer, status: HEEFT | ZOEKT | RUILT)
+             └── stickers (nummer, status: ZOEKT | RUILT, aantal)
 ```
 
 Elke rij in `kinderen` hoort bij precies één gebruiker (`user_id`). Elke rij
@@ -26,8 +26,9 @@ gebruiker die dat kind beheert.
    script dropt eerst een eventueel bestaande `kinderen`/`stickers`-tabel
    (met alle rijen) voordat het ze herbouwt.
 4. Voer daarna de migraties in volgorde uit: `003` → `005` → `006` → `007` →
-   `008` → `009_gezin_en_whatsapp.sql` → `010_wereldreis.sql`. Enkel `002` en
-   de blokken die het zelf aankondigen zijn destructief; `009` en `010` zijn
+   `008` → `009_gezin_en_whatsapp.sql` → `010_wereldreis.sql` →
+   `011_wereldreis_fotos.sql` → `012_stickers_aantal.sql`. Enkel `002` en de
+   blokken die het zelf aankondigen zijn destructief; `009` en later zijn
    dat niet.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
    Wachtwoord-authenticatie is niet nodig: deze app gebruikt Magic Links en
@@ -159,59 +160,53 @@ Twee losstaande dingen:
 
 ## 8. FIFA Wereldreis
 
-Een wereldkaart bovenop dezelfde stickerlijst: elk land van het album staat als
-stip op de kaart, gekleurd naar hoe ver die verzamelaar staat. Te bereiken via
-**🌍 FIFA Wereldreis** op het dashboard, met een samenvattende widget onderaan
-datzelfde dashboard. `wereldreis.html` is een volwaardige kaartpagina — de kaart
-vult vrijwel het hele scherm (`.wr-hero` in `css/style.css`, 100vh min de
-navbalk), met de tellers, de legende en de uitleg pas eronder voor wie
-doorscrolt. Nodig: `sql/010_wereldreis.sql`.
+Een wereldkaart bovenop dezelfde stickerlijst: elk land van het album staat op
+de kaart. Te bereiken via **🌍 FIFA Wereldreis** op het dashboard, met een
+samenvattende widget onderaan datzelfde dashboard. `wereldreis.html` is een
+volwaardige kaartpagina — de kaart vult vrijwel het hele scherm (`.wr-hero` in
+`css/style.css`, 100vh min de navbalk), met de tellers, de legende en de
+uitleg pas eronder voor wie doorscrolt. Nodig: `sql/010_wereldreis.sql` en
+`sql/011_wereldreis_fotos.sql`.
 
-Dit is **fase 1**. De doelgroep is een kind van een jaar of acht: grote,
-klikbare stippen met een zachte glow, speelse iconen (🏆🧩🔍🔁) in plaats van een
-kale tellerrij, en een korte ondertitel ("Tik op een land voor meer info") in
-plaats van een instructieblok.
+De doelgroep is een kind van een jaar of acht: grote, klikbare iconen met een
+zachte glow, speelse iconen (🏆🧩🔍🔁) in plaats van een kale tellerrij, en een
+korte ondertitel ("Tik op een icoon voor meer info") in plaats van een
+instructieblok.
 
-### Vijf categorieën, drie zichtbaar
+### Vijf categorieën, allemaal actief sinds fase 3
 
-Elk land heeft een driehoekje van stippen: 🧩 stickers linksonder (gekleurd naar
-percentage, met de glow), ⚽ voetbal boven en 📍 land rechtsonder. Sinds fase 2
-is de voetbalstip gevuld; de landstip staat er nog dof bij en wacht op fase 3.
-Op een telefoon en in de ministip op het dashboard blijft enkel de stickerstip
-staan, gecentreerd op het land: daar is geen ruimte voor een driehoekje.
+Elk land heeft een compacte cluster van vijf iconen rond zijn middelpunt:
+🃏 Stickers (links, gekleurd naar verzamelpercentage met de glow), ⚽ Voetbal
+(boven), 🌍 Landinfo en 🗣️ Talen (onderaan) en 📸 Foto's (rechts). Op een
+telefoon blijft de cluster staan — enkel kleiner en dichter bijeen, niet
+gereduceerd tot één icoon zoals in fase 1/2. Enkel de ministip op het
+dashboard toont nog steeds alleen het stickerenicoon, gecentreerd: die kaart
+is toch niet klikbaar.
 
-De architectuur is voorbereid op alle **vijf** categorieën uit de eindvisie:
-`CATEGORIEEN` in `js/wereldreis.js` bevat naast stickers, voetbal en land ook
-**talen** en **foto's**, elk met een label, icoon en placeholderzin, maar met
-`zichtbaar: false` — ze tekenen dus nog geen stip en krijgen geen tabblad.
-Een latere fase hoeft geen tekencode te schrijven: `zichtbaar`/`actief` op
-`true` zetten en een `popup(land)`-functie schrijven volstaat. De stip, de
-legende, het tabblad en de dimming volgen dan vanzelf overal waar
-`ZICHTBARE_CATEGORIEEN` gebruikt wordt. Ook de doffe opmaak hangt aan die vlag:
-`stippenHtml()` zet `wr-stip--wacht` op elke stip waarvan de categorie nog niet
-actief is, dus een categorie aanzetten klaart zijn stip vanzelf op.
+`CATEGORIEEN` in `js/wereldreis.js` beschrijft alle vijf: label, icoon,
+eventuele extra CSS-klasse (`klasseVoor`) en een `popup(land)`-functie. Een
+zesde categorie in een latere fase volgt hetzelfde stramien: `zichtbaar` en
+`actief` op `true`, een `popup`-functie schrijven — het icoon, de legende en de
+popup volgen dan vanzelf overal waar `ZICHTBARE_CATEGORIEEN` gebruikt wordt.
+Een categorie die nog niet `actief` is, krijgt automatisch de dimmende klasse
+`wr-icoon--wacht` en een placeholderzin in zijn popup.
 
-### De popup: één venster met tabbladen
+### Eén klein, los popup per icoon (sinds fase 3)
 
-De popup van een land heeft één tabblad per zichtbare categorie: 🧩 Stickers,
-⚽ Voetbal, 📍 Land. Tot fase 1 stond alles onder elkaar; met de voetbalgegevens
-erbij zou dat een popup van een halve schermhoogte geven, te veel om te
-overzien op een telefoon. Grote, afgeronde tabknoppen met een icoon zijn ook
-makkelijker te raken met een kindervinger.
+Tot en met fase 2 deelden alle categorieën één popup met tabbladen. Sinds
+fase 3 heeft **elk icoon zijn eigen popup**: tikken (of Enter/Spatie op een
+icoon met toetsenbordfocus) opent enkel de info van dat ene icoon via
+`openIconPopup()` in `js/wereldreis.js`. Dat is voor een kind van acht
+eenvoudiger dan eerst een tabblad kiezen, en de popup blijft daardoor altijd
+klein — de vaste-hoogte-truc die de fase 2-tabbladen nodig hadden (om te
+voorkomen dat een langer tabblad de popup over de bovenrand van de kaart
+duwt) is niet meer nodig, want een los popup toont maar één categorie
+tegelijk.
 
-Twee details die geen opmaakkwestie zijn maar bugs voorkomen:
-
-- **Het paneelvak heeft een vaste hoogte** (`.wr-tabpanelen`, 260px, scrollt bij
-  langere inhoud). Een Leaflet-popup hangt met zijn punt aan de marker en groeit
-  dus naar bóven; een langer tabblad zou de popup over de bovenrand van de kaart
-  heen duwen, waar de kopbalk eroverheen valt en de tabbladen niet meer aan te
-  tikken zijn. Leaflet herberekent zijn autoPan namelijk niet na het openen.
-  Met een vaste hoogte is de popup op elk tabblad even groot en kan dat niet.
-- **Klikken op een specifieke stip opent dat tabblad.** `tekenLanden()` leest
-  `data-categorie` van de aangeklikte stip; die handler wordt bewust vóór
-  `bindPopup()` geregistreerd, want Leaflet roept zijn listeners in volgorde van
-  registratie aan en de popupinhoud wordt door `bindPopup` opgebouwd. Het
-  gekozen tabblad blijft ook staan bij het volgende land dat je aantikt.
+`tekenLanden()` registreert per land één klikhandler die leest welk icoon
+(`data-categorie`) precies werd aangeklikt, en opent daarvoor een nieuwe
+`L.popup()` op het landpunt. `openOn(kaart)` sluit een eventueel nog open
+popup van een ander land of icoon vanzelf.
 
 ### Voetbalgegevens (fase 2)
 
@@ -237,14 +232,49 @@ slaat ze stil over zolang ze ontbreken.
 > doe je op die ene plek. Kijk bij een nieuw seizoen ook de spelersnamen even na:
 > die verouderen even snel.
 
-### Vaste driehoeksplaatsing, geen toeval
+### Landinfo en talen (fase 3)
 
-Elke stip krijgt in `css/style.css` een **vaste pixel-offset** op basis van zijn
-CSS-klasse (`.wr-stip--stickers`, `.wr-stip--voetbal`, `.wr-stip--land`) — geen
-JavaScript-geometrie, geen `Math.random()`. Dezelfde stip staat dus bij elke
-herlading op exact dezelfde plek ten opzichte van het land, op elk zoomniveau:
-Leaflet herberekent enkel het ankerpunt van de marker, niet de afmetingen of
-offsets van het icoon.
+Zelfde opzet als de voetbalgegevens: **`js/land-data.js`** (hoofdstad,
+continent, geschat inwonertal, "bekend om" en een leuk weetje) en
+**`js/talen-data.js`** (Engelse naam, lokale naam, officiële ta(a)l(en)) zijn
+allebei pure databestanden — geen tabel, om dezelfde reden als bij
+`voetbal-data.js`. Bij een land met meerdere officiële talen (België, Canada,
+Zwitserland, …) toont het talenpaneel enkel een opsomming ("Engels en Frans");
+een "lokale naam" of "Engelse naam" bestaat dan niet voor één taal apart.
+
+### Foto's (fase 3): een tabel, geen databestand
+
+Foto's zijn de uitzondering: de opdracht vraagt uitdrukkelijk dat er later
+foto's bij kunnen **zonder codewijziging**. Daarom staat de metadata in de
+Supabase-tabel `public.land_fotos` (`sql/011_wereldreis_fotos.sql`) in plaats
+van in een JS-bestand — een rij toevoegen in Supabase vraagt geen nieuwe
+deploy, een nieuw bestand in de git-repository wel. De tabel bewaart enkel
+metadata en de volledige publieke URL naar het bestand; de afbeeldingen zelf
+horen in een Cloudflare R2-bucket met publieke toegang, in een structuur zoals
+`countries/belgium/atomium.jpg`. Zodra er een echt R2-domein is, moet dat
+domein in de `img-src` van `_headers` staan.
+
+`js/foto-data.js` haalt de rijen op via `laadFotos(landCode)` en cachet per
+land (ook de lopende belofte, niet enkel het resultaat — twee snel na elkaar
+geopende foto-iconen voor hetzelfde land sturen zo maar één aanvraag). Dat
+gebeurt **lazy**: `fotoPopup()` bouwt meteen een laadskelet zonder
+netwerkaanvraag; pas wanneer een kind het foto-icoon ook echt aantikt, haalt
+`vulFotoPopup()` de rijen op en vervangt het skelet — 48 landen sturen dus
+geen 48 aanvragen bij het laden van de kaart. Native `loading="lazy"` op elke
+`<img>` is een extra vangnet. Staan er nog geen rijen voor een land, dan toont
+het paneel gewoon "Nog geen foto's voor dit land" — geen foutmelding.
+
+### Vaste clusterplaatsing, geen toeval
+
+Elk icoon krijgt in `css/style.css` een **vaste pixel-offset** op basis van
+zijn CSS-klasse (`.wr-icoon--stickers`, `.wr-icoon--voetbal`, `.wr-icoon--land`,
+`.wr-icoon--talen`, `.wr-icoon--fotos`) — geen JavaScript-geometrie, geen
+`Math.random()`. Hetzelfde icoon staat dus bij elke herlading op exact dezelfde
+plek ten opzichte van het land, op elk zoomniveau: Leaflet herberekent enkel
+het ankerpunt van de marker, niet de afmetingen of offsets van het icoon. De
+glow hergebruikt gewoon de eigen achtergrondkleur van het icoon
+(`background: inherit` op de `::after`), dus geen aparte glow-kleur per
+categorie nodig.
 
 ### Het rekenmodel
 
@@ -274,8 +304,12 @@ als `kind_statistieken()` en `get_matches()`.
 | Bestand | Rol |
 |---|---|
 | `sql/010_wereldreis.sql` | `wereldreis_landen(kind_id)`: één rij per land met totaal, gezocht, dubbel, heeft en procent |
-| `js/wereldreis.js` | coördinaten, kleurenschaal, `CATEGORIEEN`, kaart tekenen, popup met tabbladen — gedeeld door de pagina en de widget |
+| `sql/011_wereldreis_fotos.sql` | tabel `land_fotos`: metadata en R2-verwijzingen voor het fotopaneel (fase 3) |
+| `js/wereldreis.js` | coördinaten, kleurenschaal, `CATEGORIEEN`, kaart tekenen, één los popup per icoon — gedeeld door de pagina en de widget |
 | `js/voetbal-data.js` | de voetbalgegevens per land (fase 2) — enkel gegevens, geen opmaak |
+| `js/land-data.js` | hoofdstad, continent, inwoners, "bekend om" en een weetje per land (fase 3) |
+| `js/talen-data.js` | Engelse naam, lokale naam en officiële ta(a)l(en) per land (fase 3) |
+| `js/foto-data.js` | ophalen (met cache) van de rijen uit `land_fotos`, lazy — enkel bij het openen van het fotopaneel |
 | `js/wereldkaart.js` | `wereldreis.html`: hero, verzamelaarskiezer, tellers, legende |
 | `js/wereldreis-widget.js` | het blok onderaan `dashboard.html` |
 | `css/leaflet.css` | Leaflet 1.9.4, lokaal — zie hieronder |
@@ -307,12 +341,14 @@ De CSP in `_headers` is streng, en de kaart raakt drie regels ervan:
   `wereldreis.html`; hou ze gelijk aan `css/leaflet.css`.
 - **`style-src 'self'`** — daarom staat Leaflets stylesheet lokaal in
   `css/leaflet.css` in plaats van op een CDN. Om dezelfde reden krijgen de
-  stippen hun kleur uit CSS-klassen: een `style="…"`-attribuut in de HTML zou
+  iconen hun kleur uit CSS-klassen: een `style="…"`-attribuut in de HTML zou
   geblokkeerd worden. Een breedte via `element.style.width` in JavaScript mag
   wél — CSSOM valt niet onder de CSP.
 - **`img-src`** — kaarttegels zijn gewone afbeeldingen. Daarvoor staat
   `https://tile.openstreetmap.org` erbij. Zonder die host blokkeert de browser
-  elke tegel en blijft de kaart leeg.
+  elke tegel en blijft de kaart leeg. Zodra er een Cloudflare R2-domein is voor
+  de landfoto's (fase 3, zie hieronder), moet dat domein hier ook bij komen —
+  anders blokkeert dezelfde regel de foto's zelf.
 
 De tegels komen van OpenStreetMap zelf: gratis en zonder API-sleutel. De meeste
 rustigere alternatieven (CARTO Positron, Stadia, Mapbox) vragen intussen wél een
@@ -340,9 +376,13 @@ netter tegenover OpenStreetMap: vervang de URL in `maakKaart()`
 |---|---|---|
 | id | uuid | primaire sleutel |
 | kind_id | uuid | verwijst naar `kinderen.id` |
-| nummer | text | stickernummer |
-| status | text | `HEEFT`, `ZOEKT` of `RUILT` |
+| nummer | text | catalogus-code (bv. `BEL7`) |
+| status | text | `ZOEKT` of `RUILT` |
+| aantal | integer | sinds `012`: aantal dubbels bij `RUILT` (≥ 1, standaard 1). Bij `ZOEKT` genegeerd. |
 | created_at | timestamptz | |
+
+Uniek per `(kind_id, nummer)`: hooguit één rij per sticker per kind (sinds
+`006_kindproof.sql`).
 
 ## Row Level Security
 
@@ -367,19 +407,47 @@ Na het klikken op de magic link controleert het dashboard of de gebruiker
 al kinderen heeft. Zo niet: een onboardingscherm vraagt het eerste kind toe
 te voegen. Daarna toont het dashboard de lijst met verzamelaars.
 
+## Stickers bulksgewijs beheren en dubbel-aantal
+
+Sinds `012_stickers_aantal.sql` kies je op `kind.html` één land, en toont een
+**checklist** meteen alle stickers van dat land: een ☑-vinkje per sticker voor
+"gezocht" en een +/− stappenteller voor "hoeveel dubbel". Eén klik op
+**Bewaar wijzigingen** schrijft de hele lijst in twee databankaanroepen weg
+(één `upsert`, één `delete`) in plaats van één aanroep per sticker — dat was
+de vorige, één-voor-één werkwijze.
+
+"Gezocht" en "dubbel" sluiten elkaar per sticker uit: dat is geen UI-regel maar
+de databank zelf (één status per rij, met de unieke index op
+`(kind_id, nummer)`). Vinkt de checklist "gezocht" aan terwijl er nog een
+dubbel-aantal ingesteld stond, dan gaat dat aantal terug naar 0, en omgekeerd.
+
+De samenvattingslijst "Heb ik dubbel" op diezelfde pagina heeft een eigen
+±-stappenteller per rij, voor een snelle correctie zonder terug naar de
+checklist van dat land te moeten gaan; elke klik daar is meteen een eigen
+databankaanroep.
+
+Het aantal dubbels is ook zichtbaar bij een ruilkans (`js/ruilen.js`, het
+"Iemand heeft het dubbel"-paneel in `js/stickers.js`, en het WhatsApp-bericht):
+`get_matches()` geeft sinds `012` een `aantal`-kolom mee, getoond als `×N`
+zodra dat er meer dan één is.
+
 ## Frontend
 
 - `js/supabase.js` — Supabase-client + `getCurrentUser()`/`requireAuth()`.
 - `js/auth.js` — login (magic link + Google) en logout.
 - `js/kinderen.js` — CRUD voor kinderen; filtert niet zelf op `user_id`, want
   wat je ziet en mag wijzigen beslist RLS (gezinsbreed sinds `009`).
-- `js/stickers.js` — kinddetailpagina: kindgegevens + CRUD voor stickers.
+- `js/stickers.js` — kinddetailpagina: kindgegevens + checklist per land
+  (bulksgewijs gezocht/dubbel aanvinken) + de samenvattingslijsten.
 - `js/dashboard.js` — dashboard: onboarding-wizard en kinderenlijst.
 - `js/ruilen.js` — ruilkansen van het hele gezin, met de kolom *Contacteren*.
 - `js/gezin.js` — tweede volwassene toevoegen, gsm-nummer van het gezin.
 - `js/whatsapp.js` — nummers normaliseren naar E.164 en wa.me-links bouwen.
 - `js/instellingen.js` — beheerpagina: beursvenster, glans, organisatornummer.
 - `js/wereldreis.js` — FIFA Wereldreis: coördinaten, kleuren, lagen, kaart.
+- `js/voetbal-data.js` / `js/land-data.js` / `js/talen-data.js` — statische
+  redactionele gegevens per land (voetbal, landinfo, talen).
+- `js/foto-data.js` — lazy ophalen van landfoto's uit Supabase (`land_fotos`).
 - `js/wereldkaart.js` — de grote kaart op `wereldreis.html`.
 - `js/wereldreis-widget.js` — het wereldreisblok onderaan het dashboard.
 

@@ -1,22 +1,27 @@
 // stickers.js — Kinddetail-pagina: stickers beheren voor één verzamelaar.
 //
-// Twee statussen, meer niet: ZOEKT ("zoek ik") en RUILT ("heb ik dubbel").
-// Wat een kind al in het album heeft plakken we niet bij: dat is werk zonder
-// opbrengst, want ruilen draait enkel om zoeken en dubbels.
+// Twee statussen, meer niet: ZOEKT ("zoek ik") en RUILT ("heb ik dubbel", met
+// een aantal). Wat een kind al in het album heeft plakken we niet bij: dat is
+// werk zonder opbrengst, want ruilen draait enkel om zoeken en dubbels.
 //
 // De sticker wordt gekozen uit public.sticker_catalogus in plaats van vrij
 // ingetypt, zodat er geen tikfouten of onbestaande nummers in de lijst
 // belanden. De kolom stickers.nummer bewaart de catalogus-CODE (bv. "BEL7").
 //
-// Bediening is op een telefoon door een kind te doen: zoekveld eerst, de
-// lijst filtert al terwijl je typt, en één tik kiest de sticker.
+// CHECKLIST PER LAND, NIET ÉÉN STICKER TEGELIJK. Vroeger moest je per sticker
+// zoeken, aanklikken, een status kiezen en opslaan — voor twintig stickers dus
+// twintig keer hetzelfde rondje. Sinds deze versie kies je één land, vink je
+// alle gezochte stickers tegelijk aan en zet je bij de dubbels meteen het
+// juiste aantal, en bewaart één klik op "Bewaar wijzigingen" de hele lijst in
+// twee databankaanroepen (één upsert, één delete) in plaats van N aparte
+// inserts/updates. Gezocht en dubbel sluiten elkaar nog steeds uit per
+// sticker — dat is geen UI-beperking maar de databank: één rij per
+// (kind, sticker), met precies één status.
 import { supabase, requireAuth } from "./supabase.js";
 import { getKind } from "./kinderen.js";
 
 const TABEL = "stickers";
-const STATUSSEN = ["ZOEKT", "RUILT"];
 const STATUS_TEKST = { ZOEKT: "zoek ik", RUILT: "heb ik dubbel" };
-const MAX_SUGGESTIES = 200;
 const PAGINA = 1000; // PostgREST levert maximaal 1000 rijen per aanvraag
 
 let kindId;
@@ -24,11 +29,19 @@ let catalogus = [];
 let catalogusPerCode = new Map();
 let huidigeStickers = [];
 let statusPerCode = new Map(); // code -> status van DIT kind
-let kiesbaar = []; // wat er nu in de lijst staat en aangeklikt kan worden
+let aantalPerCode = new Map(); // code -> aantal dubbels van DIT kind
+
+// De checklist van het momenteel gekozen land. checklistState is de live,
+// bewerkbare stand (wat de gebruiker nu aanvinkt/optelt); origineelState is
+// de bevroren momentopname waarmee bewaarChecklist() vergelijkt om te weten
+// wat er precies gewijzigd is. Allebei Map<code, {gezocht, dubbel}>.
+let huidigLand = "";
+let checklistState = new Map();
+let origineelState = new Map();
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const form = document.getElementById("sticker-form");
-  if (!form) return;
+  const zone = document.getElementById("sticker-checklist");
+  if (!zone) return;
 
   const user = await requireAuth();
   if (!user) return;
@@ -49,7 +62,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       : "";
   } catch (err) {
     document.getElementById("kind-naam").textContent = "Kind niet gevonden.";
-    form.classList.add("hidden");
+    document.getElementById("sticker-kaart").classList.add("hidden");
     return;
   }
 
@@ -65,14 +78,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     toonMelding("Stickerlijst kon niet geladen worden: " + err.message, "error");
   }
 
-  form.addEventListener("submit", bewaarSticker);
-  document.getElementById("sticker-cancel-btn").addEventListener("click", resetFormulier);
-  document.getElementById("sticker-land").addEventListener("change", toonSuggesties);
-  document.getElementById("sticker-zoek").addEventListener("input", toonSuggesties);
-  document.getElementById("sticker-zoek").addEventListener("keydown", enterInZoekveld);
+  document.getElementById("sticker-land").addEventListener("change", kiesLand);
+  document.getElementById("sticker-zoek").addEventListener("input", tekenChecklist);
+  document.getElementById("sticker-bewaar-btn").addEventListener("click", bewaarChecklist);
+  document.getElementById("sticker-annuleer-btn").addEventListener("click", annuleerChecklist);
 
   await ververs();
-  document.getElementById("sticker-zoek").focus();
 });
 
 // ---------- catalogus ----------
@@ -125,113 +136,233 @@ function omschrijving(sticker) {
   return sticker.naam ? `${sticker.code}${glans} — ${sticker.naam}` : sticker.code + glans;
 }
 
-// ---------- suggesties ----------
+// ---------- checklist per land ----------
 
-function toonSuggesties() {
-  const land = document.getElementById("sticker-land").value;
-  const term = document.getElementById("sticker-zoek").value.trim().toLowerCase();
-  const lijst = document.getElementById("sticker-suggesties");
+// Bouwt checklistState/origineelState opnieuw op vanaf de huidige databankstand
+// (statusPerCode/aantalPerCode) zodra een ander land gekozen wordt. Wissel je
+// van land zonder te bewaren, dan gaan onbewaarde vinkjes voor het vorige land
+// dus verloren — dezelfde afweging als een formulier verlaten zonder opslaan.
+function kiesLand() {
+  huidigLand = document.getElementById("sticker-land").value;
+  document.getElementById("sticker-filter-vak").classList.toggle("hidden", !huidigLand);
+  document.getElementById("sticker-zoek").value = "";
+
+  checklistState = new Map();
+  origineelState = new Map();
+  if (huidigLand) {
+    catalogus
+      .filter((s) => s.land_naam === huidigLand)
+      .forEach((s) => {
+        const status = statusPerCode.get(s.code);
+        const staat = {
+          gezocht: status === "ZOEKT",
+          dubbel: status === "RUILT" ? aantalPerCode.get(s.code) || 1 : 0,
+        };
+        checklistState.set(s.code, { ...staat });
+        origineelState.set(s.code, { ...staat });
+      });
+  }
+  tekenChecklist();
+}
+
+function tekenChecklist() {
+  const ul = document.getElementById("sticker-checklist");
   const teller = document.getElementById("sticker-teller");
-  lijst.innerHTML = "";
+  const leeg = document.getElementById("sticker-leeg");
+  ul.innerHTML = "";
 
-  let kandidaten = land ? catalogus.filter((s) => s.land_naam === land) : catalogus;
-  if (term) {
-    kandidaten = kandidaten
-      .filter(
+  if (!huidigLand) {
+    teller.textContent = "";
+    leeg.classList.remove("hidden");
+    bijwerkenBewaarbalk();
+    return;
+  }
+  leeg.classList.add("hidden");
+
+  const term = document.getElementById("sticker-zoek").value.trim().toLowerCase();
+  const stickersVanLand = catalogus.filter((s) => s.land_naam === huidigLand);
+  const zichtbaar = term
+    ? stickersVanLand.filter(
         (s) =>
           String(s.nummer) === term ||
-          s.code.toLowerCase().startsWith(term) ||
+          s.code.toLowerCase().includes(term) ||
           (s.naam || "").toLowerCase().includes(term)
       )
-      .sort((a, b) => rangschik(a, term) - rangschik(b, term));
+    : stickersVanLand;
+
+  teller.textContent = term
+    ? `${zichtbaar.length} van ${stickersVanLand.length} stickers getoond`
+    : `${stickersVanLand.length} sticker${stickersVanLand.length === 1 ? "" : "s"} in ${huidigLand}`;
+
+  zichtbaar.forEach((sticker) => ul.appendChild(bouwChip(sticker)));
+  bijwerkenBewaarbalk();
+}
+
+// Eén chip = één sticker, met een vinkje (gezocht) en een stappenteller
+// (dubbel). Wijzigingen passen enkel checklistState aan en werken hun eigen
+// DOM-stukje bij — geen volledige herbouw van de lijst per klik, dat zou de
+// focus van de gebruiker telkens kwijtraken.
+function bouwChip(sticker) {
+  const staat = checklistState.get(sticker.code);
+  const li = document.createElement("li");
+  li.className = "sticker-chip";
+
+  const naam = document.createElement("span");
+  naam.className = "sticker-chip__naam";
+  naam.title = omschrijving(sticker);
+  naam.textContent = omschrijving(sticker);
+  li.appendChild(naam);
+
+  const vinkLabel = document.createElement("label");
+  vinkLabel.className = "sticker-chip__vink";
+  const vink = document.createElement("input");
+  vink.type = "checkbox";
+  vink.checked = staat.gezocht;
+  vinkLabel.appendChild(vink);
+  vinkLabel.appendChild(document.createTextNode("Gezocht"));
+  li.appendChild(vinkLabel);
+
+  const stepper = document.createElement("div");
+  stepper.className = "sticker-stepper";
+  stepper.setAttribute("role", "group");
+  stepper.setAttribute("aria-label", "Aantal dubbel van " + omschrijving(sticker));
+
+  const min = document.createElement("button");
+  min.type = "button";
+  min.className = "sticker-stepper__knop";
+  min.textContent = "−";
+  min.setAttribute("aria-label", "Eén dubbel minder");
+
+  const getal = document.createElement("span");
+  getal.className = "sticker-stepper__aantal";
+  getal.textContent = String(staat.dubbel);
+
+  const plus = document.createElement("button");
+  plus.type = "button";
+  plus.className = "sticker-stepper__knop";
+  plus.textContent = "+";
+  plus.setAttribute("aria-label", "Eén dubbel meer");
+
+  function verversChip() {
+    vink.checked = staat.gezocht;
+    getal.textContent = String(staat.dubbel);
+    min.disabled = staat.dubbel <= 0;
+    bijwerkenBewaarbalk();
   }
 
-  if (kandidaten.length === 0) {
-    teller.textContent = "";
-    kiesbaar = [];
-    const leeg = document.createElement("li");
-    leeg.className = "sticker-suggestie-leeg";
-    leeg.textContent = "Geen sticker gevonden. Probeer een ander nummer of een stukje van de naam.";
-    lijst.appendChild(leeg);
-    return;
-  }
-
-  // Het huidige sticker-id: bij "Wijzig" moet die ene sticker wél kiesbaar
-  // blijven, ook al staat hij natuurlijk al in de lijst van dit kind.
-  const bewerktCode = document.getElementById("sticker-id").value
-    ? document.getElementById("sticker-code").value
-    : "";
-
-  const getoond = kandidaten.slice(0, MAX_SUGGESTIES);
-  kiesbaar = getoond.filter(
-    (s) => s.code === bewerktCode || !statusPerCode.has(s.code)
-  );
-
-  // Blijft er precies één over, dan is Enter sneller dan mikken op een knopje.
-  if (kiesbaar.length === 1 && kandidaten.length === 1) {
-    teller.textContent = "Nog één sticker over — druk op Enter om ze te kiezen.";
-  } else if (kandidaten.length > MAX_SUGGESTIES) {
-    teller.textContent = `${kandidaten.length} stickers gevonden — eerste ${getoond.length} getoond, typ verder om te verfijnen`;
-  } else {
-    teller.textContent = `${kandidaten.length} sticker${kandidaten.length === 1 ? "" : "s"}`;
-  }
-
-  getoond.forEach((sticker) => {
-    const al = sticker.code === bewerktCode ? null : statusPerCode.get(sticker.code);
-    const li = document.createElement("li");
-
-    if (al) {
-      // Staat al in de lijst van dit kind: tonen, maar niet nog eens te kiezen.
-      const span = document.createElement("span");
-      span.className = "sticker-suggestie sticker-suggestie--al";
-      span.title = omschrijving(sticker) + " — staat al in je lijst";
-      span.textContent = `${omschrijving(sticker)} · ${STATUS_TEKST[al]} ✓`;
-      li.appendChild(span);
-    } else {
-      const knop = document.createElement("button");
-      knop.type = "button";
-      knop.className = "sticker-suggestie";
-      knop.title = omschrijving(sticker);
-      knop.textContent = omschrijving(sticker);
-      knop.addEventListener("click", () => kiesSticker(sticker));
-      li.appendChild(knop);
-    }
-    lijst.appendChild(li);
+  vink.addEventListener("change", () => {
+    staat.gezocht = vink.checked;
+    // Aanvinken als gezocht en tegelijk een dubbel-aantal >0 laten staan zou
+    // "ik zoek 'm én ik heb 'm dubbel" betekenen — dat kan de databank niet
+    // vastleggen (één status per rij), dus resetten we het aantal.
+    if (staat.gezocht) staat.dubbel = 0;
+    verversChip();
   });
+  min.addEventListener("click", () => {
+    if (staat.dubbel <= 0) return;
+    staat.dubbel -= 1;
+    verversChip();
+  });
+  plus.addEventListener("click", () => {
+    staat.dubbel += 1;
+    // Omgekeerde reset: een dubbel-aantal instellen terwijl "gezocht" nog
+    // aanstond, zou dezelfde tegenstrijdigheid geven.
+    if (staat.gezocht) staat.gezocht = false;
+    verversChip();
+  });
+
+  min.disabled = staat.dubbel <= 0;
+  stepper.appendChild(min);
+  stepper.appendChild(getal);
+  stepper.appendChild(plus);
+  li.appendChild(stepper);
+
+  return li;
 }
 
-function rangschik(sticker, term) {
-  if (String(sticker.nummer) === term) return 0;
-  if (sticker.code.toLowerCase() === term) return 1;
-  if (sticker.code.toLowerCase().startsWith(term)) return 2;
-  return 3;
+// Vergelijkt checklistState met origineelState en levert twee lijsten op: wat
+// er in één upsert bij moet (nieuw gezocht, nieuw of gewijzigd aantal dubbel)
+// en welke codes helemaal terug naar "heb ik" gaan (dus verwijderd worden).
+function berekenWijzigingen() {
+  const upsert = [];
+  const verwijder = [];
+  for (const [code, nu] of checklistState) {
+    const was = origineelState.get(code);
+    if (was.gezocht === nu.gezocht && was.dubbel === nu.dubbel) continue;
+
+    if (nu.gezocht || nu.dubbel > 0) {
+      upsert.push({
+        kind_id: kindId,
+        nummer: code,
+        status: nu.gezocht ? "ZOEKT" : "RUILT",
+        aantal: nu.gezocht ? 1 : nu.dubbel,
+      });
+    } else {
+      verwijder.push(code);
+    }
+  }
+  return { upsert, verwijder };
 }
 
-// Enter in het zoekveld: staat er nog precies één sticker in de lijst, dan is
-// die duidelijk bedoeld. Kiezen en meteen naar de keuzelijst springen, zodat
-// nummer intikken → Enter → Enter volstaat om iets toe te voegen.
-function enterInZoekveld(e) {
-  if (e.key !== "Enter") return;
-  e.preventDefault(); // anders verstuurt de browser het formulier
-  if (kiesbaar.length !== 1) return;
-  kiesSticker(kiesbaar[0]);
-  document.getElementById("sticker-status").focus();
-}
+function bijwerkenBewaarbalk() {
+  const balk = document.getElementById("sticker-bewaarbalk");
+  const tekst = document.getElementById("sticker-wijzigingen-tekst");
+  const { upsert, verwijder } = berekenWijzigingen();
+  const totaal = upsert.length + verwijder.length;
 
-function kiesSticker(sticker) {
-  const vak = document.getElementById("sticker-keuze");
-  document.getElementById("sticker-code").value = sticker ? sticker.code : "";
-  document.getElementById("sticker-submit-btn").disabled = !sticker;
-
-  if (!sticker) {
-    vak.classList.add("hidden");
+  if (totaal === 0) {
+    balk.classList.add("hidden");
     return;
   }
-  // Enkel de sticker in het blauw; wat je ermee wil staat er als los woord
-  // naast, zodat het samen één zin vormt: "POR15 — Ronaldo   zoek ik".
-  document.getElementById("sticker-gekozen-tekst").textContent = omschrijving(sticker);
-  vak.classList.remove("hidden");
-  vak.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  balk.classList.remove("hidden");
+  tekst.textContent = `${totaal} wijziging${totaal === 1 ? "" : "en"} nog niet bewaard`;
+}
+
+function annuleerChecklist() {
+  for (const [code, was] of origineelState) {
+    checklistState.set(code, { ...was });
+  }
+  tekenChecklist();
+}
+
+// Twee aanroepen in totaal, ongeacht hoeveel stickers er gewijzigd zijn: één
+// upsert voor alles wat gezocht of dubbel wordt, één delete voor alles wat
+// terug naar "heb ik" gaat. onConflict laat de bestaande unieke index
+// (kind_id, nummer) het werk doen: bestaat de rij al, dan wordt ze bijgewerkt
+// in plaats van een dubbele rij te proberen invoegen.
+async function bewaarChecklist() {
+  const { upsert, verwijder } = berekenWijzigingen();
+  if (upsert.length === 0 && verwijder.length === 0) return;
+
+  const knop = document.getElementById("sticker-bewaar-btn");
+  knop.disabled = true;
+  try {
+    if (upsert.length) {
+      const { error } = await supabase.from(TABEL).upsert(upsert, { onConflict: "kind_id,nummer" });
+      if (error) throw error;
+    }
+    if (verwijder.length) {
+      const { error } = await supabase
+        .from(TABEL)
+        .delete()
+        .eq("kind_id", kindId)
+        .in("nummer", verwijder);
+      if (error) throw error;
+    }
+    const totaal = upsert.length + verwijder.length;
+    toonMelding(`${totaal} wijziging${totaal === 1 ? "" : "en"} bewaard.`, "success");
+    await ververs();
+    // ververs() slaat het herbouwen van de checklist over zolang er nog
+    // onbewaarde wijzigingen lijken te staan — maar die wijzigingen zijn hier
+    // net bewaard, dus checklistState en de nieuwe databankstand horen
+    // voortaan gelijk te zijn. Zonder deze regel zou de bewaarbalk na het
+    // bewaren dus ten onrechte "nog niet bewaard" blijven tonen.
+    if (huidigLand) kiesLand();
+  } catch (err) {
+    toonMelding("Fout bij opslaan: " + err.message, "error");
+  } finally {
+    knop.disabled = false;
+  }
 }
 
 // ---------- lijsten ----------
@@ -247,10 +378,17 @@ async function ververs() {
   }
 
   statusPerCode = new Map(huidigeStickers.map((s) => [s.nummer, s.status]));
+  aantalPerCode = new Map(huidigeStickers.map((s) => [s.nummer, s.aantal]));
   huidigeStickers.sort(vergelijkStickers);
-  toonLijst("zoekt-list", huidigeStickers.filter((s) => s.status === "ZOEKT"));
-  toonLijst("ruilt-list", huidigeStickers.filter((s) => s.status === "RUILT"));
-  toonSuggesties();
+  toonLijst("zoekt-list", huidigeStickers.filter((s) => s.status === "ZOEKT"), false);
+  toonLijst("ruilt-list", huidigeStickers.filter((s) => s.status === "RUILT"), true);
+
+  // Enkel automatisch herbouwen als er niets onbewaards openstaat: anders zou
+  // een Verwijder-klik op de dubbel-lijst tijdens het invullen van hetzelfde
+  // land onbewaarde vinkjes stilletjes wegvegen.
+  const { upsert, verwijder } = berekenWijzigingen();
+  if (huidigLand && upsert.length === 0 && verwijder.length === 0) kiesLand();
+
   await verversMatches();
 }
 
@@ -263,7 +401,7 @@ function vergelijkStickers(a, b) {
   return String(a.nummer).localeCompare(String(b.nummer), "nl");
 }
 
-function toonLijst(lijstId, stickers) {
+function toonLijst(lijstId, stickers, toonStepper) {
   const ul = document.getElementById(lijstId);
   ul.innerHTML = "";
   if (stickers.length === 0) {
@@ -282,26 +420,69 @@ function toonLijst(lijstId, stickers) {
     const label = document.createElement("span");
     label.className = "sticker-item__nummer";
     label.textContent = uitCatalogus ? omschrijving(uitCatalogus) : sticker.nummer;
+    li.appendChild(label);
+
+    // Enkel de dubbel-lijst krijgt een stapper: "gezocht" is een aan/uit-ding
+    // zonder aantal, dat regel je via de checklist hierboven.
+    if (toonStepper) li.appendChild(inlineStepper(sticker));
 
     const acties = document.createElement("div");
     acties.className = "sticker-item__actions";
-
-    const wijzig = document.createElement("button");
-    wijzig.className = "btn btn--outline btn--sm";
-    wijzig.textContent = "Wijzig";
-    wijzig.addEventListener("click", () => bewerkSticker(sticker));
 
     const verwijder = document.createElement("button");
     verwijder.className = "btn btn--danger btn--sm";
     verwijder.textContent = "Verwijder";
     verwijder.addEventListener("click", () => verwijderSticker(sticker.id));
-
-    acties.appendChild(wijzig);
     acties.appendChild(verwijder);
-    li.appendChild(label);
+
     li.appendChild(acties);
     ul.appendChild(li);
   });
+}
+
+// De ±-knopjes naast een dubbele sticker in de samenvattingslijst: sneller dan
+// terug naar de checklist van dat land te moeten gaan voor één cijfertje. Elke
+// klik is meteen een eigen databankaanroep — geen aparte "bewaar"-stap nodig
+// voor deze ene rij.
+function inlineStepper(sticker) {
+  const wrap = document.createElement("div");
+  wrap.className = "sticker-item__stepper";
+
+  const min = document.createElement("button");
+  min.type = "button";
+  min.className = "sticker-stepper__knop";
+  min.textContent = "−";
+  min.setAttribute("aria-label", "Eén dubbel minder");
+  min.disabled = (sticker.aantal || 1) <= 1;
+  min.addEventListener("click", () => pasAantalAan(sticker, -1));
+
+  const getal = document.createElement("span");
+  getal.className = "sticker-stepper__aantal";
+  getal.textContent = "×" + (sticker.aantal || 1);
+
+  const plus = document.createElement("button");
+  plus.type = "button";
+  plus.className = "sticker-stepper__knop";
+  plus.textContent = "+";
+  plus.setAttribute("aria-label", "Eén dubbel meer");
+  plus.addEventListener("click", () => pasAantalAan(sticker, 1));
+
+  wrap.appendChild(min);
+  wrap.appendChild(getal);
+  wrap.appendChild(plus);
+  return wrap;
+}
+
+async function pasAantalAan(sticker, delta) {
+  const nieuw = Math.max(1, (sticker.aantal || 1) + delta);
+  if (nieuw === sticker.aantal) return;
+  try {
+    const { error } = await supabase.from(TABEL).update({ aantal: nieuw }).eq("id", sticker.id);
+    if (error) throw error;
+    await ververs();
+  } catch (err) {
+    toonMelding("Fout bij bijwerken: " + err.message, "error");
+  }
 }
 
 // ---------- matches ----------
@@ -350,7 +531,9 @@ async function verversMatches() {
 
     const label = document.createElement("span");
     label.className = "sticker-item__nummer";
-    label.textContent = rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code;
+    // ×N enkel tonen als het er meer dan één is: "×1" leert niemand iets bij.
+    const suffix = rij.aantal > 1 ? ` ×${rij.aantal}` : "";
+    label.textContent = (rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code) + suffix;
 
     const bij = document.createElement("span");
     bij.className = "sticker-item__bij";
@@ -367,86 +550,7 @@ async function verversMatches() {
   });
 }
 
-// ---------- bewaren / bewerken / verwijderen ----------
-
-function bewerkSticker(sticker) {
-  document.getElementById("sticker-id").value = sticker.id;
-  document.getElementById("sticker-status").value = sticker.status;
-  document.getElementById("sticker-submit-btn").textContent = "Wijziging opslaan";
-
-  const uitCatalogus = catalogusPerCode.get(sticker.nummer);
-  if (uitCatalogus) {
-    document.getElementById("sticker-land").value = uitCatalogus.land_naam;
-    document.getElementById("sticker-zoek").value = "";
-    kiesSticker(uitCatalogus);
-    document.getElementById("sticker-status").value = sticker.status;
-  } else {
-    // Sticker van vóór de catalogus: code staat niet in de lijst. Het keuzevak
-    // blijft open (met Toevoegen uit) zodat Annuleren bereikbaar blijft.
-    kiesSticker(null);
-    document.getElementById("sticker-gekozen-tekst").textContent = "nog geen sticker gekozen";
-    document.getElementById("sticker-keuze").classList.remove("hidden");
-    toonMelding(
-      `"${sticker.nummer}" staat niet in de stickerlijst. Kies hierboven de juiste sticker.`,
-      "error"
-    );
-  }
-  toonSuggesties();
-  document.getElementById("sticker-form").scrollIntoView({ behavior: "smooth" });
-}
-
-function resetFormulier() {
-  document.getElementById("sticker-id").value = "";
-  document.getElementById("sticker-zoek").value = "";
-  document.getElementById("sticker-message").className = "message";
-  document.getElementById("sticker-submit-btn").textContent = "Toevoegen";
-  kiesSticker(null);
-  toonSuggesties();
-}
-
-async function bewaarSticker(e) {
-  e.preventDefault();
-  const id = document.getElementById("sticker-id").value;
-  const code = document.getElementById("sticker-code").value;
-  const status = document.getElementById("sticker-status").value;
-
-  if (!code || !catalogusPerCode.has(code)) {
-    toonMelding("Kies eerst een sticker uit de lijst.", "error");
-    return;
-  }
-  if (!STATUSSEN.includes(status)) {
-    toonMelding("Kies eerst wat je met deze sticker wil.", "error");
-    return;
-  }
-
-  const dubbel = huidigeStickers.find((s) => s.nummer === code && s.id !== id);
-  if (dubbel) {
-    toonMelding(
-      `${code} staat al in je lijst bij "${STATUS_TEKST[dubbel.status]}". Wijzig die regel in plaats van er een tweede bij te zetten.`,
-      "error"
-    );
-    return;
-  }
-
-  const knop = document.getElementById("sticker-submit-btn");
-  knop.disabled = true;
-  try {
-    if (id) {
-      const { error } = await supabase.from(TABEL).update({ nummer: code, status }).eq("id", id);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase.from(TABEL).insert({ kind_id: kindId, nummer: code, status });
-      if (error) throw error;
-    }
-    resetFormulier();
-    await ververs();
-    // Meteen klaar voor de volgende sticker: dat scheelt een tik per sticker.
-    document.getElementById("sticker-zoek").focus();
-  } catch (err) {
-    toonMelding("Fout bij opslaan: " + err.message, "error");
-    knop.disabled = false;
-  }
-}
+// ---------- verwijderen ----------
 
 async function verwijderSticker(id) {
   if (!confirm("Deze sticker verwijderen?")) return;

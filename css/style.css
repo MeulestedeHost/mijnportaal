@@ -170,32 +170,34 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .sticker-item__actions { display: flex; gap: 0.4rem; }
 .sticker-item--empty { color: var(--text-muted); justify-content: center; border-style: dashed; }
 
-/* Zoekresultaten staan bewust dicht op elkaar en in meerdere kolommen: zo
-   zie je er tientallen tegelijk in plaats van een handvol, en scrollt een
-   kind zich niet suf op een telefoon. */
-.sticker-teller { font-size: 0.775rem; color: var(--text-muted); margin-bottom: 0.35rem; min-height: 1.1em; }
-.sticker-suggesties { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.25rem; max-height: min(50vh, 400px); overflow-y: auto; margin-bottom: 1rem; border-radius: 8px; }
-.sticker-suggesties:not(:empty) { border: 1.5px solid var(--border); padding: 0.35rem; background: var(--bg); }
-.sticker-suggestie { display: block; width: 100%; text-align: left; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font-family: var(--font); font-size: 0.85rem; line-height: 1.3; color: var(--text); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sticker-suggestie:hover, .sticker-suggestie:focus { background: var(--cf-blue-light); border-color: var(--cf-blue-primary); outline: none; }
-.sticker-suggestie--al { color: var(--text-muted); background: transparent; border-style: dashed; cursor: default; }
-.sticker-suggestie--al:hover { background: transparent; border-color: var(--border); }
-.sticker-suggestie-leeg { grid-column: 1 / -1; padding: 0.75rem; color: var(--text-muted); font-size: 0.875rem; text-align: center; }
-
-/* Zoekveld eerst en breed, het landfilter ernaast als bijzaak. */
-.zoekbalk { display: grid; grid-template-columns: 2fr 1fr; gap: 0 1.25rem; }
 .form-input--groot { font-size: 1.05rem; padding: 0.75rem 0.875rem; }
 
-/* Het keuzevak staat als een eigen, afgerond kaartje onder de zoeklijst: de
-   gekozen sticker plus wat je ermee wil vormen samen één zin die een kind
-   kan lezen — "POR15 — Cristiano Ronaldo  zoek ik". De blauwe balk is niet
-   breder dan de stickernaam zelf, anders leest het niet meer als een zin. */
-.sticker-instructie { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem; }
-.keuzevak { border: 1.5px solid var(--cf-blue-primary); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1.25rem; background: var(--surface); }
-.keuzevak__titel { font-size: 1rem; margin-bottom: 0.75rem; color: var(--cf-blue-dark); }
-.keuzevak__zin { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1rem; }
-.sticker-gekozen { display: inline-block; background: var(--cf-blue-light); color: var(--cf-blue-dark); border-radius: 8px; padding: 0.4rem 0.7rem; font-weight: 700; font-size: 1rem; }
-.keuzevak__select { width: auto; min-width: 9rem; font-weight: 600; }
+/* ---------- checklist per land (bulkinvoer) ---------- */
+/* Eén land tegelijk, maar alle stickers van dat land tegelijk zichtbaar: zo
+   vink je in één rondje álles aan wat je zoekt, in plaats van per sticker een
+   apart formuliertje te doorlopen. */
+.sticker-teller { font-size: 0.775rem; color: var(--text-muted); margin-bottom: 0.35rem; min-height: 1.1em; }
+/* auto-fit, niet auto-fill: bij een korte (gefilterde) lijst mag de laatste
+   chip de resterende breedte opvullen in plaats van naast lege kolommen te
+   staan met zijn naam afgekapt. */
+.sticker-checklist { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.5rem; margin-bottom: 1rem; }
+.sticker-chip { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.65rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.sticker-chip__naam { font-size: 0.85rem; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sticker-chip__vink { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; white-space: nowrap; cursor: pointer; }
+.sticker-chip__vink input { width: 1.1rem; height: 1.1rem; accent-color: var(--cf-blue-primary); }
+
+/* De +/− stappenteller, gedeeld door de checklist (dubbel-aantal instellen)
+   en de samenvattingslijst hieronder (dubbel-aantal achteraf bijstellen). */
+.sticker-stepper, .sticker-item__stepper { display: inline-flex; align-items: center; gap: 0.35rem; flex: none; }
+.sticker-stepper__knop { width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); font-family: inherit; font-weight: 700; line-height: 1; cursor: pointer; }
+.sticker-stepper__knop:hover, .sticker-stepper__knop:focus-visible { background: var(--cf-blue-light); border-color: var(--cf-blue-primary); outline: none; }
+.sticker-stepper__knop:disabled { opacity: 0.4; cursor: default; }
+.sticker-stepper__aantal { min-width: 1.4rem; text-align: center; font-weight: 700; font-size: 0.85rem; }
+
+/* Blijft onderaan het scherm hangen terwijl je door een lange checklist
+   scrolt, zodat "Bewaar wijzigingen" nooit uit beeld verdwijnt. */
+.sticker-bewaarbalk { position: sticky; bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.6rem; background: var(--cf-blue-light); border: 1.5px solid var(--cf-blue-primary); border-radius: var(--radius); padding: 0.75rem 1rem; box-shadow: var(--shadow); }
+.sticker-wijzigingen-tekst { font-weight: 600; color: var(--cf-blue-dark); }
 
 .sticker-item__bij { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; }
 .sticker-item__bij--eigen { color: var(--success); font-weight: 600; }
@@ -219,10 +221,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   .hero h1 { font-size: 1.75rem; }
   .hero { padding: 2.5rem 1rem 2rem; }
   .form-grid { grid-template-columns: 1fr; }
-  .zoekbalk { grid-template-columns: 1fr; }
-  .keuzevak { padding: 1rem; }
-  .keuzevak__select { width: 100%; min-width: 0; }
-  .sticker-suggesties { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .sticker-checklist { grid-template-columns: 1fr; }
+  .sticker-bewaarbalk { flex-direction: column; align-items: stretch; }
+  .sticker-bewaarbalk .form-actions { justify-content: stretch; }
+  .sticker-bewaarbalk .btn { flex: 1 1 auto; }
   .card { padding: 1.25rem; }
   .navbar__user { display: none; }
   .dashboard-header h1 { font-size: 1.4rem; }
@@ -241,8 +243,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   --wr-hoog: #e8b923;     /* 75 – 99 %  */
   --wr-midden: #e8833a;   /* 25 – 74 %  */
   --wr-laag: #98a2b3;     /* 0 – 24 %   */
-  --wr-voetbal: #1d6fe0;  /* fase 2, nog leeg */
-  --wr-land: #e8b923;     /* fase 3, nog leeg */
+  --wr-voetbal: #1d6fe0;  /* fase 2: voetbalicoon */
+  --wr-land: #12a594;     /* fase 3: landinfo-icoon */
+  --wr-talen: #8b5cf6;    /* fase 3: talenicoon */
+  --wr-fotos: #ef6461;    /* fase 3: fotoicoon */
   /* Dezelfde vier kleuren, maar als rgba: de glow-animatie hieronder heeft een
      doorzichtige versie nodig voor de buitenste ring van de box-shadow, en CSS
      kan een hex-kleur niet zelf van een alfakanaal voorzien. */
@@ -372,97 +376,108 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
    (er zijn geen tegels naast de wereld wanneer noWrap aanstaat). */
 .wr-kaart--mini { width: 100%; height: 156px; min-height: 0; background: var(--surface); }
 
-/* ---------- stippen ---------- */
+/* ---------- iconen (fase 3) ---------- */
 /* De marker zelf is 0 bij 0 groot en staat exact op het landpunt; de groep
-   eronder wordt met een transform gecentreerd. Elke stip krijgt daarna zijn
-   EIGEN vaste pixel-offset (hieronder) om de driehoeksopstelling te vormen —
-   dat blijft zo op elk zoomniveau, want Leaflet herberekent enkel het
-   ankerpunt, niet de afmetingen of offsets van het icoon zelf. Dezelfde stip
-   staat dus altijd op dezelfde plek ten opzichte van het land: geen
-   toevalspositie per herlading. */
+   eronder wordt met een transform gecentreerd. Elk icoon krijgt daarna zijn
+   EIGEN vaste pixel-offset (hieronder) om de cluster te vormen — dat blijft
+   zo op elk zoomniveau, want Leaflet herberekent enkel het ankerpunt, niet de
+   afmetingen of offsets van het icoon zelf. Hetzelfde icoon staat dus altijd
+   op dezelfde plek ten opzichte van het land: geen toevalspositie per
+   herlading. */
 .wr-marker { width: 0; height: 0; }
 .wr-stip-groep { position: absolute; left: 0; top: 0; pointer-events: auto; }
-.wr-stip { position: absolute; display: block; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); background: var(--wr-laag); width: 24px; height: 24px; transform: translate(-50%, -50%); }
-.wr-stip--stickers.wr-vol { background: var(--wr-vol); }
-.wr-stip--stickers.wr-hoog { background: var(--wr-hoog); }
-.wr-stip--stickers.wr-midden { background: var(--wr-midden); }
-.wr-stip--stickers.wr-laag { background: var(--wr-laag); }
 
-/* Driehoek: stickers linksonder, voetbal boven, land rechtsonder — vaste
-   offsets in pixels, dus altijd dezelfde vorm. */
-.wr-stip--stickers { top: 12px; left: -18px; z-index: 3; }
-.wr-stip--voetbal   { top: -20px; left: 0; z-index: 2; }
-.wr-stip--land       { top: 12px; left: 18px; z-index: 2; }
+/* De ronde badge achter elk icoon. Grijs is de standaardkleur (enkel de
+   stickersbadge overschrijft dit met zijn percentagekleur hieronder); de
+   andere vier krijgen hun eigen vaste kleur uit --wr-voetbal/--wr-land/
+   --wr-talen/--wr-fotos, zodat een kind categorieën ook op kleur herkent. */
+.wr-icoon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  background: var(--wr-laag);
+  font-size: 1.05rem;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+.wr-icoon:focus-visible { outline: 3px solid var(--cf-blue-dark); outline-offset: 2px; }
 
-/* De twee kleinere stippen naast de stickerstip: ze mogen aanwezig zijn zonder
-   de hoofdstip te verdringen. */
-.wr-stip--voetbal, .wr-stip--land { width: 17px; height: 17px; border-width: 2px; }
-.wr-stip--voetbal { background: var(--wr-voetbal); }
-.wr-stip--land { background: var(--wr-land); }
+.wr-icoon--stickers.wr-vol { background: var(--wr-vol); }
+.wr-icoon--stickers.wr-hoog { background: var(--wr-hoog); }
+.wr-icoon--stickers.wr-midden { background: var(--wr-midden); }
+.wr-icoon--stickers.wr-laag { background: var(--wr-laag); }
+.wr-icoon--voetbal { background: var(--wr-voetbal); }
+.wr-icoon--land { background: var(--wr-land); }
+.wr-icoon--talen { background: var(--wr-talen); }
+.wr-icoon--fotos { background: var(--wr-fotos); }
 
-/* Een categorie zonder echte gegevens staat er dof bij: "hier komt nog iets".
-   js/wereldreis.js hangt deze klasse aan elke stip waarvan de categorie nog
-   niet 'actief' is — sinds fase 2 dus enkel nog de landstip. Fase 3 hoeft hier
-   niets te wijzigen: zodra die categorie actief wordt, verdwijnt de klasse
-   vanzelf en klaart de stip op. */
-.wr-stip--wacht { opacity: 0.45; }
+/* Compacte cluster rond het middelpunt in plaats van een rechte rij: voetbal
+   boven, stickers en foto's links/rechts ter hoogte van het midden, talen en
+   landinfo onderaan — vaste offsets in pixels, dus altijd dezelfde vorm. */
+.wr-icoon--voetbal  { top: -30px; left: 0; z-index: 5; }
+.wr-icoon--stickers { top: 6px; left: -34px; z-index: 6; }
+.wr-icoon--fotos    { top: 6px; left: 34px; z-index: 4; }
+.wr-icoon--talen    { top: 32px; left: -15px; z-index: 3; }
+.wr-icoon--land     { top: 32px; left: 15px; z-index: 3; }
 
-/* Glow: een pulserende ring die vanuit de stickerstip naar buiten groeit en
-   wegdooft — duidelijker dan een platte schaduw, en meteen zichtbaar dat dit
-   het stipje is waarop je moet tikken. Enkel 'transform' en 'opacity'
-   animeren: dat zijn de twee eigenschappen die de browser puur op de
-   compositor kan afhandelen, dus zonder her-lay-out of herteken bij elk
-   frame — belangrijk zodra tientallen landen tegelijk pulseren. Enkel op de
-   stickerstip (de interactieve, informatieve stip) en nooit op de ministip
-   van het dashboard: die is niet klikbaar en mag niet om aandacht vragen. */
-.wr-kaart:not(.wr-kaart--mini) .wr-stip--stickers { --wr-glow-kleur: var(--wr-laag-glow); }
-.wr-kaart:not(.wr-kaart--mini) .wr-stip--stickers.wr-vol { --wr-glow-kleur: var(--wr-vol-glow); }
-.wr-kaart:not(.wr-kaart--mini) .wr-stip--stickers.wr-hoog { --wr-glow-kleur: var(--wr-hoog-glow); }
-.wr-kaart:not(.wr-kaart--mini) .wr-stip--stickers.wr-midden { --wr-glow-kleur: var(--wr-midden-glow); }
-.wr-kaart:not(.wr-kaart--mini) .wr-stip--stickers::after {
+/* Een categorie zonder echte gegevens zou er dof bij staan: "hier komt nog
+   iets". js/wereldreis.js hangt deze klasse aan elk icoon waarvan de
+   categorie nog niet 'actief' is — sinds fase 3 komt dat in de praktijk niet
+   meer voor, maar de klasse blijft klaarstaan voor een zesde categorie in een
+   latere fase. */
+.wr-icoon--wacht { opacity: 0.45; }
+
+/* Glow: een pulserende ring die vanuit elk icoon naar buiten groeit en
+   wegdooft — nodigt uit om te tikken. 'background: inherit' hergebruikt de
+   eigen badgekleur van het icoon, dus geen aparte glow-kleur per categorie
+   nodig; bij het stickersicoon is dat dan automatisch de percentagekleur.
+   Enkel 'transform' en 'opacity' animeren: dat zijn de twee eigenschappen die
+   de browser puur op de compositor kan afhandelen, dus zonder her-lay-out of
+   herteken bij elk frame — belangrijk zodra tientallen landen met elk vijf
+   iconen tegelijk pulseren. Nooit op de ministip van het dashboard: die is
+   niet klikbaar en mag niet om aandacht vragen. */
+.wr-kaart:not(.wr-kaart--mini) .wr-icoon::after {
   content: "";
   position: absolute;
-  inset: -3px;
+  inset: -4px;
   border-radius: 50%;
-  background: var(--wr-glow-kleur);
+  background: inherit;
+  opacity: 0.35;
   pointer-events: none;
-  animation: wr-glow 2.4s ease-out infinite;
+  animation: wr-glow 2.6s ease-out infinite;
 }
 @keyframes wr-glow {
-  0%   { transform: scale(0.9); opacity: 0.6; }
-  70%, 100% { transform: scale(1.9); opacity: 0; }
+  0%   { transform: scale(0.9); opacity: 0.5; }
+  70%, 100% { transform: scale(1.7); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wr-stip--stickers::after { animation: none !important; opacity: 0 !important; }
+  .wr-icoon::after { animation: none !important; opacity: 0 !important; }
 }
 
-/* Popup: kop + drie secties (stickers, voetbal, land), elk met hun eigen
-   icoon en label — zo leest de popup als één samenhangend geheel in plaats
-   van "de echte info plus twee losse zinnetjes". */
-.wr-popup { min-width: 250px; }
+/* Popup: sinds fase 3 een kleine, losse popup per icoon — kop met icoon,
+   categorie en landnaam, en daaronder precies de inhoud van dat ene icoon.
+   Geen tabbladen meer: elk icoon opent zijn eigen popup (zie js/wereldreis.js,
+   openIconPopup()), dus deze popup hoeft nooit meer te bevatten dan wat één
+   categorie te vertellen heeft. */
+.wr-popup { min-width: 200px; }
 .wr-popup__titel { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: baseline; gap: 0.4rem; }
 .wr-popup__code { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-muted); }
 .wr-popup__blok { margin-bottom: 0.1rem; }
 
-/* Tabbladen in de popup. Sinds fase 2 de voetbalgegevens toevoegt, past niet
-   alles meer onder elkaar zonder een popup van een halve schermhoogte te
-   krijgen. Grote, afgeronde knoppen met een icoon erboven: goed te raken met
-   een kindervinger, en in één oogopslag duidelijk wat er te ontdekken valt. */
-.wr-tabs { display: flex; gap: 0.2rem; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem; margin-bottom: 0.75rem; }
-.wr-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.1rem; border: none; background: transparent; border-radius: 999px; padding: 0.4rem 0.25rem; font-family: inherit; font-size: 0.7rem; font-weight: 700; line-height: 1.2; color: var(--text-muted); cursor: pointer; }
-.wr-tab__icoon { font-size: 1.1rem; line-height: 1; }
-.wr-tab:hover { color: var(--cf-blue-dark); }
-.wr-tab[aria-selected="true"] { background: var(--surface); color: var(--cf-blue-dark); box-shadow: var(--shadow); }
-/* Een VASTE hoogte, geen min-height: zo is de popup even hoog op elk tabblad.
-   Een Leaflet-popup hangt met zijn punt aan de marker en groeit dus naar boven;
-   een langer tabblad zou hem over de bovenrand van de kaart heen duwen, waar de
-   kopbalk eroverheen valt en de tabbladen onbereikbaar worden. Past een tabblad
-   niet in deze hoogte (het voetbalpaneel is het langste), dan scrollt enkel dit
-   vak — de tabbalk blijft altijd staan waar hij staat. */
-.wr-tabpanelen { height: 260px; overflow-y: auto; overscroll-behavior: contain; }
-/* Wat ruimte rechts, zodat de tekst niet onder de schuifbalk van het vak
-   hierboven doorloopt wanneer een tabblad wél moet scrollen. */
-.wr-tabpaneel { padding-right: 0.2rem; }
+/* Kopje + zin: gebruikt door het voetbalpaneel (speelstijl, weetje) én het
+   landinfopaneel (bekend om, weetje) — zie tekstBlok() in js/wereldreis.js. */
+.wr-tekstblok { margin-top: 0.5rem; }
+.wr-tekstblok__kop { font-size: 0.775rem; font-weight: 700; color: var(--text); }
+.wr-tekstblok__tekst { font-size: 0.85rem; line-height: 1.45; }
 
 /* ---------- voetbalpaneel (fase 2) ---------- */
 .wr-voetbal__bijnaam { font-size: 1rem; font-weight: 700; color: var(--cf-blue-dark); line-height: 1.25; }
@@ -472,12 +487,24 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
    enkel leest. De kleur zelf zet js/wereldreis.js via el.style. */
 .wr-shirt { display: inline-flex; align-items: center; gap: 0.25rem; }
 .wr-shirt__kleur { width: 0.8rem; height: 0.8rem; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.25); flex: none; }
-.wr-voetbal__blok { margin-top: 0.5rem; }
-.wr-voetbal__kop { font-size: 0.775rem; font-weight: 700; color: var(--text); }
-.wr-voetbal__tekst { font-size: 0.85rem; line-height: 1.45; }
 /* Een FIFA-ranking veroudert; erbij zetten wanneer hij gemeten is, is
    eerlijker dan een kaal getal. */
 .wr-voetbal__stand { font-size: 0.7rem; color: var(--text-muted); font-style: italic; margin-top: 0.5rem; }
+
+/* ---------- fotopaneel (fase 3) ---------- */
+/* Laadskelet: een shimmerende grijze rechthoek op precies dezelfde plaats en
+   grootte als een latere foto, zodat de popup niet ineens van formaat
+   verandert zodra de echte foto's binnenkomen (vulFotoPopup() roept
+   popup.update() aan om Leaflet daarvan op de hoogte te brengen). */
+.wr-foto-galerij { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.4rem; }
+.wr-foto { width: 84px; margin: 0; }
+.wr-foto img { display: block; width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+.wr-foto figcaption { font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-top: 0.2rem; }
+.wr-foto-skelet { display: block; width: 84px; height: 84px; border-radius: 8px; background: linear-gradient(90deg, var(--bg) 25%, var(--surface) 50%, var(--bg) 75%); background-size: 200% 100%; animation: wr-schuiven 1.4s ease-in-out infinite; }
+@keyframes wr-schuiven { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .wr-foto-skelet { animation: none; }
+}
 .wr-popup__procent { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.35rem; }
 .wr-popup__procent.wr-vol { color: var(--wr-vol); }
 .wr-popup__procent.wr-hoog { color: #8a6d05; }
@@ -516,9 +543,9 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 
 .wr-legende { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-size: 0.8rem; color: var(--text-muted); }
 .wr-legende__item { display: flex; align-items: center; gap: 0.4rem; }
-/* In de legende staat de stip in de tekst en niet op een kaart: daar hoort
-   geen absolute plaatsing bij. */
-.wr-legende .wr-stip { position: static; flex: none; width: 15px; height: 15px; border-width: 2px; }
+/* In de legende staat het bolletje in de tekst en niet op een kaart: daar
+   hoort geen absolute plaatsing of icoontekst bij. */
+.wr-legende .wr-icoon { position: static; flex: none; width: 15px; height: 15px; border-width: 2px; font-size: 0; transform: none; }
 .wr-stiplegende { margin: 0.6rem 0 0; }
 
 /* De regel van PANINI en FWC onder de kaart, met dezelfde kleurcode. */
@@ -553,12 +580,15 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
   .wr-hero__titel h1 { font-size: 1.15rem; }
   .wr-hero__ondertitel { display: none; }
 
-  /* "Eén centrale marker" op een telefoon: de twee lege stippen van fase 2 en
-     3 verdwijnen, en de stickerstip zelf verliest zijn driehoekoffset zodat
-     hij alleen en gecentreerd op het land staat — groot genoeg om met een
-     duim te raken. */
-  .leaflet-container .wr-stip--voetbal, .leaflet-container .wr-stip--land { display: none; }
-  .leaflet-container .wr-stip--stickers { top: 0; left: 0; width: 28px; height: 28px; }
+  /* Kleinere cluster op een telefoon: alle vijf iconen blijven staan (dat is
+     nu net het punt van fase 3), maar dichter bij elkaar en iets kleiner,
+     zodat de cluster niet buiten het aanraakbereik van een duim valt. */
+  .wr-icoon { width: 28px; height: 28px; font-size: 0.9rem; }
+  .wr-icoon--voetbal  { top: -24px; left: 0; }
+  .wr-icoon--stickers { top: 5px; left: -27px; }
+  .wr-icoon--fotos    { top: 5px; left: 27px; }
+  .wr-icoon--talen    { top: 26px; left: -12px; }
+  .wr-icoon--land     { top: 26px; left: 12px; }
   /* Enkel de grote kaart mag op een telefoon het scherm vullen; de minikaart
      op het dashboard houdt haar eigen hoogte. */
   .wr-kaart:not(.wr-kaart--mini):not(.wr-kaart--hero) { height: 60vh; min-height: 280px; }
@@ -569,11 +599,11 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
   .wr-kiezer__select { width: 100%; }
 }
 
-/* De minikaart op het dashboard toont nooit meer dan de stickerstip, ook op
-   een breed scherm: het is een voorproefje, geen werkblad. Zonder driehoek-
-   offset staat hij netjes in het midden van het landpunt, net als op mobiel. */
-.wr-kaart--mini .wr-stip--voetbal, .wr-kaart--mini .wr-stip--land { display: none; }
-.wr-kaart--mini .wr-stip--stickers { top: 0; left: 0; width: 11px; height: 11px; border-width: 1.5px; }
+/* De minikaart op het dashboard toont nooit meer dan het stickerenicoon, ook
+   op een breed scherm: het is een voorproefje, geen werkblad (js/wereldreis.js
+   tekent daar sowieso enkel dat ene icoon). Zonder clusteroffset staat het
+   netjes in het midden van het landpunt, net als op mobiel. */
+.wr-kaart--mini .wr-icoon--stickers { top: 0; left: 0; width: 11px; height: 11px; border-width: 1.5px; font-size: 0; }
 .wr-kaart--mini .leaflet-control-attribution { font-size: 9px; }
 
 /* ============================================================

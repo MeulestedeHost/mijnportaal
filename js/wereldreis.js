@@ -1,34 +1,40 @@
-// wereldreis.js — FIFA Wereldreis, fase 1: gedeelde bouwstenen
+// wereldreis.js — FIFA Wereldreis, fase 3: gedeelde bouwstenen
 //
 // Dit bestand bevat alles wat de grote kaart (js/wereldkaart.js) en de widget
 // op het dashboard (js/wereldreis-widget.js) samen nodig hebben: de
 // coördinaten, de kleurenschaal, het ophalen van de cijfers en het tekenen van
-// een Leaflet-kaart met stippen.
+// een Leaflet-kaart met iconen.
 //
-// VIJF CATEGORIEËN. De stippen en popupsecties zijn bewust geen losse code
-// maar één lijst, CATEGORIEEN hieronder — voorbereid op alle vijf categorieën
-// uit de eindvisie (stickers, voetbal, land, talen, foto's), ook al toont
-// fase 1 er maar drie. Elke categorie beschrijft zichzelf: welk icoon, welke
-// kleurklasse, en wat er in de popup komt.
-//   - 'zichtbaar' bepaalt of de categorie NU al een stip en een popupsectie
-//     krijgt. Fase 1 zet dit enkel aan voor stickers, voetbal en land; talen
-//     en foto's staan klaar (met label, icoon en placeholdertekst) maar
-//     blijven onzichtbaar tot een latere fase ze aanzet.
-//   - 'actief' bepaalt of die stip écht gegevens toont (kleur naar
-//     verzamelpercentage, een gevulde popup) of nog een dof "komt eraan"-punt
-//     is met een placeholderzin. Enkel stickers is actief in fase 1.
-// Een latere fase hoeft dus geen tekencode te schrijven: 'zichtbaar' en
-// 'actief' aanzetten en een 'popup'-functie schrijven volstaat — de stip, de
-// legende en de popup volgen vanzelf.
+// VIJF CATEGORIEËN. De iconen en popups zijn bewust geen losse code maar één
+// lijst, CATEGORIEEN hieronder — alle vijf categorieën uit de eindvisie
+// (stickers, voetbal, land, talen, foto's) staan er sinds fase 3 op
+// 'zichtbaar' én 'actief'. Elke categorie beschrijft zichzelf: welk icoon,
+// welke eventuele extra kleurklasse, en wat er in de popup komt.
+//   - 'zichtbaar' bepaalt of de categorie NU al een icoon en popup krijgt.
+//   - 'actief' bepaalt of dat icoon écht gegevens toont, of nog een dof "komt
+//     eraan"-icoon is met een placeholderzin. Een zesde categorie in een
+//     latere fase kan hier op dezelfde manier binnenkomen: 'zichtbaar' en
+//     'actief' aanzetten en een 'popup'-functie schrijven volstaat — het
+//     icoon, de legende en de popup volgen vanzelf.
+//
+// LOSSE POPUP PER ICOON. Tot en met fase 2 deelden alle categorieën één
+// popup met tabbladen. Vanaf fase 3 heeft elk icoon zijn EIGEN kleine popup:
+// tikken op een icoon opent enkel de info van dat icoon (zie tekenLanden() en
+// openIconPopup() verderop). Dat is eenvoudiger voor een kind van een jaar of
+// acht dan eerst een tabblad moeten kiezen, en de popups blijven daardoor
+// klein genoeg om nooit tegen de rand van de kaart te botsen.
 //
 // LEAFLET. Wordt als globale L geladen via een <script>-tag in de pagina, niet
 // als module: de Content-Security-Policy in _headers laat scripts enkel toe van
 // 'self' en cdn.jsdelivr.net, en de stylesheet enkel van 'self' (vandaar
 // css/leaflet.css lokaal). Diezelfde CSP verbiedt style-attributen in HTML —
-// daarom kleuren en positioneren de stippen via CSS-klassen en niet via
+// daarom kleuren en positioneren de iconen via CSS-klassen en niet via
 // style="".
 import { supabase } from "./supabase.js";
 import { voetbalVoor, confederatieNaam, RANKING_STAND } from "./voetbal-data.js";
+import { landInfoVoor } from "./land-data.js";
+import { talenVoor } from "./talen-data.js";
+import { laadFotos } from "./foto-data.js";
 
 // ---------- coördinaten ----------
 
@@ -111,20 +117,21 @@ export const LEGENDE = TRAPPEN;
 
 // ---------- categorieën ----------
 
-// Alle vijf categorieën uit de eindvisie. 'zichtbaar: false' betekent: geen
-// stip, geen popupsectie — de categorie bestaat enkel als voorbereiding.
-// 'actief: false' (maar wel zichtbaar) betekent: wel een dof stipje en een
-// popupsectie, maar met een placeholderzin in plaats van echte gegevens.
+// Alle vijf categorieën uit de eindvisie, sinds fase 3 allemaal 'zichtbaar'
+// én 'actief'. 'klasseVoor' levert enkel nog een EXTRA klasse (naast de vaste
+// 'wr-icoon wr-icoon--<id>' die tekenLanden() altijd zet) — enkel de
+// stickerscategorie gebruikt dat om zijn percentagekleur toe te voegen.
 export const CATEGORIEEN = [
   {
     id: "stickers",
     label: "Stickers",
-    icoon: "🧩",
+    icoon: "🃏",
     fase: 1,
     zichtbaar: true,
     actief: true,
-    // De stickerstip is de enige die van kleur verandert: hij draagt het cijfer.
-    klasseVoor: (land) => "wr-stip--stickers " + trapVoor(land.procent).klasse,
+    // Het stickerenicoon is het enige dat van kleur verandert: het draagt het
+    // verzamelpercentage.
+    klasseVoor: (land) => trapVoor(land.procent).klasse,
     popup: (land) => stickerPopup(land),
     placeholder: null,
   },
@@ -135,47 +142,45 @@ export const CATEGORIEEN = [
     fase: 2,
     zichtbaar: true,
     actief: true,
-    klasseVoor: () => "wr-stip--voetbal",
+    klasseVoor: () => "",
     popup: (land) => voetbalPopup(land),
     // Blijft staan als vangnet: een land uit de catalogus zonder rij in
-    // js/voetbal-data.js valt hierop terug in plaats van op een lege sectie.
+    // js/voetbal-data.js valt hierop terug in plaats van op een lege popup.
     placeholder: "Voetbalinformatie voor dit land verschijnt in een volgende update.",
   },
   {
     id: "land",
-    label: "Land",
-    icoon: "📍",
+    label: "Landinfo",
+    icoon: "🌍",
     fase: 3,
     zichtbaar: true,
-    actief: false,
-    klasseVoor: () => "wr-stip--land",
-    popup: null,
+    actief: true,
+    klasseVoor: () => "",
+    popup: (land) => landPopup(land),
     placeholder: "Meer over dit land verschijnt in een volgende update.",
   },
-  // Talen en foto's staan klaar voor een latere fase, maar tekenen in fase 1
-  // nog geen stip en krijgen geen popupsectie: 'zichtbaar' blijft false tot
-  // die fase ze aanzet. Er is dan geen enkele tekencode meer nodig — enkel
-  // deze twee regels aanpassen.
   {
     id: "talen",
     label: "Talen",
     icoon: "🗣️",
     fase: 3,
-    zichtbaar: false,
-    actief: false,
-    klasseVoor: () => "wr-stip--talen",
-    popup: null,
+    zichtbaar: true,
+    actief: true,
+    klasseVoor: () => "",
+    popup: (land) => talenPopup(land),
     placeholder: "Taalinformatie verschijnt in een volgende update.",
   },
   {
     id: "fotos",
     label: "Foto's",
-    icoon: "📷",
+    icoon: "📸",
     fase: 3,
-    zichtbaar: false,
-    actief: false,
-    klasseVoor: () => "wr-stip--fotos",
-    popup: null,
+    zichtbaar: true,
+    actief: true,
+    klasseVoor: () => "",
+    // Bouwt meteen een laadskelet; vulFotoPopup() (zie verderop) vult het pas
+    // met echte foto's zodra dit icoon ook echt aangetikt wordt.
+    popup: (land) => fotoPopup(land),
     placeholder: "Foto's verschijnen in een volgende update.",
   },
 ];
@@ -281,7 +286,7 @@ export function maakKaart(element, { mini = false } = {}) {
   return kaart;
 }
 
-// Zet de stippen op de kaart en geeft de laag terug, zodat de pagina ze bij een
+// Zet de iconen op de kaart en geeft de laag terug, zodat de pagina ze bij een
 // andere verzamelaar in één keer kan vervangen.
 export function tekenLanden(kaart, landen, { mini = false } = {}) {
   const laag = L.layerGroup().addTo(kaart);
@@ -296,198 +301,113 @@ export function tekenLanden(kaart, landen, { mini = false } = {}) {
           iconSize: [0, 0],
           iconAnchor: [0, 0],
         }),
-        title: `${land.land_naam} — ${land.procent} %`,
+        title: land.land_naam,
         keyboard: !mini,
         interactive: !mini,
         // Europa staat vol: op wereldniveau overlappen een stuk of twintig
-        // stippen elkaar. Inzoomen trekt ze uit elkaar, en tot dan brengt
-        // riseOnHover de stip waar je op mikt naar voren.
+        // iconengroepen elkaar. Inzoomen trekt ze uit elkaar, en tot dan
+        // brengt riseOnHover de groep waar je op mikt naar voren.
         riseOnHover: !mini,
       });
-      if (!mini) {
-        // Deze handler moet vóór bindPopup geregistreerd worden: Leaflet roept
-        // zijn listeners in volgorde van registratie aan, en de popupinhoud
-        // wordt door bindPopup opgebouwd. Klik je op de voetbalstip, dan staat
-        // startTab dus al goed voordat de popup zichzelf tekent.
-        marker.on("click", (e) => {
-          const doel = e.originalEvent && e.originalEvent.target;
-          if (doel && doel.dataset && doel.dataset.categorie) {
-            kiesStartTab(doel.dataset.categorie);
-          }
-        });
-        // De popup houdt altijd dezelfde hoogte — zie de vaste hoogte van
-        // .wr-tabpanelen in css/style.css. Dat is geen opmaakdetail: een
-        // Leaflet-popup hangt met zijn punt aan de marker en groeit dus naar
-        // BOVEN. Een langer tabblad zou de popup omhoog duwen, tot voorbij de
-        // bovenrand van de kaart, waar de kopbalk eroverheen valt en je de
-        // tabbladen niet meer kan aantikken. Leaflet herberekent zijn
-        // autoPan namelijk niet meer na het openen.
-        marker.bindPopup(() => bouwPopup(land), {
-          minWidth: 250,
-          autoPanPadding: [12, 12],
-        });
-      }
       marker.addTo(laag);
+
+      if (!mini) {
+        // Elk icoon heeft zijn EIGEN popup (zie openIconPopup() verderop) in
+        // plaats van één gedeelde popup met tabbladen: de listener leest
+        // welk icoon precies werd aangeklikt of met Enter/Spatie bevestigd.
+        const opIcoon = (doel) => {
+          const icoonEl = doel && doel.closest && doel.closest("[data-categorie]");
+          const cat = icoonEl && CATEGORIEEN.find((c) => c.id === icoonEl.dataset.categorie);
+          if (cat) openIconPopup(kaart, land, cat);
+        };
+        marker.on("click", (e) => opIcoon(e.originalEvent && e.originalEvent.target));
+
+        // De iconen zijn gewone <span>'s, geen <button>'s (dat zou binnen een
+        // L.divIcon extra Leaflet-eigenaardigheden geven), dus toetsenbord-
+        // bediening bouwen we hier zelf: elk icoon kreeg tabindex="0" in
+        // stippenHtml(), en Enter/Spatie opent dezelfde popup als een klik.
+        const el = marker.getElement();
+        if (el) {
+          el.addEventListener("keydown", (e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            opIcoon(e.target);
+          });
+        }
+      }
     });
 
   return laag;
 }
 
-// De stippen als HTML-string, want zo wil L.divIcon het. Er komt geen enkele
+// Eén kleine, losse popup voor precies het icoon waarop getikt werd. openOn()
+// sluit een eventueel nog open popup van een ander land of icoon vanzelf —
+// zo blijft er nooit meer dan één popup tegelijk open.
+function openIconPopup(kaart, land, cat) {
+  const inhoud = bouwMiniPopup(land, cat);
+  const popup = L.popup({ minWidth: 230, autoPanPadding: [12, 12] })
+    .setLatLng(land.punt)
+    .setContent(inhoud)
+    .openOn(kaart);
+
+  if (cat.id === "fotos") {
+    vulFotoPopup(inhoud.querySelector(".wr-foto-galerij"), land, popup);
+  }
+}
+
+// De iconen als HTML-string, want zo wil L.divIcon het. Er komt geen enkele
 // waarde van een gebruiker in: land_naam en de cijfers staan in de catalogus,
 // de klassen komen uit dit bestand. De popup — waar wél tekst uit de databank
 // in belandt — bouwen we verderop wél met textContent.
 //
-// De volgorde van de stippen (voetbal, land, stickers) bepaalt welke plek elke
-// stip krijgt in de driehoeksopstelling uit css/style.css — daar staan per
-// klasse vaste, niet-willekeurige offsets (wr-stip--voetbal boven,
-// wr-stip--land rechtsonder, wr-stip--stickers linksonder), zodat een land
-// altijd dezelfde opstelling toont. Op een klein scherm of de ministip op het
-// dashboard blijft alleen de stickerstip staan, en die wordt daar herzet naar
-// het midden — zie de media query en .wr-kaart--mini in css/style.css.
+// De cluster-CSS in css/style.css geeft elke 'wr-icoon--<id>'-klasse een
+// vaste, niet-willekeurige positie rond het middelpunt (voetbal boven,
+// stickers links, foto's rechts, talen en landinfo onderaan) — dezelfde
+// opstelling op elke herlading en elk zoomniveau. Op de ministip van het
+// dashboard blijft alleen het stickerenicoon staan, gecentreerd — zie
+// .wr-kaart--mini in css/style.css.
 function stippenHtml(land, mini) {
-  // De ministip op het dashboard toont enkel de stickerstip: daar is geen
-  // ruimte voor een driehoekje, en die kaart is toch niet klikbaar.
+  // De ministip op het dashboard toont enkel het stickerenicoon: daar is geen
+  // ruimte voor een cluster, en die kaart is toch niet klikbaar.
   const categorieen = mini
     ? ZICHTBARE_CATEGORIEEN.filter((c) => c.id === "stickers")
     : ZICHTBARE_CATEGORIEEN;
   const stippen = categorieen
-    .map(
-      (cat) =>
-        // 'wr-stip--wacht' dimt een categorie die nog geen echte gegevens
-        // heeft. Dat hangt aan de 'actief'-vlag en niet aan een handgeschreven
-        // CSS-regel per categorie: zet fase 3 'land' op actief, dan klaart die
-        // stip vanzelf op, zonder de stylesheet aan te raken.
-        `<span class="wr-stip ${cat.klasseVoor(land)}${cat.actief ? "" : " wr-stip--wacht"}"` +
-        ` data-categorie="${cat.id}"></span>`
-    )
+    .map((cat) => {
+      const isStickers = cat.id === "stickers";
+      const tekst = isStickers ? `${cat.label} — ${land.procent} %` : cat.label;
+      const aria = `${tekst} van ${land.land_naam}`;
+      const klasse = ["wr-icoon", "wr-icoon--" + cat.id, cat.klasseVoor(land), cat.actief ? "" : "wr-icoon--wacht"]
+        .filter(Boolean)
+        .join(" ");
+      const interactief = mini ? "" : ` role="button" tabindex="0"`;
+      return `<span class="${klasse}" data-categorie="${cat.id}"${interactief} title="${aria}" aria-label="${aria}">${cat.icoon}</span>`;
+    })
     .join("");
   return `<span class="wr-stip-groep">${stippen}</span>`;
 }
 
 // ---------- popup ----------
 
-// Eén popup per land, met één tabblad per zichtbare categorie. Sinds fase 2 de
-// voetbalgegevens toevoegt, zou alles onder elkaar een popup van een halve
-// schermhoogte geven — te veel om te overzien, zeker op een telefoon. Tabs
-// houden de popup even hoog als in fase 1 en maken meteen zichtbaar dat er per
-// land méér te ontdekken valt dan stickers alleen.
-//
-// Fase 3 hoeft deze opbouw niet aan te raken: een categorie op 'zichtbaar'
-// zetten levert vanzelf een extra tabblad op.
-let volgendeTabId = 0;
-
-// Welk tabblad opengaat bij de volgende popup. Blijft staan terwijl je over de
-// kaart pant: wie de voetbalinfo van België bekeek, wil bij Frankrijk meestal
-// weer voetbal zien en niet opnieuw moeten klikken. Klikken op een specifieke
-// stip zet dit ook — zie tekenLanden().
-let startTab = "stickers";
-
-export function kiesStartTab(categorieId) {
-  if (ZICHTBARE_CATEGORIEEN.some((c) => c.id === categorieId)) startTab = categorieId;
-}
-
-function bouwPopup(land) {
+// De kleine popupomkadering rond precies één categorie: icoon + label + land
+// in de kop, en daaronder de inhoud die cat.popup(land) teruggeeft (of de
+// placeholderzin wanneer een categorie nog niet 'actief' is). openIconPopup()
+// in tekenLanden() hierboven roept dit aan.
+function bouwMiniPopup(land, cat) {
   const vak = document.createElement("div");
   vak.className = "wr-popup";
 
   const titel = document.createElement("p");
   titel.className = "wr-popup__titel";
-  titel.textContent = land.land_naam;
+  const icoon = document.createElement("span");
+  icoon.setAttribute("aria-hidden", "true");
+  icoon.textContent = cat.icoon;
+  titel.appendChild(icoon);
+  titel.appendChild(document.createTextNode(` ${cat.label} — ${land.land_naam}`));
   vak.appendChild(titel);
 
-  const code = document.createElement("span");
-  code.className = "wr-popup__code";
-  code.textContent = land.land_code;
-  titel.appendChild(code);
-
-  const balk = document.createElement("div");
-  balk.className = "wr-tabs";
-  balk.setAttribute("role", "tablist");
-  balk.setAttribute("aria-label", "Onderdelen van " + land.land_naam);
-
-  const panelenVak = document.createElement("div");
-  panelenVak.className = "wr-tabpanelen";
-
-  const tabs = [];
-  const panelen = [];
-
-  ZICHTBARE_CATEGORIEEN.forEach((cat) => {
-    // Unieke ids per popup: Leaflet sluit de vorige popup wel, maar tijdens de
-    // overgang kunnen er even twee in de DOM staan, en dan mogen aria-controls
-    // en aria-labelledby niet naar het verkeerde paneel wijzen.
-    const nr = volgendeTabId++;
-    const tabId = `wr-tab-${nr}`;
-    const paneelId = `wr-paneel-${nr}`;
-
-    const tab = document.createElement("button");
-    tab.type = "button";
-    tab.className = "wr-tab";
-    tab.id = tabId;
-    tab.dataset.categorie = cat.id;
-    tab.setAttribute("role", "tab");
-    tab.setAttribute("aria-controls", paneelId);
-
-    const icoon = document.createElement("span");
-    icoon.className = "wr-tab__icoon";
-    icoon.setAttribute("aria-hidden", "true");
-    icoon.textContent = cat.icoon;
-    const label = document.createElement("span");
-    label.textContent = cat.label;
-    tab.appendChild(icoon);
-    tab.appendChild(label);
-
-    const paneel = document.createElement("div");
-    paneel.className = "wr-tabpaneel";
-    paneel.id = paneelId;
-    paneel.setAttribute("role", "tabpanel");
-    paneel.setAttribute("aria-labelledby", tabId);
-    paneel.appendChild(cat.actief && cat.popup ? cat.popup(land) : placeholderInhoud(cat));
-
-    tab.addEventListener("click", () => {
-      startTab = cat.id;
-      toonTab(tabs, panelen, cat.id);
-    });
-    tab.addEventListener("keydown", (e) => pijltjes(e, tabs, panelen));
-
-    tabs.push(tab);
-    panelen.push(paneel);
-    balk.appendChild(tab);
-    panelenVak.appendChild(paneel);
-  });
-
-  vak.appendChild(balk);
-  vak.appendChild(panelenVak);
-  toonTab(tabs, panelen, startTab);
+  vak.appendChild(cat.actief && cat.popup ? cat.popup(land) : placeholderInhoud(cat));
   return vak;
-}
-
-// Eén tabblad zichtbaar, de rest verborgen. 'hidden' in plaats van een
-// CSS-klasse: dat haalt het paneel ook uit de voorleesvolgorde van een
-// schermlezer, wat bij tabs de bedoeling is.
-function toonTab(tabs, panelen, categorieId) {
-  let index = tabs.findIndex((t) => t.dataset.categorie === categorieId);
-  if (index < 0) index = 0;
-
-  tabs.forEach((tab, i) => {
-    const gekozen = i === index;
-    tab.setAttribute("aria-selected", gekozen ? "true" : "false");
-    // Roving tabindex: de tabbalk is één tabstop, daarbinnen navigeer je met
-    // de pijltjestoetsen — zo hoort een tablist zich te gedragen.
-    tab.tabIndex = gekozen ? 0 : -1;
-    panelen[i].hidden = !gekozen;
-  });
-}
-
-function pijltjes(e, tabs, panelen) {
-  const richting = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-  if (!richting) return;
-  e.preventDefault();
-  const nu = tabs.indexOf(e.currentTarget);
-  const volgende = tabs[(nu + richting + tabs.length) % tabs.length];
-  startTab = volgende.dataset.categorie;
-  toonTab(tabs, panelen, startTab);
-  volgende.focus();
 }
 
 function stickerPopup(land) {
@@ -612,16 +532,19 @@ function rij(lijst, naam, waarde) {
   lijst.appendChild(dd);
 }
 
+// Een kopje plus een zin erna — gebruikt door het voetbalpaneel (speelstijl,
+// weetje) én, sinds fase 3, het landinfopaneel (bekend om, weetje). Generieke
+// naam en klassen, want de inhoud is niet langer voetbalspecifiek.
 function tekstBlok(kop, tekst) {
   const vak = document.createElement("div");
-  vak.className = "wr-voetbal__blok";
+  vak.className = "wr-tekstblok";
 
   const titel = document.createElement("p");
-  titel.className = "wr-voetbal__kop";
+  titel.className = "wr-tekstblok__kop";
   titel.textContent = kop;
 
   const inhoud = document.createElement("p");
-  inhoud.className = "wr-voetbal__tekst";
+  inhoud.className = "wr-tekstblok__tekst";
   inhoud.textContent = tekst;
 
   vak.appendChild(titel);
@@ -634,6 +557,143 @@ function placeholderInhoud(cat) {
   p.className = "wr-popup__wacht";
   p.textContent = cat.placeholder;
   return p;
+}
+
+// ---------- landinfo (fase 3) ----------
+
+// De gegevens komen uit js/land-data.js — dezelfde scheiding tussen data en
+// weergave als bij het voetbalpaneel.
+function landPopup(land) {
+  const info = landInfoVoor(land.land_code);
+  if (!info) {
+    return placeholderInhoud(CATEGORIEEN.find((c) => c.id === "land"));
+  }
+
+  const blok = document.createElement("div");
+  blok.className = "wr-popup__blok";
+
+  const lijst = document.createElement("dl");
+  lijst.className = "wr-popup__cijfers";
+  rij(lijst, "Hoofdstad", info.hoofdstad);
+  rij(lijst, "Continent", info.continent);
+  rij(lijst, "Inwoners", info.inwoners);
+  blok.appendChild(lijst);
+
+  blok.appendChild(tekstBlok("Bekend om", info.bekendOm));
+  blok.appendChild(tekstBlok("💡 Leuk weetje", info.weetje));
+  return blok;
+}
+
+// ---------- talen (fase 3) ----------
+
+// Bij één officiële taal tonen we de volledige rij (Nederlands/Engels/lokale
+// naam/taal); bij meerdere talen bestaat er geen "de taal van dat land" om
+// apart uit te lichten, dus dan volstaat een opsomming — zie js/talen-data.js.
+function talenPopup(land) {
+  const info = talenVoor(land.land_code);
+  if (!info) {
+    return placeholderInhoud(CATEGORIEEN.find((c) => c.id === "talen"));
+  }
+
+  const blok = document.createElement("div");
+  blok.className = "wr-popup__blok";
+
+  const lijst = document.createElement("dl");
+  lijst.className = "wr-popup__cijfers";
+
+  if (info.talen.length > 1) {
+    rij(lijst, "Talen", meervoudigOpsommen(info.talen));
+  } else {
+    rij(lijst, "Nederlands", land.land_naam);
+    if (info.engels) rij(lijst, "Engels", info.engels);
+    if (info.lokaleNaam) rij(lijst, "Lokale naam", info.lokaleNaam);
+    rij(lijst, "Taal", info.talen[0]);
+  }
+
+  blok.appendChild(lijst);
+  return blok;
+}
+
+function meervoudigOpsommen(lijst) {
+  if (lijst.length === 1) return lijst[0];
+  return lijst.slice(0, -1).join(", ") + " en " + lijst[lijst.length - 1];
+}
+
+// ---------- foto's (fase 3) ----------
+
+// fotoPopup() bouwt meteen een laadskelet — geen netwerkaanvraag hier. Pas
+// wanneer dit icoon ook echt aangetikt wordt, roept openIconPopup() hierboven
+// vulFotoPopup() aan, die de echte foto's ophaalt (zie js/foto-data.js) en dit
+// skelet vervangt. Zo blijft de kaart snel: 48 landen zouden anders 48
+// databankaanvragen sturen bij het laden van de kaart, voor foto's die
+// misschien nooit bekeken worden.
+function fotoPopup(land) {
+  void land; // niet nodig hier: bouwMiniPopup() zet landnaam en icoon al in de kop
+  const blok = document.createElement("div");
+  blok.className = "wr-popup__blok";
+
+  const galerij = document.createElement("div");
+  galerij.className = "wr-foto-galerij wr-foto-galerij--laden";
+  for (let i = 0; i < 3; i++) {
+    const skelet = document.createElement("span");
+    skelet.className = "wr-foto-skelet";
+    skelet.setAttribute("aria-hidden", "true");
+    galerij.appendChild(skelet);
+  }
+  blok.appendChild(galerij);
+
+  const status = document.createElement("p");
+  status.className = "wr-popup__wacht";
+  status.textContent = "Foto's laden…";
+  blok.appendChild(status);
+
+  return blok;
+}
+
+// Vervangt het laadskelet door de echte foto's (of een nette lege boodschap).
+// popup.update() is nodig omdat Leaflet de afmetingen van een popup enkel bij
+// het openen berekent: zonder deze aanroep zou de popup de nieuwe, vaak
+// hogere inhoud niet meenemen en zouden de foto's onderaan afgesneden lijken.
+async function vulFotoPopup(galerijEl, land, popup) {
+  if (!galerijEl) return;
+
+  let fotos = [];
+  try {
+    fotos = await laadFotos(land.land_code);
+  } catch (err) {
+    fotos = [];
+  }
+
+  const blok = galerijEl.parentElement;
+  const status = blok && blok.querySelector(".wr-popup__wacht");
+  galerijEl.classList.remove("wr-foto-galerij--laden");
+  galerijEl.innerHTML = "";
+
+  if (fotos.length === 0) {
+    if (status) status.textContent = "Nog geen foto's voor dit land — kom later nog eens terug!";
+  } else {
+    if (status) status.remove();
+    fotos.forEach((foto) => {
+      const fig = document.createElement("figure");
+      fig.className = "wr-foto";
+
+      const img = document.createElement("img");
+      img.src = foto.foto_url;
+      img.alt = foto.alt_tekst;
+      img.loading = "lazy";
+      fig.appendChild(img);
+
+      if (foto.titel) {
+        const bijschrift = document.createElement("figcaption");
+        bijschrift.textContent = foto.titel;
+        fig.appendChild(bijschrift);
+      }
+
+      galerijEl.appendChild(fig);
+    });
+  }
+
+  popup.update();
 }
 
 // De vulling wordt via el.style gezet en niet via een style-attribuut in de
