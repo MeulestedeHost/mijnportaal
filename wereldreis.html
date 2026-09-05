@@ -45,13 +45,38 @@
         </div>
 
         <div class="wr-hero__stats">
-          <span class="wr-hero__stat">
-            <span aria-hidden="true">🏆</span>
-            <span id="wr-hero-voltooid">–</span> voltooid
+          <!-- De hele badge is de tooltip-trigger: op desktop via :hover, op
+               een tablet of smartphone door hem aan te tikken (dat geeft een
+               <button> altijd :focus, ook zonder toetsenbord). -->
+          <span class="wr-tooltip-wrap">
+            <button type="button" class="wr-hero__stat" aria-describedby="wr-tip-landen">
+              <span aria-hidden="true">🏆</span>
+              <span id="wr-hero-voltooid">–</span>
+            </button>
+            <span class="wr-tooltip" id="wr-tip-landen" role="tooltip">
+              Een land is compleet wanneer er geen gezochte stickers meer geregistreerd zijn
+              voor dat land.
+            </span>
           </span>
-          <span class="wr-hero__stat">
-            <span aria-hidden="true">🧩</span>
-            <span id="wr-hero-stickers">–</span> stickers
+
+          <!-- Bij de stickerbadge staat de uitleg achter een apart ℹ️-knopje in
+               plaats van de badge zelf: dit cijfer is een berekening met een
+               kanttekening (zie de tooltip), dus verdient het een duidelijker
+               "tik hier voor uitleg"-aanwijzing dan de landenbadge. -->
+          <span class="wr-tooltip-wrap">
+            <span class="wr-hero__stat">
+              <span aria-hidden="true">🧩</span>
+              <span id="wr-hero-stickers">–</span>
+            </span>
+            <button type="button" class="wr-info-knop" aria-describedby="wr-tip-stickers"
+                    aria-label="Meer uitleg over dit aantal">
+              <span aria-hidden="true">ℹ️</span>
+            </button>
+            <span class="wr-tooltip" id="wr-tip-stickers" role="tooltip">
+              Dit aantal is een berekening. Alle stickers die niet als gezocht zijn aangeduid
+              worden beschouwd als aanwezig. Controleer eerst of alle ontbrekende stickers
+              correct zijn ingevoerd.
+            </span>
           </span>
         </div>
 
@@ -111,9 +136,10 @@
       <section class="card">
         <h2>✨ Wat komt er nog?</h2>
         <p class="form-meta form-meta--plat">
-          De ⚽- en 📍-stip naast elke stickerstip staan er al, maar zijn nog leeg. In de
-          volgende updates vullen we ze met voetbalinformatie en landinfo per land, en
-          komen daarna 🗣️ talen en 📷 foto's erbij.
+          De ⚽-stip is er nu bij: tik op een land en kies het tabblad
+          <strong>Voetbal</strong> voor de bijnaam, het shirt, de FIFA-ranking en een leuk
+          weetje over die ploeg. De 📍-stip is nog dof — daar komt in een volgende update
+          landinfo bij, en daarna 🗣️ talen en 📷 foto's.
         </p>
       </section>
     </div>

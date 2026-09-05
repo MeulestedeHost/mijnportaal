@@ -175,25 +175,67 @@ plaats van een instructieblok.
 ### Vijf categorieën, drie zichtbaar
 
 Elk land heeft een driehoekje van stippen: 🧩 stickers linksonder (gekleurd naar
-percentage, met de glow), ⚽ voetbal boven en 📍 land rechtsonder (allebei nog
-dof — ze wachten op een volgende fase). Op een telefoon en in de ministip op het
-dashboard blijft enkel de stickerstip staan, gecentreerd op het land: daar is
-geen ruimte voor een driehoekje, en de twee andere stippen zijn toch nog leeg.
+percentage, met de glow), ⚽ voetbal boven en 📍 land rechtsonder. Sinds fase 2
+is de voetbalstip gevuld; de landstip staat er nog dof bij en wacht op fase 3.
+Op een telefoon en in de ministip op het dashboard blijft enkel de stickerstip
+staan, gecentreerd op het land: daar is geen ruimte voor een driehoekje.
 
 De architectuur is voorbereid op alle **vijf** categorieën uit de eindvisie:
 `CATEGORIEEN` in `js/wereldreis.js` bevat naast stickers, voetbal en land ook
 **talen** en **foto's**, elk met een label, icoon en placeholderzin, maar met
-`zichtbaar: false` — ze tekenen dus nog geen stip en krijgen geen popupsectie.
+`zichtbaar: false` — ze tekenen dus nog geen stip en krijgen geen tabblad.
 Een latere fase hoeft geen tekencode te schrijven: `zichtbaar`/`actief` op
 `true` zetten en een `popup(land)`-functie schrijven volstaat. De stip, de
-legende, de popupsectie en de "wat komt er nog"-tekst volgen dan vanzelf overal
-waar `ZICHTBARE_CATEGORIEEN` gebruikt wordt.
+legende, het tabblad en de dimming volgen dan vanzelf overal waar
+`ZICHTBARE_CATEGORIEEN` gebruikt wordt. Ook de doffe opmaak hangt aan die vlag:
+`stippenHtml()` zet `wr-stip--wacht` op elke stip waarvan de categorie nog niet
+actief is, dus een categorie aanzetten klaart zijn stip vanzelf op.
 
-De popup van een land toont daardoor nu al drie nette secties (icoon + label +
-inhoud) in plaats van "de echte info plus twee losse zinnetjes": Stickers met de
-percentages, Voetbal en Land met hun letterlijke placeholderzin
-("Voetbalinformatie verschijnt in de volgende update.", "Meer over dit land
-verschijnt in een volgende update.").
+### De popup: één venster met tabbladen
+
+De popup van een land heeft één tabblad per zichtbare categorie: 🧩 Stickers,
+⚽ Voetbal, 📍 Land. Tot fase 1 stond alles onder elkaar; met de voetbalgegevens
+erbij zou dat een popup van een halve schermhoogte geven, te veel om te
+overzien op een telefoon. Grote, afgeronde tabknoppen met een icoon zijn ook
+makkelijker te raken met een kindervinger.
+
+Twee details die geen opmaakkwestie zijn maar bugs voorkomen:
+
+- **Het paneelvak heeft een vaste hoogte** (`.wr-tabpanelen`, 260px, scrollt bij
+  langere inhoud). Een Leaflet-popup hangt met zijn punt aan de marker en groeit
+  dus naar bóven; een langer tabblad zou de popup over de bovenrand van de kaart
+  heen duwen, waar de kopbalk eroverheen valt en de tabbladen niet meer aan te
+  tikken zijn. Leaflet herberekent zijn autoPan namelijk niet na het openen.
+  Met een vaste hoogte is de popup op elk tabblad even groot en kan dat niet.
+- **Klikken op een specifieke stip opent dat tabblad.** `tekenLanden()` leest
+  `data-categorie` van de aangeklikte stip; die handler wordt bewust vóór
+  `bindPopup()` geregistreerd, want Leaflet roept zijn listeners in volgorde van
+  registratie aan en de popupinhoud wordt door `bindPopup` opgebouwd. Het
+  gekozen tabblad blijft ook staan bij het volgende land dat je aantikt.
+
+### Voetbalgegevens (fase 2)
+
+Per land: bijnaam, naam van de nationale ploeg, shirtkleuren (als echte gekleurde
+bolletjes), confederatie met werelddeel erbij, FIFA-ranking, een bekende speler,
+de speelstijl en een weetje — in taal die een kind van acht kan lezen.
+
+Alles staat in **`js/voetbal-data.js`**, een bestand met enkel gegevens: geen
+DOM, geen Leaflet, geen opmaak. Bewust geen Supabase-tabel: dit is statische
+redactionele informatie, voor elke gebruiker identiek, nooit geschreven vanuit
+de app en zonder afscherming. Een tabel zou een migratie, een RLS-policy en een
+netwerkronde bij elke popup kosten zonder dat er iets tegenover staat. Moet het
+later tóch een tabel worden (bijvoorbeeld om de teksten te laten bewerken zonder
+toegang tot de code), dan is `voetbalVoor()` het enige wat verandert — de kaart
+en de popup kennen enkel die functie.
+
+Elk record is uitbreidbaar: `spelers` is een lijst, en de renderer toont de
+optionele velden `trainer`, `stadion` en `prestatie` zodra ze ingevuld zijn en
+slaat ze stil over zolang ze ontbreken.
+
+> **De FIFA-ranking is een momentopname.** De cijfers horen bij `RANKING_STAND`
+> bovenaan het databestand, en de popup zet die datum er zichtbaar bij. Bijwerken
+> doe je op die ene plek. Kijk bij een nieuw seizoen ook de spelersnamen even na:
+> die verouderen even snel.
 
 ### Vaste driehoeksplaatsing, geen toeval
 
@@ -232,7 +274,8 @@ als `kind_statistieken()` en `get_matches()`.
 | Bestand | Rol |
 |---|---|
 | `sql/010_wereldreis.sql` | `wereldreis_landen(kind_id)`: één rij per land met totaal, gezocht, dubbel, heeft en procent |
-| `js/wereldreis.js` | coördinaten, kleurenschaal, `CATEGORIEEN`, kaart tekenen, popup — gedeeld door de pagina en de widget |
+| `js/wereldreis.js` | coördinaten, kleurenschaal, `CATEGORIEEN`, kaart tekenen, popup met tabbladen — gedeeld door de pagina en de widget |
+| `js/voetbal-data.js` | de voetbalgegevens per land (fase 2) — enkel gegevens, geen opmaak |
 | `js/wereldkaart.js` | `wereldreis.html`: hero, verzamelaarskiezer, tellers, legende |
 | `js/wereldreis-widget.js` | het blok onderaan `dashboard.html` |
 | `css/leaflet.css` | Leaflet 1.9.4, lokaal — zie hieronder |

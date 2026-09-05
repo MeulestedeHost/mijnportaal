@@ -161,9 +161,11 @@ function toonCijfers(s) {
 
   // Dezelfde twee kerncijfers staan compact in de kop van de hero, zodat ze
   // meteen zichtbaar zijn zonder naar beneden te scrollen naar de volle
-  // tellerrij.
-  zet("wr-hero-voltooid", `${s.voltooid}/${s.landen}`);
-  zet("wr-hero-stickers", `${s.stickersHeeft}/${s.stickersTotaal}`);
+  // tellerrij. Voluit in woorden ("47 van de 48") in plaats van "47/48": dat
+  // leest vlotter voor een kind, en de asterisk bij stickers wijst naar de
+  // tooltip met de kanttekening bij dat cijfer.
+  zet("wr-hero-voltooid", `${s.voltooid} van de ${s.landen} landen compleet`);
+  zet("wr-hero-stickers", `${s.stickersHeeft} van de ${s.stickersTotaal} stickers gevonden*`);
 }
 
 function toonVoortgang(s) {

@@ -28,6 +28,7 @@
 // daarom kleuren en positioneren de stippen via CSS-klassen en niet via
 // style="".
 import { supabase } from "./supabase.js";
+import { voetbalVoor, confederatieNaam, RANKING_STAND } from "./voetbal-data.js";
 
 // ---------- coördinaten ----------
 
@@ -133,10 +134,12 @@ export const CATEGORIEEN = [
     icoon: "⚽",
     fase: 2,
     zichtbaar: true,
-    actief: false,
+    actief: true,
     klasseVoor: () => "wr-stip--voetbal",
-    popup: null,
-    placeholder: "Voetbalinformatie verschijnt in de volgende update.",
+    popup: (land) => voetbalPopup(land),
+    // Blijft staan als vangnet: een land uit de catalogus zonder rij in
+    // js/voetbal-data.js valt hierop terug in plaats van op een lege sectie.
+    placeholder: "Voetbalinformatie voor dit land verschijnt in een volgende update.",
   },
   {
     id: "land",
@@ -301,7 +304,29 @@ export function tekenLanden(kaart, landen, { mini = false } = {}) {
         // riseOnHover de stip waar je op mikt naar voren.
         riseOnHover: !mini,
       });
-      if (!mini) marker.bindPopup(() => bouwPopup(land));
+      if (!mini) {
+        // Deze handler moet vóór bindPopup geregistreerd worden: Leaflet roept
+        // zijn listeners in volgorde van registratie aan, en de popupinhoud
+        // wordt door bindPopup opgebouwd. Klik je op de voetbalstip, dan staat
+        // startTab dus al goed voordat de popup zichzelf tekent.
+        marker.on("click", (e) => {
+          const doel = e.originalEvent && e.originalEvent.target;
+          if (doel && doel.dataset && doel.dataset.categorie) {
+            kiesStartTab(doel.dataset.categorie);
+          }
+        });
+        // De popup houdt altijd dezelfde hoogte — zie de vaste hoogte van
+        // .wr-tabpanelen in css/style.css. Dat is geen opmaakdetail: een
+        // Leaflet-popup hangt met zijn punt aan de marker en groeit dus naar
+        // BOVEN. Een langer tabblad zou de popup omhoog duwen, tot voorbij de
+        // bovenrand van de kaart, waar de kopbalk eroverheen valt en je de
+        // tabbladen niet meer kan aantikken. Leaflet herberekent zijn
+        // autoPan namelijk niet meer na het openen.
+        marker.bindPopup(() => bouwPopup(land), {
+          minWidth: 250,
+          autoPanPadding: [12, 12],
+        });
+      }
       marker.addTo(laag);
     });
 
@@ -321,22 +346,47 @@ export function tekenLanden(kaart, landen, { mini = false } = {}) {
 // dashboard blijft alleen de stickerstip staan, en die wordt daar herzet naar
 // het midden — zie de media query en .wr-kaart--mini in css/style.css.
 function stippenHtml(land, mini) {
+  // De ministip op het dashboard toont enkel de stickerstip: daar is geen
+  // ruimte voor een driehoekje, en die kaart is toch niet klikbaar.
   const categorieen = mini
-    ? ZICHTBARE_CATEGORIEEN.filter((c) => c.actief)
+    ? ZICHTBARE_CATEGORIEEN.filter((c) => c.id === "stickers")
     : ZICHTBARE_CATEGORIEEN;
   const stippen = categorieen
-    .map((cat) => `<span class="wr-stip ${cat.klasseVoor(land)}"></span>`)
+    .map(
+      (cat) =>
+        // 'wr-stip--wacht' dimt een categorie die nog geen echte gegevens
+        // heeft. Dat hangt aan de 'actief'-vlag en niet aan een handgeschreven
+        // CSS-regel per categorie: zet fase 3 'land' op actief, dan klaart die
+        // stip vanzelf op, zonder de stylesheet aan te raken.
+        `<span class="wr-stip ${cat.klasseVoor(land)}${cat.actief ? "" : " wr-stip--wacht"}"` +
+        ` data-categorie="${cat.id}"></span>`
+    )
     .join("");
   return `<span class="wr-stip-groep">${stippen}</span>`;
 }
 
 // ---------- popup ----------
 
-// Eén sectie per zichtbare categorie, elk met dezelfde kop (icoon + label) —
-// zo leest de popup als één geheel in plaats van "de stickerinfo, plus twee
-// losse zinnetjes". Fase 2 en 3 hoeven deze opbouw niet aan te raken: zodra
-// hun categorie 'actief' wordt, verschijnt hun popup(land) hier vanzelf in
-// plaats van de placeholderzin.
+// Eén popup per land, met één tabblad per zichtbare categorie. Sinds fase 2 de
+// voetbalgegevens toevoegt, zou alles onder elkaar een popup van een halve
+// schermhoogte geven — te veel om te overzien, zeker op een telefoon. Tabs
+// houden de popup even hoog als in fase 1 en maken meteen zichtbaar dat er per
+// land méér te ontdekken valt dan stickers alleen.
+//
+// Fase 3 hoeft deze opbouw niet aan te raken: een categorie op 'zichtbaar'
+// zetten levert vanzelf een extra tabblad op.
+let volgendeTabId = 0;
+
+// Welk tabblad opengaat bij de volgende popup. Blijft staan terwijl je over de
+// kaart pant: wie de voetbalinfo van België bekeek, wil bij Frankrijk meestal
+// weer voetbal zien en niet opnieuw moeten klikken. Klikken op een specifieke
+// stip zet dit ook — zie tekenLanden().
+let startTab = "stickers";
+
+export function kiesStartTab(categorieId) {
+  if (ZICHTBARE_CATEGORIEEN.some((c) => c.id === categorieId)) startTab = categorieId;
+}
+
 function bouwPopup(land) {
   const vak = document.createElement("div");
   vak.className = "wr-popup";
@@ -351,31 +401,93 @@ function bouwPopup(land) {
   code.textContent = land.land_code;
   titel.appendChild(code);
 
+  const balk = document.createElement("div");
+  balk.className = "wr-tabs";
+  balk.setAttribute("role", "tablist");
+  balk.setAttribute("aria-label", "Onderdelen van " + land.land_naam);
+
+  const panelenVak = document.createElement("div");
+  panelenVak.className = "wr-tabpanelen";
+
+  const tabs = [];
+  const panelen = [];
+
   ZICHTBARE_CATEGORIEEN.forEach((cat) => {
-    const inhoud = cat.actief && cat.popup ? cat.popup(land) : placeholderInhoud(cat);
-    vak.appendChild(sectie(cat, inhoud));
+    // Unieke ids per popup: Leaflet sluit de vorige popup wel, maar tijdens de
+    // overgang kunnen er even twee in de DOM staan, en dan mogen aria-controls
+    // en aria-labelledby niet naar het verkeerde paneel wijzen.
+    const nr = volgendeTabId++;
+    const tabId = `wr-tab-${nr}`;
+    const paneelId = `wr-paneel-${nr}`;
+
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "wr-tab";
+    tab.id = tabId;
+    tab.dataset.categorie = cat.id;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-controls", paneelId);
+
+    const icoon = document.createElement("span");
+    icoon.className = "wr-tab__icoon";
+    icoon.setAttribute("aria-hidden", "true");
+    icoon.textContent = cat.icoon;
+    const label = document.createElement("span");
+    label.textContent = cat.label;
+    tab.appendChild(icoon);
+    tab.appendChild(label);
+
+    const paneel = document.createElement("div");
+    paneel.className = "wr-tabpaneel";
+    paneel.id = paneelId;
+    paneel.setAttribute("role", "tabpanel");
+    paneel.setAttribute("aria-labelledby", tabId);
+    paneel.appendChild(cat.actief && cat.popup ? cat.popup(land) : placeholderInhoud(cat));
+
+    tab.addEventListener("click", () => {
+      startTab = cat.id;
+      toonTab(tabs, panelen, cat.id);
+    });
+    tab.addEventListener("keydown", (e) => pijltjes(e, tabs, panelen));
+
+    tabs.push(tab);
+    panelen.push(paneel);
+    balk.appendChild(tab);
+    panelenVak.appendChild(paneel);
   });
 
+  vak.appendChild(balk);
+  vak.appendChild(panelenVak);
+  toonTab(tabs, panelen, startTab);
   return vak;
 }
 
-function sectie(cat, inhoud) {
-  const wrap = document.createElement("div");
-  wrap.className = "wr-popup__sectie";
+// Eén tabblad zichtbaar, de rest verborgen. 'hidden' in plaats van een
+// CSS-klasse: dat haalt het paneel ook uit de voorleesvolgorde van een
+// schermlezer, wat bij tabs de bedoeling is.
+function toonTab(tabs, panelen, categorieId) {
+  let index = tabs.findIndex((t) => t.dataset.categorie === categorieId);
+  if (index < 0) index = 0;
 
-  const kop = document.createElement("p");
-  kop.className = "wr-popup__sectie-kop";
-  const icoon = document.createElement("span");
-  icoon.className = "wr-popup__sectie-icoon";
-  icoon.textContent = cat.icoon;
-  const label = document.createElement("span");
-  label.textContent = cat.label;
-  kop.appendChild(icoon);
-  kop.appendChild(label);
+  tabs.forEach((tab, i) => {
+    const gekozen = i === index;
+    tab.setAttribute("aria-selected", gekozen ? "true" : "false");
+    // Roving tabindex: de tabbalk is één tabstop, daarbinnen navigeer je met
+    // de pijltjestoetsen — zo hoort een tablist zich te gedragen.
+    tab.tabIndex = gekozen ? 0 : -1;
+    panelen[i].hidden = !gekozen;
+  });
+}
 
-  wrap.appendChild(kop);
-  wrap.appendChild(inhoud);
-  return wrap;
+function pijltjes(e, tabs, panelen) {
+  const richting = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+  if (!richting) return;
+  e.preventDefault();
+  const nu = tabs.indexOf(e.currentTarget);
+  const volgende = tabs[(nu + richting + tabs.length) % tabs.length];
+  startTab = volgende.dataset.categorie;
+  toonTab(tabs, panelen, startTab);
+  volgende.focus();
 }
 
 function stickerPopup(land) {
@@ -405,6 +517,116 @@ function stickerPopup(land) {
   });
   blok.appendChild(lijst);
   return blok;
+}
+
+// ---------- voetbal (fase 2) ----------
+
+// De gegevens komen uit js/voetbal-data.js; dit bestand kent enkel de vorm van
+// een record, niet de inhoud. De optionele velden onderaan (trainer, stadion,
+// prestatie) staan er al: worden ze later in de dataset ingevuld, dan
+// verschijnen ze vanzelf, en zolang ze ontbreken slaat de renderer ze over.
+function voetbalPopup(land) {
+  const info = voetbalVoor(land.land_code);
+  if (!info) {
+    return placeholderInhoud(CATEGORIEEN.find((c) => c.id === "voetbal"));
+  }
+
+  const blok = document.createElement("div");
+  blok.className = "wr-popup__blok wr-voetbal";
+
+  const bijnaam = document.createElement("p");
+  bijnaam.className = "wr-voetbal__bijnaam";
+  bijnaam.textContent = info.bijnaam;
+  blok.appendChild(bijnaam);
+
+  const ploeg = document.createElement("p");
+  ploeg.className = "wr-voetbal__ploeg";
+  ploeg.textContent = "Nationale ploeg van " + info.ploeg;
+  blok.appendChild(ploeg);
+
+  // Dezelfde dl-opmaak als het stickerpaneel — één visuele taal voor alle
+  // feitenrijen in de popup.
+  const lijst = document.createElement("dl");
+  lijst.className = "wr-popup__cijfers wr-voetbal__feiten";
+
+  rij(lijst, "Shirt", shirtWaarde(info));
+  rij(lijst, "Speelt in", confederatieNaam(info.confederatie));
+  if (info.ranking) rij(lijst, "FIFA-ranking", "nr. " + info.ranking);
+  info.spelers.forEach((speler, i) => {
+    rij(
+      lijst,
+      i === 0 ? "Bekende speler" : "Ook bekend",
+      speler.positie ? `${speler.naam} (${speler.positie.toLowerCase()})` : speler.naam
+    );
+  });
+  if (info.trainer) rij(lijst, "Trainer", info.trainer);
+  if (info.stadion) rij(lijst, "Stadion", info.stadion);
+  if (info.prestatie) rij(lijst, "Grootste prestatie", info.prestatie);
+
+  blok.appendChild(lijst);
+
+  blok.appendChild(tekstBlok("Zo spelen ze", info.speelstijl));
+  blok.appendChild(tekstBlok("💡 Wist je dat?", info.weetje));
+
+  if (info.ranking) {
+    const stand = document.createElement("p");
+    stand.className = "wr-voetbal__stand";
+    stand.textContent = "FIFA-ranking volgens de stand van " + RANKING_STAND + ".";
+    blok.appendChild(stand);
+  }
+
+  return blok;
+}
+
+// De shirtkleuren als echte gekleurde bolletjes naast het woord. De kleur komt
+// uit de dataset en wordt via el.style gezet: een style-attribuut in HTML zou
+// de CSP tegenhouden, het aanspreken van .style vanuit JavaScript niet.
+function shirtWaarde(info) {
+  const wrap = document.createElement("span");
+  wrap.className = "wr-shirt";
+
+  (info.shirtKleuren || []).forEach((kleur) => {
+    const bol = document.createElement("span");
+    bol.className = "wr-shirt__kleur";
+    bol.style.backgroundColor = kleur;
+    wrap.appendChild(bol);
+  });
+
+  const tekst = document.createElement("span");
+  tekst.textContent = info.shirt;
+  wrap.appendChild(tekst);
+  return wrap;
+}
+
+// Waarde mag een string zijn of een element (zoals de shirtbolletjes).
+function rij(lijst, naam, waarde) {
+  const dt = document.createElement("dt");
+  dt.textContent = naam;
+  const dd = document.createElement("dd");
+  if (typeof waarde === "string") {
+    dd.textContent = waarde;
+  } else {
+    dd.appendChild(waarde);
+  }
+  lijst.appendChild(dt);
+  lijst.appendChild(dd);
+}
+
+function tekstBlok(kop, tekst) {
+  const vak = document.createElement("div");
+  vak.className = "wr-voetbal__blok";
+
+  const titel = document.createElement("p");
+  titel.className = "wr-voetbal__kop";
+  titel.textContent = kop;
+
+  const inhoud = document.createElement("p");
+  inhoud.className = "wr-voetbal__tekst";
+  inhoud.textContent = tekst;
+
+  vak.appendChild(titel);
+  vak.appendChild(inhoud);
+  return vak;
 }
 
 function placeholderInhoud(cat) {

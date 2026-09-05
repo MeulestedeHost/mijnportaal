@@ -297,6 +297,60 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
    dit is de speelse, meteen-zichtbare samenvatting, de volledige tellerrij
    met uitleg staat verderop onder de kaart voor wie doorscrolt. */
 .wr-hero__stat { display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(255, 255, 255, 0.85); border-radius: 999px; padding: 0.4rem 0.9rem; font-weight: 700; font-size: 0.875rem; color: var(--cf-blue-dark); box-shadow: var(--shadow); white-space: nowrap; }
+/* De landenbadge is een <button>: reset de standaard knopopmaak van de
+   browser zodat hij er identiek uitziet als de (niet-klikbare) stickerbadge
+   ernaast. */
+button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
+
+/* ---------- tooltips bij de statusbadges ---------- */
+/* Puur CSS, geen JavaScript: :hover dekt de muis, :focus-within dekt zowel
+   toetsenbord-tab als een tik op een tablet of smartphone — een <button>
+   krijgt daar altijd focus van, ook zonder toetsenbord. De tooltip zelf blijft
+   met opacity verborgen (niet display:none of visibility:hidden): zo leest
+   een schermlezer de tekst via aria-describedby zodra de knop focus krijgt,
+   ook wanneer hij visueel nog onzichtbaar is. */
+.wr-tooltip-wrap { position: relative; display: inline-flex; align-items: center; gap: 0.35rem; }
+.wr-tooltip {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(260px, calc(100vw - 2rem));
+  background: var(--cf-blue-dark);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 20;
+  white-space: normal;
+}
+/* Pijltje naar de badge toe, zodat duidelijk is bij welk cijfer de tekst hoort. */
+.wr-tooltip::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: var(--cf-blue-dark);
+}
+.wr-tooltip-wrap:hover .wr-tooltip,
+.wr-tooltip-wrap:focus-within .wr-tooltip {
+  opacity: 1;
+}
+
+/* Het ℹ️-knopje naast de stickerbadge: een eigen, duidelijk aantikbaar rondje
+   in plaats van te vertrouwen op :hover, dat op een touchscreen niet bestaat. */
+.wr-info-knop { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 1.6rem; height: 1.6rem; padding: 0; border: none; border-radius: 50%; background: rgba(255, 255, 255, 0.85); box-shadow: var(--shadow); font-size: 0.9rem; line-height: 1; cursor: pointer; }
+.wr-info-knop:hover, .wr-info-knop:focus-visible { background: #fff; }
 
 .wr-hero__kiezer { display: flex; align-items: center; gap: 0.5rem; }
 .wr-hero__kiezer-label { margin: 0; font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
@@ -309,7 +363,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
    het beschikbare stuk scherm, min-height:0 is nodig omdat een flex-kind
    anders weigert kleiner te worden dan zijn inhoud en de hero buiten de
    viewport zou duwen. */
-.wr-kaart.wr-kaart--hero { flex: 1 1 auto; min-height: 0; border-radius: 0; border: none; }
+/* Achtergrondkleur gelijk aan het water van de OpenStreetMap-tegels: schuift
+   Leaflet de kaart opzij om een popup te laten passen, dan blijft het stuk
+   zonder tegels naadloos oceaan in plaats van een grijs gat. */
+.wr-kaart.wr-kaart--hero { flex: 1 1 auto; min-height: 0; border-radius: 0; border: none; background: #aad3df; }
 /* De minikaart krijgt een vaste maat rond de wereld op zoomtrap 0: daar is de
    wereld 256 bij 143 pixels, en een breder vak zou enkel achtergrond bijzetten
    (er zijn geen tegels naast de wereld wanneer noWrap aanstaat). */
@@ -337,13 +394,18 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .wr-stip--voetbal   { top: -20px; left: 0; z-index: 2; }
 .wr-stip--land       { top: 12px; left: 18px; z-index: 2; }
 
-/* De twee stippen van fase 2 en 3 staan er al, maar doffer en kleiner: ze
-   moeten aankondigen dat er iets komt zonder de stickerstip te verdringen.
-   Zodra hun categorie in js/wereldreis.js op 'actief' gaat, volstaat het die
-   doffe opmaak hier weg te halen. */
-.wr-stip--voetbal, .wr-stip--land { width: 16px; height: 16px; border-width: 2px; opacity: 0.5; }
+/* De twee kleinere stippen naast de stickerstip: ze mogen aanwezig zijn zonder
+   de hoofdstip te verdringen. */
+.wr-stip--voetbal, .wr-stip--land { width: 17px; height: 17px; border-width: 2px; }
 .wr-stip--voetbal { background: var(--wr-voetbal); }
 .wr-stip--land { background: var(--wr-land); }
+
+/* Een categorie zonder echte gegevens staat er dof bij: "hier komt nog iets".
+   js/wereldreis.js hangt deze klasse aan elke stip waarvan de categorie nog
+   niet 'actief' is — sinds fase 2 dus enkel nog de landstip. Fase 3 hoeft hier
+   niets te wijzigen: zodra die categorie actief wordt, verdwijnt de klasse
+   vanzelf en klaart de stip op. */
+.wr-stip--wacht { opacity: 0.45; }
 
 /* Glow: een pulserende ring die vanuit de stickerstip naar buiten groeit en
    wegdooft — duidelijker dan een platte schaduw, en meteen zichtbaar dat dit
@@ -377,13 +439,45 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 /* Popup: kop + drie secties (stickers, voetbal, land), elk met hun eigen
    icoon en label — zo leest de popup als één samenhangend geheel in plaats
    van "de echte info plus twee losse zinnetjes". */
-.wr-popup { min-width: 200px; }
+.wr-popup { min-width: 250px; }
 .wr-popup__titel { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: baseline; gap: 0.4rem; }
 .wr-popup__code { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-muted); }
-.wr-popup__sectie + .wr-popup__sectie { border-top: 1px dashed var(--border); margin-top: 0.5rem; padding-top: 0.5rem; }
-.wr-popup__sectie-kop { display: flex; align-items: center; gap: 0.4rem; font-weight: 700; font-size: 0.8rem; margin-bottom: 0.3rem; color: var(--text); }
-.wr-popup__sectie-icoon { font-size: 1rem; }
 .wr-popup__blok { margin-bottom: 0.1rem; }
+
+/* Tabbladen in de popup. Sinds fase 2 de voetbalgegevens toevoegt, past niet
+   alles meer onder elkaar zonder een popup van een halve schermhoogte te
+   krijgen. Grote, afgeronde knoppen met een icoon erboven: goed te raken met
+   een kindervinger, en in één oogopslag duidelijk wat er te ontdekken valt. */
+.wr-tabs { display: flex; gap: 0.2rem; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem; margin-bottom: 0.75rem; }
+.wr-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.1rem; border: none; background: transparent; border-radius: 999px; padding: 0.4rem 0.25rem; font-family: inherit; font-size: 0.7rem; font-weight: 700; line-height: 1.2; color: var(--text-muted); cursor: pointer; }
+.wr-tab__icoon { font-size: 1.1rem; line-height: 1; }
+.wr-tab:hover { color: var(--cf-blue-dark); }
+.wr-tab[aria-selected="true"] { background: var(--surface); color: var(--cf-blue-dark); box-shadow: var(--shadow); }
+/* Een VASTE hoogte, geen min-height: zo is de popup even hoog op elk tabblad.
+   Een Leaflet-popup hangt met zijn punt aan de marker en groeit dus naar boven;
+   een langer tabblad zou hem over de bovenrand van de kaart heen duwen, waar de
+   kopbalk eroverheen valt en de tabbladen onbereikbaar worden. Past een tabblad
+   niet in deze hoogte (het voetbalpaneel is het langste), dan scrollt enkel dit
+   vak — de tabbalk blijft altijd staan waar hij staat. */
+.wr-tabpanelen { height: 260px; overflow-y: auto; overscroll-behavior: contain; }
+/* Wat ruimte rechts, zodat de tekst niet onder de schuifbalk van het vak
+   hierboven doorloopt wanneer een tabblad wél moet scrollen. */
+.wr-tabpaneel { padding-right: 0.2rem; }
+
+/* ---------- voetbalpaneel (fase 2) ---------- */
+.wr-voetbal__bijnaam { font-size: 1rem; font-weight: 700; color: var(--cf-blue-dark); line-height: 1.25; }
+.wr-voetbal__ploeg { font-size: 0.775rem; color: var(--text-muted); margin-bottom: 0.45rem; }
+.wr-voetbal__feiten { margin-top: 0; }
+/* De shirtkleuren als bolletjes vóór het woord, zodat je de kleur ziet en niet
+   enkel leest. De kleur zelf zet js/wereldreis.js via el.style. */
+.wr-shirt { display: inline-flex; align-items: center; gap: 0.25rem; }
+.wr-shirt__kleur { width: 0.8rem; height: 0.8rem; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.25); flex: none; }
+.wr-voetbal__blok { margin-top: 0.5rem; }
+.wr-voetbal__kop { font-size: 0.775rem; font-weight: 700; color: var(--text); }
+.wr-voetbal__tekst { font-size: 0.85rem; line-height: 1.45; }
+/* Een FIFA-ranking veroudert; erbij zetten wanneer hij gemeten is, is
+   eerlijker dan een kaal getal. */
+.wr-voetbal__stand { font-size: 0.7rem; color: var(--text-muted); font-style: italic; margin-top: 0.5rem; }
 .wr-popup__procent { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.35rem; }
 .wr-popup__procent.wr-vol { color: var(--wr-vol); }
 .wr-popup__procent.wr-hoog { color: #8a6d05; }
