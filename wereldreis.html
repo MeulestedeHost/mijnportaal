@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panini Ruilportaal Meulestede — FIFA Wereldreis</title>
+  <!-- Leaflet-stylesheet staat lokaal: de CSP in _headers laat style-src enkel
+       toe van 'self'. Het script mag wél van jsdelivr komen, net als
+       supabase-js. Beide op 1.9.4 houden. -->
+  <link rel="stylesheet" href="/css/leaflet.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="/dashboard.html" class="brand">
+        <span class="brand__logo">◆</span>
+        <span class="brand__name">Panini Ruilportaal Meulestede</span>
+      </a>
+      <div class="navbar__actions">
+        <a href="/dashboard.html" class="btn btn--outline btn--sm">← Dashboard</a>
+        <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main">
+    <div class="dashboard-header">
+      <h1>🌍 FIFA Wereldreis</h1>
+      <div class="dashboard-header__acties">
+        <label for="wr-kind" class="form-label wr-kiezer__label">Verzamelaar</label>
+        <select id="wr-kind" class="form-input wr-kiezer__select"></select>
+      </div>
+    </div>
+
+    <div id="wr-loading" class="loading">Laden…</div>
+    <div id="wr-fout" class="message" role="alert" aria-live="polite"></div>
+
+    <div id="wr-paneel" class="hidden">
+      <section class="card">
+        <p class="form-meta form-meta--plat">
+          Elk land van het album staat als stip op de kaart. Tik erop en je ziet hoeveel
+          stickers van dat land al geplakt zijn. De kleur van de stip zegt in één
+          oogopslag hoe ver je staat.
+        </p>
+      </section>
+
+      <!-- De vier tellers. Ze worden door js/wereldkaart.js gevuld; de
+           opschriften staan hier zodat de pagina ook zonder JavaScript nog
+           leesbaar is als skelet. -->
+      <div class="wr-cijfers">
+        <div class="wr-cijfer">
+          <span class="wr-cijfer__getal" id="wr-ontdekt">–</span>
+          <span class="wr-cijfer__label">ontdekte landen</span>
+        </div>
+        <div class="wr-cijfer">
+          <span class="wr-cijfer__getal" id="wr-stickers">–</span>
+          <span class="wr-cijfer__label">stickers in bezit</span>
+        </div>
+        <div class="wr-cijfer">
+          <span class="wr-cijfer__getal" id="wr-gezocht">–</span>
+          <span class="wr-cijfer__label">nog gezocht</span>
+        </div>
+        <div class="wr-cijfer">
+          <span class="wr-cijfer__getal" id="wr-dubbel">–</span>
+          <span class="wr-cijfer__label">dubbel</span>
+        </div>
+      </div>
+
+      <div id="wr-voortgang" class="wr-voortgang"></div>
+
+      <section class="card wr-kaartkaart">
+        <div id="wr-kaart" class="wr-kaart" role="application"
+             aria-label="Wereldkaart met alle landen uit het album"></div>
+        <div class="wr-legende" id="wr-legende"></div>
+        <p class="form-meta wr-stiplegende" id="wr-stiplegende"></p>
+      </section>
+
+      <section class="card">
+        <h2>Niet op de kaart</h2>
+        <p class="form-meta">
+          Twee reeksen uit het album horen bij geen enkel land. Ze tellen wél mee in de
+          cijfers hierboven.
+        </p>
+        <ul class="sticker-list" id="wr-buiten-kaart"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Wat komt er nog?</h2>
+        <p class="form-meta form-meta--plat">
+          De blauwe en gele stip naast elke groene staan er al, maar zijn nog leeg.
+          In <strong>fase 2</strong> vullen we ze met voetbalinformatie per land, in
+          <strong>fase 3</strong> met landinfo, talen, foto’s en badges.
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a></p>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="/js/supabase.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/wereldkaart.js"></script>
+</body>
+</html>

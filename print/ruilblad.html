@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ruilblad — Panini-ruilbeurs Meulestede</title>
+  <!-- Papieren hulpmiddel voor op de beurs zelf.
+       Eén A4, bewust zwart-wit: het moet leesbaar blijven op een gewone
+       kantoorprinter en er moet met een balpen op geschreven kunnen worden.
+       Afdrukken: openen in de browser en Ctrl+P. Als PDF bewaren via
+       "Bestemming: Opslaan als PDF" — dat is het bestand voor in bijlage.
+       Zet in het printvenster "Achtergrondafbeeldingen" gerust uit; de
+       stijlen hieronder gaan ervan uit dat er geen kleurvlakken nodig zijn. -->
+  <style>
+    @page { size: A4 portrait; margin: 10mm; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      color: #000;
+      background: #fff;
+      font-size: 10pt;
+      line-height: 1.35;
+      /* Op het scherm iets ademruimte; bij het afdrukken neemt @page het over. */
+      max-width: 190mm;
+      margin: 0 auto;
+      padding: 8mm;
+    }
+
+    header { border-bottom: 2px solid #000; padding-bottom: 2mm; margin-bottom: 3mm; }
+    h1 { font-size: 15pt; line-height: 1.2; }
+    .kop-regel { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; }
+    .kop-datum { font-size: 9pt; text-align: right; white-space: nowrap; }
+
+    /* Invulregels: een lijn is duidelijker dan een kader wanneer er met de
+       hand op geschreven wordt. */
+    .naamrij { display: flex; gap: 8mm; margin-bottom: 3mm; font-size: 9.5pt; }
+    .naamveld { flex: 1; display: flex; align-items: baseline; gap: 2mm; }
+    .naamveld .lijn { flex: 1; border-bottom: 1px solid #000; height: 5mm; }
+
+    h2 {
+      font-size: 11pt;
+      margin-bottom: 1.5mm;
+      padding: 1mm 2mm;
+      border: 1.5px solid #000;
+      background: #eee;
+    }
+    .hint { font-size: 8.5pt; margin: 1mm 0 2mm; }
+
+    /* Elk vakje is groot genoeg voor een code als "BEL12" of "FWC7". */
+    .vakjes {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 1.2mm;
+      margin-bottom: 4mm;
+    }
+    .vakje { border: 1px solid #999; height: 8mm; border-radius: 1mm; }
+
+    .voet { border-top: 1.5px solid #000; padding-top: 2mm; margin-top: 1mm; }
+    .voet h3 { font-size: 9.5pt; margin-bottom: 1mm; }
+    .codes {
+      column-count: 6;
+      column-gap: 4mm;
+      font-size: 7.5pt;
+      line-height: 1.45;
+      margin-bottom: 2.5mm;
+    }
+    .codes span { display: block; break-inside: avoid; }
+    .codes b { font-weight: 700; }
+    .tip { font-size: 8.5pt; }
+
+    /* Deze regel hoort op papier niet thuis: ze legt uit hoe je afdrukt. */
+    .schermhulp {
+      border: 1px dashed #999;
+      padding: 3mm;
+      margin-bottom: 4mm;
+      font-size: 9pt;
+      background: #f4f6f9;
+    }
+    @media print { .schermhulp { display: none; } }
+  </style>
+</head>
+<body>
+
+  <p class="schermhulp">
+    <strong>Afdrukken:</strong> Ctrl+P (of ⌘P) → één A4. Wil je er een PDF van om
+    mee te sturen, kies dan bij <em>Bestemming</em> voor “Opslaan als PDF”. Deze
+    grijze kader wordt niet mee afgedrukt.
+  </p>
+
+  <header>
+    <div class="kop-regel">
+      <h1>Mijn ruilblad</h1>
+      <p class="kop-datum">
+        Panini-ruilbeurs Meulestede<br />
+        zondag 6 september
+      </p>
+    </div>
+  </header>
+
+  <div class="naamrij">
+    <span class="naamveld">Naam <span class="lijn"></span></span>
+    <span class="naamveld">Tafel / plaats <span class="lijn"></span></span>
+  </div>
+
+  <h2>Deze zoek ik nog</h2>
+  <p class="hint">
+    Schrijf de code van de sticker, zoals ze in het album staat: <b>BEL12</b>,
+    <b>FWC7</b>, <b>ARG3</b>. Streep door zodra je ze te pakken hebt.
+  </p>
+  <div class="vakjes">
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+  </div>
+
+  <h2>Deze heb ik dubbel</h2>
+  <p class="hint">
+    Neem ze mee in een doosje of enveloppe, in dezelfde volgorde als hieronder —
+    dan vind je ze meteen terug wanneer iemand ernaar vraagt.
+  </p>
+  <div class="vakjes">
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+  </div>
+
+  <div class="voet">
+    <h3>De codes van het album</h3>
+    <div class="codes">
+      <span><b>ALG</b> Algerije</span>
+      <span><b>ARG</b> Argentinië</span>
+      <span><b>AUS</b> Australië</span>
+      <span><b>AUT</b> Oostenrijk</span>
+      <span><b>BEL</b> België</span>
+      <span><b>BIH</b> Bosnië-Herz.</span>
+      <span><b>BRA</b> Brazilië</span>
+      <span><b>CAN</b> Canada</span>
+      <span><b>CIV</b> Ivoorkust</span>
+      <span><b>COD</b> DR Congo</span>
+      <span><b>COL</b> Colombia</span>
+      <span><b>CPV</b> Kaapverdië</span>
+      <span><b>CRO</b> Kroatië</span>
+      <span><b>CUW</b> Curaçao</span>
+      <span><b>CZE</b> Tsjechië</span>
+      <span><b>ECU</b> Ecuador</span>
+      <span><b>EGY</b> Egypte</span>
+      <span><b>ENG</b> Engeland</span>
+      <span><b>ESP</b> Spanje</span>
+      <span><b>FRA</b> Frankrijk</span>
+      <span><b>FWC</b> WK-specials</span>
+      <span><b>GER</b> Duitsland</span>
+      <span><b>GHA</b> Ghana</span>
+      <span><b>HAI</b> Haïti</span>
+      <span><b>IRN</b> Iran</span>
+      <span><b>IRQ</b> Irak</span>
+      <span><b>JOR</b> Jordanië</span>
+      <span><b>JPN</b> Japan</span>
+      <span><b>KOR</b> Zuid-Korea</span>
+      <span><b>KSA</b> Saoedi-Arabië</span>
+      <span><b>MAR</b> Marokko</span>
+      <span><b>MEX</b> Mexico</span>
+      <span><b>NED</b> Nederland</span>
+      <span><b>NOR</b> Noorwegen</span>
+      <span><b>NZL</b> Nieuw-Zeeland</span>
+      <span><b>PAN</b> Panama</span>
+      <span><b>PAR</b> Paraguay</span>
+      <span><b>POR</b> Portugal</span>
+      <span><b>QAT</b> Qatar</span>
+      <span><b>RSA</b> Zuid-Afrika</span>
+      <span><b>SCO</b> Schotland</span>
+      <span><b>SEN</b> Senegal</span>
+      <span><b>SUI</b> Zwitserland</span>
+      <span><b>SWE</b> Zweden</span>
+      <span><b>TUN</b> Tunesië</span>
+      <span><b>TUR</b> Turkije</span>
+      <span><b>URU</b> Uruguay</span>
+      <span><b>USA</b> Ver. Staten</span>
+      <span><b>UZB</b> Oezbekistan</span>
+    </div>
+    <p class="tip">
+      <strong>Na de beurs:</strong> zet je blad over op
+      <strong>ruilbeurs.meulestede.gent</strong> — dan zoekt het platform voor jou
+      verder wie de stickers heeft die je nog mist. Vanaf 16 uur toont het ook
+      hier op de beurs bij wie een sticker ligt.
+    </p>
+  </div>
+
+</body>
+</html>

@@ -86,6 +86,19 @@ function pasVolwassenToe(vinkjeId, groepId, veldId) {
   const volwassen = document.getElementById(vinkjeId).checked;
   document.getElementById(groepId).classList.toggle("hidden", volwassen);
   if (volwassen) document.getElementById(veldId).value = "";
+  if (vinkjeId === "ob-volwassen") {
+    document.getElementById("ob-submit-btn").textContent = onboardingKnopTekst();
+  }
+}
+
+// Het onboardingformulier gaat over een kind: dat is het normale geval, en de
+// knop zegt dat ook. Vinkt iemand toch "volwassene" aan — een ouder die zelf
+// meespaart, of een kind dat zich zonder ouder aanmeldde — dan verandert het
+// opschrift mee, zodat de knop nooit iets anders belooft dan hij doet.
+function onboardingKnopTekst() {
+  return document.getElementById("ob-volwassen").checked
+    ? "Volwassene toevoegen"
+    : "Kind toevoegen";
 }
 
 async function refreshKinderen() {
@@ -238,7 +251,7 @@ function wireOnboardingForm() {
       showMessage(messageEl, "Fout bij opslaan: " + err.message, "error");
     }
     btn.disabled = false;
-    btn.textContent = "Verzamelaar toevoegen";
+    btn.textContent = onboardingKnopTekst();
   });
 }
 

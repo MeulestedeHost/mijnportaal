@@ -26,8 +26,9 @@ gebruiker die dat kind beheert.
    script dropt eerst een eventueel bestaande `kinderen`/`stickers`-tabel
    (met alle rijen) voordat het ze herbouwt.
 4. Voer daarna de migraties in volgorde uit: `003` → `005` → `006` → `007` →
-   `008` → `009_gezin_en_whatsapp.sql`. Enkel `002` en de blokken die het
-   zelf aankondigen zijn destructief; `009` is dat niet.
+   `008` → `009_gezin_en_whatsapp.sql` → `010_wereldreis.sql`. Enkel `002` en
+   de blokken die het zelf aankondigen zijn destructief; `009` en `010` zijn
+   dat niet.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
    Wachtwoord-authenticatie is niet nodig: deze app gebruikt Magic Links en
    (optioneel) Google — zie §5.
@@ -156,6 +157,79 @@ Twee losstaande dingen:
   dan toont de site nergens een knop. Het nummer is enkel leesbaar voor wie
   ingelogd is en staat dus niet in de publieke bronbestanden.
 
+## 8. FIFA Wereldreis
+
+Een wereldkaart bovenop dezelfde stickerlijst: elk land van het album staat als
+stip op de kaart, gekleurd naar hoe ver die verzamelaar staat. Te bereiken via
+**🌍 FIFA Wereldreis** op het dashboard, met een samenvattende widget onderaan
+datzelfde dashboard. Nodig: `sql/010_wereldreis.sql`.
+
+Dit is **fase 1** van drie. Fase 2 voegt voetbalinformatie per land toe, fase 3
+landinfo, talen, foto's en badges. De blauwe en gele stip naast de groene staan
+er al klaar, nog leeg.
+
+### Het rekenmodel
+
+Sinds `sql/006_kindproof.sql` registreert een kind enkel wat het **zoekt** en
+wat het **dubbel** heeft; al de rest geldt als aanwezig. De wereldreis rekent
+daar recht op door:
+
+```
+heeft = totaal aantal stickers van het land − gezochte stickers
+```
+
+Eén gevolg om te kennen voor je het scherm voor het eerst ziet: **een
+verzamelaar die nog niets aanduidde, staat overal op 100 %.** De reis begint dus
+vol en loopt leeg naarmate een kind invult wat het mist. De pagina zet daar een
+zin bij zolang er niets is aangeduid, zodat het niet als een bug leest. Een
+land geldt als *ontdekt* wanneer het op 100 % staat.
+
+Glansvarianten tellen enkel mee wanneer `toon_glans` aanstaat — dezelfde regel
+als `kind_statistieken()` en `get_matches()`.
+
+### Wat waar staat
+
+| Bestand | Rol |
+|---|---|
+| `sql/010_wereldreis.sql` | `wereldreis_landen(kind_id)`: één rij per land met totaal, gezocht, dubbel, heeft en procent |
+| `js/wereldreis.js` | coördinaten, kleurenschaal, lagen, kaart tekenen — gedeeld door de pagina en de widget |
+| `js/wereldkaart.js` | `wereldreis.html`: verzamelaarskiezer, tellers, legende |
+| `js/wereldreis-widget.js` | het blok onderaan `dashboard.html` |
+| `css/leaflet.css` | Leaflet 1.9.4, lokaal — zie hieronder |
+
+De 48 landen staan als punt in `LAND_PUNTEN` (`js/wereldreis.js`), niet als
+grens uit een landenbestand. Reden: Engeland en Schotland zijn in het album twee
+aparte reeksen, en elk landenbestand met grenzen laat ze allebei op "Verenigd
+Koninkrijk" vallen. Met punten houdt elk zijn eigen plek — en Curaçao ook.
+
+**Fase 2 en 3 aanzetten** hoeft geen tekencode. In `js/wereldreis.js` staat
+`LAGEN`: drie laagbeschrijvingen met een `actief`-vlag en een `popup(land)`.
+Zet `actief` op `true`, schrijf die ene functie, en de stip en de popup volgen
+vanzelf — op de kaart, in de legende en in de widget.
+
+### Leaflet en de Content-Security-Policy
+
+De CSP in `_headers` is streng, en de kaart raakt drie regels ervan:
+
+- **`script-src`** — Leaflet komt als `<script>` van `cdn.jsdelivr.net`, dat al
+  toegelaten was voor supabase-js. De versie staat in `dashboard.html` en
+  `wereldreis.html`; hou ze gelijk aan `css/leaflet.css`.
+- **`style-src 'self'`** — daarom staat Leaflets stylesheet lokaal in
+  `css/leaflet.css` in plaats van op een CDN. Om dezelfde reden krijgen de
+  stippen hun kleur uit CSS-klassen: een `style="…"`-attribuut in de HTML zou
+  geblokkeerd worden. Een breedte via `element.style.width` in JavaScript mag
+  wél — CSSOM valt niet onder de CSP.
+- **`img-src`** — kaarttegels zijn gewone afbeeldingen. Daarvoor staat
+  `https://tile.openstreetmap.org` erbij. Zonder die host blokkeert de browser
+  elke tegel en blijft de kaart leeg.
+
+De tegels komen van OpenStreetMap zelf: gratis en zonder API-sleutel. De meeste
+rustigere alternatieven (CARTO Positron, Stadia, Mapbox) vragen intussen wél een
+account — CARTO zet zonder sleutel "API KEY REQUIRED" dwars over elke tegel.
+Wordt het portaal ooit druk bezocht, dan is een aanbieder met een sleutel
+netter tegenover OpenStreetMap: vervang de URL in `maakKaart()`
+(`js/wereldreis.js`), zet de nieuwe host in `_headers` en pas de attributie aan.
+
 ## Database structuur
 
 **kinderen**
@@ -214,8 +288,13 @@ te voegen. Daarna toont het dashboard de lijst met verzamelaars.
 - `js/gezin.js` — tweede volwassene toevoegen, gsm-nummer van het gezin.
 - `js/whatsapp.js` — nummers normaliseren naar E.164 en wa.me-links bouwen.
 - `js/instellingen.js` — beheerpagina: beursvenster, glans, organisatornummer.
+- `js/wereldreis.js` — FIFA Wereldreis: coördinaten, kleuren, lagen, kaart.
+- `js/wereldkaart.js` — de grote kaart op `wereldreis.html`.
+- `js/wereldreis-widget.js` — het wereldreisblok onderaan het dashboard.
 
-ES Modules, geen build-stap, geen framework.
+ES Modules, geen build-stap, geen framework. Enige uitzondering: Leaflet wordt
+als klassiek `<script>` geladen en staat als globale `L` klaar vóór de modules
+draaien.
 
 ## Beveiliging
 

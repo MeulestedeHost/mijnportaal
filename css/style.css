@@ -229,3 +229,140 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   .data-table { font-size: 0.85rem; }
   .data-table th, .data-table td { padding: 0.5rem; }
 }
+/* ============================================================
+   FIFA Wereldreis (fase 1)
+   ============================================================
+   De vier trappen uit de opdracht staan hier als klasse, niet als kleurcode
+   in JavaScript: de Content-Security-Policy in _headers verbiedt
+   style-attributen in HTML, dus de stippen, de legende en de balk moeten het
+   met klassen doen. Bijkomend voordeel: één plek om de schaal te verzetten. */
+:root {
+  --wr-vol: #2a9d4f;      /* 100 %      */
+  --wr-hoog: #e8b923;     /* 75 – 99 %  */
+  --wr-midden: #e8833a;   /* 25 – 74 %  */
+  --wr-laag: #98a2b3;     /* 0 – 24 %   */
+  --wr-voetbal: #1d6fe0;  /* fase 2, nog leeg */
+  --wr-landinfo: #e8b923; /* fase 3, nog leeg */
+}
+
+.form-meta--plat { margin-bottom: 0; }
+
+/* De kaart. z-index: 0 maakt hier een eigen stapelcontext: zonder die regel
+   klimmen Leaflets zoomknoppen (z-index 800) bij het scrollen over de sticky
+   navigatiebalk heen. */
+.wr-kaart { position: relative; z-index: 0; height: min(70vh, 560px); min-height: 320px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
+/* De minikaart krijgt een vaste maat rond de wereld op zoomtrap 0: daar is de
+   wereld 256 bij 143 pixels, en een breder vak zou enkel achtergrond bijzetten
+   (er zijn geen tegels naast de wereld wanneer noWrap aanstaat). */
+.wr-kaart--mini { width: 100%; height: 156px; min-height: 0; background: var(--surface); }
+.wr-kaartkaart { padding: 1rem; }
+
+/* Stippen. De marker zelf is 0 bij 0 groot en staat exact op het punt; de
+   groep eronder wordt met een transform gecentreerd. Zo blijft de afstand
+   tussen de drie stippen dezelfde op elk zoomniveau — met echte coördinaten
+   per stip zouden ze bij uitzoomen op elkaar kruipen. */
+/* De marker krijgt van Leaflet zijn afmeting inline uit iconSize [0, 0]; deze
+   regel is er zodat een lezer niet gaat zoeken waar die nul vandaan komt. */
+.wr-marker { width: 0; height: 0; }
+.wr-stip-groep { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 3px; pointer-events: auto; }
+.wr-stip { display: block; width: 15px; height: 15px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45); background: var(--wr-laag); }
+.wr-stip--stickers.wr-vol { background: var(--wr-vol); }
+.wr-stip--stickers.wr-hoog { background: var(--wr-hoog); }
+.wr-stip--stickers.wr-midden { background: var(--wr-midden); }
+.wr-stip--stickers.wr-laag { background: var(--wr-laag); }
+
+/* De twee stippen van fase 2 en 3 staan er al, maar doffer en kleiner: ze
+   moeten aankondigen dat er iets komt zonder de kleur van de stickerstip te
+   verstoren. Zodra hun laag in js/wereldreis.js op actief gaat, volstaat het
+   die doffe opmaak hier weg te halen. */
+.wr-stip--voetbal, .wr-stip--landinfo { width: 9px; height: 9px; border-width: 1.5px; opacity: 0.45; }
+.wr-stip--voetbal { background: var(--wr-voetbal); }
+.wr-stip--landinfo { background: var(--wr-landinfo); }
+
+/* Popup: de cijfers van één land. */
+.wr-popup { min-width: 190px; }
+.wr-popup__titel { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: baseline; gap: 0.4rem; }
+.wr-popup__code { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-muted); }
+.wr-popup__blok { margin-bottom: 0.6rem; }
+.wr-popup__procent { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.35rem; }
+.wr-popup__procent.wr-vol { color: var(--wr-vol); }
+.wr-popup__procent.wr-hoog { color: #8a6d05; }
+.wr-popup__procent.wr-midden { color: #a1521a; }
+.wr-popup__procent.wr-laag { color: var(--text-muted); }
+.wr-popup__cijfers { display: grid; grid-template-columns: auto auto; gap: 0.1rem 0.75rem; margin-top: 0.5rem; font-size: 0.85rem; }
+.wr-popup__cijfers dt { color: var(--text-muted); }
+.wr-popup__cijfers dd { font-weight: 600; text-align: right; }
+.wr-popup__wacht { font-size: 0.775rem; color: var(--text-muted); font-style: italic; border-top: 1px dashed var(--border); padding-top: 0.35rem; margin-top: 0.35rem; }
+
+/* Voortgangsbalk — ook in de popup en in de widget. De breedte zet
+   js/wereldreis.js via el.style, want een style-attribuut in de HTML zou de
+   CSP tegenhouden. */
+.wr-balk { height: 10px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; }
+.wr-balk__vulling { height: 100%; border-radius: 999px; background: var(--wr-laag); transition: width 0.3s; }
+.wr-balk__vulling.wr-vol { background: var(--wr-vol); }
+.wr-balk__vulling.wr-hoog { background: var(--wr-hoog); }
+.wr-balk__vulling.wr-midden { background: var(--wr-midden); }
+
+/* Tellers boven de kaart. */
+.wr-cijfers { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.wr-cijfer { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.15rem; }
+.wr-cijfer__getal { font-size: 1.5rem; font-weight: 700; color: var(--cf-blue-dark); line-height: 1.15; }
+.wr-cijfer__label { font-size: 0.775rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.wr-voortgang { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
+.wr-voortgang__tekst { margin: 0.6rem 0 0; }
+
+.wr-legende { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin-top: 0.875rem; font-size: 0.8rem; color: var(--text-muted); }
+.wr-legende__item { display: flex; align-items: center; gap: 0.4rem; }
+/* In de legende staat de stip in de tekst en niet op een kaart: daar hoort
+   geen absolute plaatsing bij. */
+.wr-legende .wr-stip { position: static; flex: none; }
+.wr-stiplegende { margin: 0.6rem 0 0; }
+
+/* De regel van PANINI en FWC onder de kaart, met dezelfde kleurcode. */
+.wr-tegel { font-weight: 600; }
+.wr-tegel.wr-vol { color: var(--wr-vol); background: #eaf7ee; border-color: #cbe8d4; }
+.wr-tegel.wr-hoog { color: #8a6d05; background: #fdf6dd; border-color: #f0e3a6; }
+.wr-tegel.wr-midden { color: #a1521a; background: #fdeee2; border-color: #f4d4b8; }
+
+.wr-kiezer__label { align-self: center; margin: 0; color: var(--text-muted); }
+.wr-kiezer__select { width: auto; min-width: 11rem; font-weight: 600; }
+
+/* De widget onderaan het dashboard: kaart links, cijfers rechts. */
+.wr-widget__kop { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.wr-widget__kop h2 { font-size: 1.1rem; }
+.wr-widget__kiezer { width: auto; min-width: 8rem; font-size: 0.9rem; padding: 0.4rem 0.6rem; }
+/* De kaartkolom staat op een vaste 264 pixels — precies de wereld op zoomtrap
+   0. Een 'auto'-kolom met een kind op width:100% krimpt tot nul, en dan is er
+   van de kaart niets meer te zien. */
+.wr-widget__inhoud { display: grid; grid-template-columns: 264px 1fr; gap: 1.25rem 1.5rem; align-items: center; }
+/* min-width: 0 zodat de kaartkolom in het raster mag krimpen in plaats van de
+   cijfers naast zich weg te duwen. */
+.wr-widget__kaartvak { min-width: 0; }
+.wr-widget__cijfers { display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+.wr-widget__regel { margin: 0; }
+/* De balk zit in een eigen vakje; zonder deze breedte krimpt dat vakje als
+   flex-item mee tot nul en blijft er van de balk een streepje over. */
+.wr-widget__balkvak { width: 100%; max-width: 320px; }
+
+@media (max-width: 640px) {
+  /* "Eén centrale marker" op een telefoon: de twee lege stippen van fase 2 en
+     3 verdwijnen, zodat de stickerstip alleen en gecentreerd op het land
+     staat — en groot genoeg om met een duim te raken. */
+  .leaflet-container .wr-stip--voetbal, .leaflet-container .wr-stip--landinfo { display: none; }
+  .leaflet-container .wr-stip--stickers { width: 19px; height: 19px; }
+  /* Enkel de grote kaart mag op een telefoon het scherm vullen; de minikaart
+     op het dashboard houdt haar eigen hoogte. */
+  .wr-kaart:not(.wr-kaart--mini) { height: 60vh; min-height: 280px; }
+  .wr-widget__inhoud { grid-template-columns: 1fr; }
+  .wr-widget__kaartvak { width: 100%; max-width: 264px; margin: 0 auto; }
+  .wr-cijfer__getal { font-size: 1.25rem; }
+  .wr-kiezer__label { display: none; }
+  .wr-kiezer__select { width: 100%; }
+}
+
+/* De minikaart op het dashboard toont nooit meer dan de stickerstip, ook op
+   een breed scherm: het is een voorproefje, geen werkblad. */
+.wr-kaart--mini .wr-stip--voetbal, .wr-kaart--mini .wr-stip--landinfo { display: none; }
+.wr-kaart--mini .wr-stip { width: 11px; height: 11px; border-width: 1.5px; }
+.wr-kaart--mini .leaflet-control-attribution { font-size: 9px; }

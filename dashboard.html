@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Panini Ruilportaal Meulestede — Dashboard</title>
+  <!-- Leaflet voor de wereldreiswidget onderaan. De stylesheet staat lokaal
+       omdat de CSP in _headers style-src op 'self' houdt; het script mag van
+       jsdelivr, net als supabase-js. -->
+  <link rel="stylesheet" href="/css/leaflet.css" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
@@ -28,8 +32,14 @@
     <div id="onboarding" class="card hidden">
       <h1>Welkom!</h1>
       <p class="login-card__hint">
-        Voeg je eerste verzamelaar toe. Verzamel je zelf mee? Vink dan
-        “volwassene” aan en zet jezelf erbij.
+        Voeg hier het <strong>eerste kind</strong> toe. Jij bent de ouder die dit
+        account beheert; je staat zelf niet automatisch in de lijst en hoeft dat ook
+        niet te zijn.
+      </p>
+      <p class="login-card__hint">
+        Verzamel je zelf ook mee — of ben jij het kind dat zich net aanmeldde? Vink dan
+        “volwassene” aan, of voeg jezelf later toe met
+        <em>＋ Verzamelaar toevoegen</em>.
       </p>
       <form id="onboarding-form" novalidate>
         <div class="form-grid">
@@ -48,9 +58,9 @@
         </div>
         <label class="checkbox-rij">
           <input type="checkbox" id="ob-volwassen" />
-          <span>Volwassene (bijvoorbeeld jijzelf) — geboortejaar niet nodig</span>
+          <span>Dit is een volwassene — geboortejaar niet nodig</span>
         </label>
-        <button type="submit" class="btn btn--primary" id="ob-submit-btn">Verzamelaar toevoegen</button>
+        <button type="submit" class="btn btn--primary" id="ob-submit-btn">Kind toevoegen</button>
       </form>
       <div id="onboarding-message" class="message" role="alert" aria-live="polite"></div>
     </div>
@@ -60,6 +70,7 @@
         <h1>Mijn verzamelaars</h1>
         <div class="dashboard-header__acties">
           <a href="/ruilen.html" class="btn btn--primary">🤝 Ruilen</a>
+          <a href="/wereldreis.html" class="btn btn--outline">🌍 FIFA Wereldreis</a>
           <button type="button" class="btn btn--outline" id="new-kind-btn">＋ Verzamelaar toevoegen</button>
           <a href="/gezin.html" class="btn btn--outline">👪 Ons gezin</a>
         </div>
@@ -105,6 +116,33 @@
       <p class="form-meta organisator hidden" id="organisator-knop">
         Een vraag over de beurs?
       </p>
+
+      <!-- FIFA Wereldreis, fase 1. Blijft verborgen tot js/wereldreis-widget.js
+           cijfers heeft: zonder sql/010_wereldreis.sql of zonder Leaflet is er
+           niets te tonen, en dan hoort er ook geen leeg kader te staan. -->
+      <section class="card wr-widget hidden" id="wr-widget">
+        <div class="wr-widget__kop">
+          <h2>🌍 FIFA Wereldreis</h2>
+          <select id="wr-widget-kind" class="form-input wr-widget__kiezer" aria-label="Verzamelaar"></select>
+        </div>
+
+        <div class="wr-widget__inhoud">
+          <div class="wr-widget__kaartvak">
+            <div id="wr-widget-kaart" class="wr-kaart wr-kaart--mini"
+                 aria-label="Mini-wereldkaart met de landen uit het album"></div>
+          </div>
+
+          <div class="wr-widget__cijfers">
+            <span class="wr-cijfer__getal" id="wr-widget-ontdekt">–</span>
+            <span class="wr-cijfer__label">ontdekte landen</span>
+            <div id="wr-widget-balk" class="wr-widget__balkvak"></div>
+            <p class="form-meta wr-widget__regel" id="wr-widget-stickers"></p>
+            <a class="btn btn--primary btn--sm" id="wr-widget-knop" href="/wereldreis.html">
+              Bekijk grote kaart
+            </a>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
 
@@ -114,9 +152,11 @@
     </div>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="/js/supabase.js"></script>
   <script type="module" src="/js/auth.js"></script>
   <script type="module" src="/js/kinderen.js"></script>
   <script type="module" src="/js/dashboard.js"></script>
+  <script type="module" src="/js/wereldreis-widget.js"></script>
 </body>
 </html>
