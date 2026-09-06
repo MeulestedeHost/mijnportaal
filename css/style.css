@@ -45,6 +45,19 @@ a { color: var(--cf-blue-primary); text-decoration: none; }
 .feature-card h3 { margin-bottom: 0.5rem; font-size: 1.1rem; }
 .feature-card p { color: var(--text-muted); font-size: 0.95rem; }
 
+/* De ruilfiche-oproep op de startpagina: een gouden rand in plaats van de
+   gewone kaartschaduw, zodat ze meteen opvalt tussen de andere kaarten. */
+.ruilfiche-blok { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; border: 2px solid #e8b923; background: linear-gradient(135deg, #fffbea 0%, var(--surface) 55%); }
+.ruilfiche-blok__tekst h2 { margin-bottom: 0.5rem; }
+.ruilfiche-blok__tekst p { color: var(--text-muted); max-width: 480px; margin: 0; }
+.ruilfiche-blok__knop { flex: none; white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .ruilfiche-blok { flex-direction: column; align-items: stretch; text-align: center; }
+  .ruilfiche-blok__tekst p { max-width: none; }
+  .ruilfiche-blok__knop { width: 100%; }
+}
+
 .card { background: var(--surface); border-radius: var(--radius); padding: 2rem; box-shadow: var(--shadow); margin-bottom: 1.5rem; }
 .login-card { max-width: 440px; margin: 2rem auto; }
 .login-card h1 { margin-bottom: 0.5rem; }
@@ -73,6 +86,12 @@ a { color: var(--cf-blue-primary); text-decoration: none; }
    grijze rand, het logo in kleur links van de tekst. */
 .btn--google { background: #fff; color: #3c4043; border-color: var(--border); font-weight: 500; }
 .btn--google:hover:not(:disabled) { background: #f7f8fa; border-color: #c6ccd6; }
+
+/* Warm goud in plaats van het gewone blauw: dit is de enige knop op de
+   startpagina die om aandacht mag vragen (de opdracht vroeg expliciet om een
+   opvallende call-to-action voor de ruilfiche). */
+.btn--ruilfiche { background: linear-gradient(135deg, #ffd54a, #e8b923); color: #4a3a06; border-color: #e8b923; }
+.btn--ruilfiche:hover:not(:disabled) { background: linear-gradient(135deg, #ffcc2f, #d9a90f); border-color: #d9a90f; }
 .btn__google-logo { width: 18px; height: 18px; flex: none; }
 
 /* "of met een magic link" met een lijntje links en rechts. */
