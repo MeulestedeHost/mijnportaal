@@ -199,8 +199,30 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 /* auto-fit, niet auto-fill: bij een korte (gefilterde) lijst mag de laatste
    chip de resterende breedte opvullen in plaats van naast lege kolommen te
    staan met zijn naam afgekapt. */
-.sticker-checklist { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.5rem; margin-bottom: 1rem; }
-.sticker-chip { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.65rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+/* Valt terug op de gewone randkleur zolang er nog geen land gekozen is. */
+#sticker-kaart { --land-accent: var(--border); }
+.sticker-checklist { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 0.5rem; margin-bottom: 1rem; }
+/* Witte knop, rand in de kleur van het land, subtiele schaduw. De landkleur
+   komt van .sticker-checklist (js/stickers.js zet ze daar bij elk land), dus
+   elke chip erft ze zonder dat er per knop een kleur ingesteld wordt. */
+.sticker-chip { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.65rem; border: 2px solid var(--land-accent); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
+/* De status zit in de achtergrond, niet in de rand: zo blijft het land
+   herkenbaar terwijl de status verandert. Lichte tinten, zodat de
+   stickernummers zwart-op-licht leesbaar blijven. */
+.sticker-chip--gezocht { background: #fdeaea; }
+.sticker-chip--dubbel { background: #e4f5ea; }
+
+/* De landkop boven de checklist: dezelfde notatie als in de keuzelijst, met
+   een streep in de landkleur eronder. */
+.sticker-landkop { font-weight: 700; font-size: 1.05rem; color: var(--text); padding-bottom: 0.4rem; margin-bottom: 0.75rem; border-bottom: 3px solid var(--land-accent); }
+
+/* De landkolom op de ruilpagina: een streepje in de landkleur vóór de tekst,
+   zodat een lange tabel sneller te scannen is dan met tekst alleen. */
+.land-cel { white-space: nowrap; }
+.land-streep { display: inline-block; width: 4px; height: 1em; border-radius: 2px; margin-right: 0.5rem; vertical-align: -0.15em; }
+
+/* Land breed, volgorde smal ernaast — op een telefoon onder elkaar. */
+.landkiezer { display: grid; grid-template-columns: 2fr 1fr; gap: 0 1.25rem; }
 .sticker-chip__naam { font-size: 0.85rem; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sticker-chip__vink { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; white-space: nowrap; cursor: pointer; }
 .sticker-chip__vink input { width: 1.1rem; height: 1.1rem; accent-color: var(--cf-blue-primary); }
@@ -240,6 +262,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   .hero h1 { font-size: 1.75rem; }
   .hero { padding: 2.5rem 1rem 2rem; }
   .form-grid { grid-template-columns: 1fr; }
+  .landkiezer { grid-template-columns: 1fr; }
   .sticker-checklist { grid-template-columns: 1fr; }
   .sticker-bewaarbalk { flex-direction: column; align-items: stretch; }
   .sticker-bewaarbalk .form-actions { justify-content: stretch; }
@@ -488,7 +511,11 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
    openIconPopup()), dus deze popup hoeft nooit meer te bevatten dan wat één
    categorie te vertellen heeft. */
 .wr-popup { min-width: 200px; }
-.wr-popup__titel { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: baseline; gap: 0.4rem; }
+.wr-popup__titel { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.1rem; display: flex; align-items: baseline; gap: 0.4rem; }
+/* "BEL - BELGIUM - België" past niet altijd op één regel in een popup van
+   230 pixels; laten afbreken is beter dan afkappen. */
+.wr-popup__land { font-size: 0.95rem; line-height: 1.25; }
+.wr-popup__categorie { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.6rem; }
 .wr-popup__code { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-muted); }
 .wr-popup__blok { margin-bottom: 0.1rem; }
 

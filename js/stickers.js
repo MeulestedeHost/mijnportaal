@@ -19,6 +19,7 @@
 // (kind, sticker), met precies één status.
 import { supabase, requireAuth } from "./supabase.js";
 import { getKind } from "./kinderen.js";
+import { landLabel, accentVoor, vergelijkLanden } from "./landen-data.js";
 
 const TABEL = "stickers";
 const STATUS_TEKST = { ZOEKT: "zoek ik", RUILT: "heb ik dubbel" };
@@ -27,6 +28,8 @@ const PAGINA = 1000; // PostgREST levert maximaal 1000 rijen per aanvraag
 let kindId;
 let catalogus = [];
 let catalogusPerCode = new Map();
+let landen = []; // één rij per land: code, namen, paginanummer
+let sorteerwijze = "code";
 let huidigeStickers = [];
 let statusPerCode = new Map(); // code -> status van DIT kind
 let aantalPerCode = new Map(); // code -> aantal dubbels van DIT kind
@@ -73,12 +76,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     // moet die regel in zijn lijst nog steeds met naam zien staan.
     catalogusPerCode = new Map(catalogus.map((s) => [s.code, s]));
     if (!toonGlans) catalogus = catalogus.filter((s) => !s.glans);
+    verzamelLanden();
     vulLandKeuzelijst();
   } catch (err) {
     toonMelding("Stickerlijst kon niet geladen worden: " + err.message, "error");
   }
 
   document.getElementById("sticker-land").addEventListener("change", kiesLand);
+  document.getElementById("sticker-sortering").addEventListener("change", wisselSortering);
   document.getElementById("sticker-zoek").addEventListener("input", tekenChecklist);
   document.getElementById("sticker-bewaar-btn").addEventListener("click", bewaarChecklist);
   document.getElementById("sticker-annuleer-btn").addEventListener("click", annuleerChecklist);
@@ -107,8 +112,8 @@ async function laadCatalogus() {
   for (let van = 0; ; van += PAGINA) {
     const { data, error } = await supabase
       .from("sticker_catalogus")
-      .select("categorie,land_code,land_naam,nummer,code,naam,glans")
-      .order("land_naam", { ascending: true })
+      .select("categorie,land_code,land_naam,land_naam_en,pagina,nummer,code,naam,glans")
+      .order("land_code", { ascending: true })
       .order("nummer", { ascending: true })
       .order("glans", { ascending: true })
       .range(van, van + PAGINA - 1);
@@ -118,17 +123,53 @@ async function laadCatalogus() {
   }
 }
 
+// Eén rij per land uit de catalogus: code, beide namen en het paginanummer.
+// Dat laatste komt uit sql/013 en bepaalt de albumvolgorde.
+function verzamelLanden() {
+  const perCode = new Map();
+  catalogus.forEach((s) => {
+    if (perCode.has(s.land_code)) return;
+    perCode.set(s.land_code, {
+      land_code: s.land_code,
+      land_naam: s.land_naam,
+      land_naam_en: s.land_naam_en,
+      pagina: s.pagina,
+    });
+  });
+  landen = [...perCode.values()];
+}
+
+// De keuzelijst toont overal dezelfde notatie: BEL - BELGIUM - België. De
+// waarde van een optie is de landcode, niet de naam — dat is de sleutel die
+// ook in de catalogus en in de stickercodes zit.
 function vulLandKeuzelijst() {
   const select = document.getElementById("sticker-land");
-  const landen = [...new Set(catalogus.map((s) => s.land_naam))].sort((a, b) =>
-    a.localeCompare(b, "nl")
-  );
-  landen.forEach((land) => {
-    const optie = document.createElement("option");
-    optie.value = land;
-    optie.textContent = land;
-    select.appendChild(optie);
-  });
+  const gekozen = select.value;
+  select.innerHTML = "";
+
+  const leeg = document.createElement("option");
+  leeg.value = "";
+  leeg.textContent = "Kies een land…";
+  select.appendChild(leeg);
+
+  landen
+    .slice()
+    .sort((a, b) => vergelijkLanden(a, b, sorteerwijze))
+    .forEach((land) => {
+      const optie = document.createElement("option");
+      optie.value = land.land_code;
+      optie.textContent = landLabel(land);
+      select.appendChild(optie);
+    });
+
+  // Van sortering wisselen mag de gekozen verzamelaar zijn land niet
+  // afnemen: de lijst wordt herbouwd, de keuze blijft.
+  select.value = gekozen;
+}
+
+function wisselSortering() {
+  sorteerwijze = document.getElementById("sticker-sortering").value;
+  vulLandKeuzelijst();
 }
 
 function omschrijving(sticker) {
@@ -147,11 +188,25 @@ function kiesLand() {
   document.getElementById("sticker-filter-vak").classList.toggle("hidden", !huidigLand);
   document.getElementById("sticker-zoek").value = "";
 
+  // De accentkleur van het land staat op de kaart die zowel de landkop als de
+  // checklist bevat; alles erin erft ze via var(--land-accent). Zo hoeft de
+  // kleur niet per knop gezet te worden, en verandert ze in één keer mee bij
+  // een ander land. (Op de checklist alleen zou de landkop ernaast ze niet
+  // erven — custom properties erven naar beneden, niet zijwaarts.)
+  document
+    .getElementById("sticker-kaart")
+    .style.setProperty("--land-accent", accentVoor(huidigLand));
+
+  const kop = document.getElementById("sticker-landkop");
+  const land = landen.find((l) => l.land_code === huidigLand);
+  kop.textContent = land ? landLabel(land) : "";
+  kop.classList.toggle("hidden", !land);
+
   checklistState = new Map();
   origineelState = new Map();
   if (huidigLand) {
     catalogus
-      .filter((s) => s.land_naam === huidigLand)
+      .filter((s) => s.land_code === huidigLand)
       .forEach((s) => {
         const status = statusPerCode.get(s.code);
         const staat = {
@@ -180,7 +235,7 @@ function tekenChecklist() {
   leeg.classList.add("hidden");
 
   const term = document.getElementById("sticker-zoek").value.trim().toLowerCase();
-  const stickersVanLand = catalogus.filter((s) => s.land_naam === huidigLand);
+  const stickersVanLand = catalogus.filter((s) => s.land_code === huidigLand);
   const zichtbaar = term
     ? stickersVanLand.filter(
         (s) =>
@@ -192,7 +247,7 @@ function tekenChecklist() {
 
   teller.textContent = term
     ? `${zichtbaar.length} van ${stickersVanLand.length} stickers getoond`
-    : `${stickersVanLand.length} sticker${stickersVanLand.length === 1 ? "" : "s"} in ${huidigLand}`;
+    : `${stickersVanLand.length} sticker${stickersVanLand.length === 1 ? "" : "s"}`;
 
   zichtbaar.forEach((sticker) => ul.appendChild(bouwChip(sticker)));
   bijwerkenBewaarbalk();
@@ -243,10 +298,14 @@ function bouwChip(sticker) {
   plus.textContent = "+";
   plus.setAttribute("aria-label", "Eén dubbel meer");
 
+  // De status zit in de ACHTERGROND, de landkleur in de rand: zo blijft
+  // zichtbaar bij welk land een sticker hoort terwijl zijn status verandert.
   function verversChip() {
     vink.checked = staat.gezocht;
     getal.textContent = String(staat.dubbel);
     min.disabled = staat.dubbel <= 0;
+    li.classList.toggle("sticker-chip--gezocht", staat.gezocht);
+    li.classList.toggle("sticker-chip--dubbel", staat.dubbel > 0);
     bijwerkenBewaarbalk();
   }
 
@@ -271,7 +330,12 @@ function bouwChip(sticker) {
     verversChip();
   });
 
+  // Beginstand: dezelfde opmaak als na een klik, zonder de bewaarbalk te
+  // laten herrekenen voor elke chip die getekend wordt.
   min.disabled = staat.dubbel <= 0;
+  li.classList.toggle("sticker-chip--gezocht", staat.gezocht);
+  li.classList.toggle("sticker-chip--dubbel", staat.dubbel > 0);
+
   stepper.appendChild(min);
   stepper.appendChild(getal);
   stepper.appendChild(plus);
@@ -392,11 +456,13 @@ async function ververs() {
   await verversMatches();
 }
 
+// Dezelfde volgorde als de keuzelijst hierboven, zodat de samenvattingslijsten
+// niet ineens een andere ordening aanhouden dan de checklist.
 function vergelijkStickers(a, b) {
   const ca = catalogusPerCode.get(a.nummer);
   const cb = catalogusPerCode.get(b.nummer);
   if (ca && cb) {
-    return ca.land_naam.localeCompare(cb.land_naam, "nl") || ca.nummer - cb.nummer;
+    return vergelijkLanden(ca, cb, sorteerwijze) || ca.nummer - cb.nummer;
   }
   return String(a.nummer).localeCompare(String(b.nummer), "nl");
 }

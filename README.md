@@ -27,9 +27,9 @@ gebruiker die dat kind beheert.
    (met alle rijen) voordat het ze herbouwt.
 4. Voer daarna de migraties in volgorde uit: `003` → `005` → `006` → `007` →
    `008` → `009_gezin_en_whatsapp.sql` → `010_wereldreis.sql` →
-   `011_wereldreis_fotos.sql` → `012_stickers_aantal.sql`. Enkel `002` en de
-   blokken die het zelf aankondigen zijn destructief; `009` en later zijn
-   dat niet.
+   `011_wereldreis_fotos.sql` → `012_stickers_aantal.sql` →
+   `013_landen_engels_en_pagina.sql`. Enkel `002` en de blokken die het zelf
+   aankondigen zijn destructief; `009` en later zijn dat niet.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
    Wachtwoord-authenticatie is niet nodig: deze app gebruikt Magic Links en
    (optioneel) Google — zie §5.
@@ -407,6 +407,45 @@ Na het klikken op de magic link controleert het dashboard of de gebruiker
 al kinderen heeft. Zo niet: een onboardingscherm vraagt het eerste kind toe
 te voegen. Daarna toont het dashboard de lijst met verzamelaars.
 
+## Hoe een land geschreven wordt
+
+Overal in het portaal — keuzelijst, checklist, ruiltabel, wereldreis-popup —
+staat een land in dezelfde notatie:
+
+```
+BEL - BELGIUM - België
+```
+
+Eerst de FIFA/Panini-code (die staat op de sticker en op het ruilblad, en is
+dus de primaire identificatie), dan de Engelse albumnaam, dan de Nederlandse.
+`landLabel()` in [js/landen-data.js](js/landen-data.js) is de enige plek waar
+die volgorde vastligt.
+
+**Geen vlagemoji.** Bewust niet: Windows toont een vlagemoji niet als vlag maar
+als twee letters ("BE"), en op de vlaggen van Engeland en Schotland struikelt
+nog meer software. Een weergave die op de helft van de toestellen iets anders
+laat zien dan bedoeld, is geen herkenningspunt.
+
+**Twee sorteervolgordes.** Standaard alfabetisch op de 3-lettercode; daarnaast
+"Volgorde van het boek", die de albumpagina's volgt (MEX op 8, RSA op 10, …
+PAN op 104). Die paginanummers staan sinds `013` in
+`sticker_catalogus.pagina` — een kolom die al sinds `003` bestond maar leeg
+bleef.
+
+**Waar wat staat.** De Nederlandse en Engelse naam en het paginanummer zijn
+catalogusgegevens en staan in de databank (`sticker_catalogus.land_naam`,
+`land_naam_en`, `pagina`); de RPC's `wereldreis_landen()` en `get_matches()`
+geven ze mee terug. [js/landen-data.js](js/landen-data.js) vult enkel aan wat
+daar niet thuishoort: de accentkleur per land (opmaak) en de lokale
+schrijfwijze (Deutschland, España — enkel voor de wereldreis-popup).
+
+**De accentkleuren.** Eén per land, afgeleid van de nationale kleur of het
+shirt, en stuk voor stuk nagerekend op minstens 3:1 contrast tegen wit — de
+WCAG-eis (1.4.11) voor randen die betekenis dragen. Op de checklist zit die
+kleur in de *rand* van elke stickerknop en de status in de *achtergrond*
+(wit = heb ik, lichtrood = gezocht, lichtgroen = dubbel), zodat het land
+herkenbaar blijft terwijl de status verandert.
+
 ## Stickers bulksgewijs beheren en dubbel-aantal
 
 Sinds `012_stickers_aantal.sql` kies je op `kind.html` één land, en toont een
@@ -445,6 +484,8 @@ zodra dat er meer dan één is.
 - `js/whatsapp.js` — nummers normaliseren naar E.164 en wa.me-links bouwen.
 - `js/instellingen.js` — beheerpagina: beursvenster, glans, organisatornummer.
 - `js/wereldreis.js` — FIFA Wereldreis: coördinaten, kleuren, lagen, kaart.
+- `js/landen-data.js` — de notatie `BEL - BELGIUM - België`, de accentkleur per
+  land en de twee sorteervolgordes.
 - `js/voetbal-data.js` / `js/land-data.js` / `js/talen-data.js` — statische
   redactionele gegevens per land (voetbal, landinfo, talen).
 - `js/foto-data.js` — lazy ophalen van landfoto's uit Supabase (`land_fotos`).

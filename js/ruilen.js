@@ -15,6 +15,7 @@
 import { supabase, requireAuth } from "./supabase.js";
 import { loadKinderen } from "./kinderen.js";
 import { whatsappKnop, toonOrganisatorKnop } from "./whatsapp.js";
+import { landLabel, accentVoor } from "./landen-data.js";
 
 const RICHTING = {
   jij_zoekt: { tekst: "zoekt deze", klasse: "richting--zoekt" },
@@ -192,8 +193,15 @@ function bouwRij(kind, rij) {
   sticker.textContent = (rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code) + suffix;
   tr.appendChild(sticker);
 
+  // De vaste notatie, met een streepje in de landkleur ervoor: in een lange
+  // tabel is dat sneller te scannen dan de tekst alleen.
   const land = document.createElement("td");
-  land.textContent = rij.land_naam;
+  land.className = "land-cel";
+  const streep = document.createElement("span");
+  streep.className = "land-streep";
+  streep.style.backgroundColor = accentVoor(rij.land_code);
+  land.appendChild(streep);
+  land.appendChild(document.createTextNode(landLabel(rij)));
   tr.appendChild(land);
 
   // "Guus zoekt deze" / "Guus heeft deze dubbel" — vanuit jouw verzamelaar

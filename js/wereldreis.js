@@ -35,6 +35,7 @@ import { voetbalVoor, confederatieNaam, RANKING_STAND } from "./voetbal-data.js"
 import { landInfoVoor } from "./land-data.js";
 import { talenVoor } from "./talen-data.js";
 import { laadFotos } from "./foto-data.js";
+import { landLabel, lokaleNaamVoor } from "./landen-data.js";
 
 // ---------- coördinaten ----------
 
@@ -301,7 +302,7 @@ export function tekenLanden(kaart, landen, { mini = false } = {}) {
           iconSize: [0, 0],
           iconAnchor: [0, 0],
         }),
-        title: land.land_naam,
+        title: landLabel(land),
         keyboard: !mini,
         interactive: !mini,
         // Europa staat vol: op wereldniveau overlappen een stuk of twintig
@@ -376,7 +377,10 @@ function stippenHtml(land, mini) {
     .map((cat) => {
       const isStickers = cat.id === "stickers";
       const tekst = isStickers ? `${cat.label} — ${land.procent} %` : cat.label;
-      const aria = `${tekst} van ${land.land_naam}`;
+      // Land eerst, in de vaste notatie: ook wie enkel over een icoon zweeft
+      // (of het met een schermlezer bereikt) moet de code en de naam krijgen,
+      // niet alleen de categorie.
+      const aria = `${landLabel(land)} · ${tekst}`;
       const klasse = ["wr-icoon", "wr-icoon--" + cat.id, cat.klasseVoor(land), cat.actief ? "" : "wr-icoon--wacht"]
         .filter(Boolean)
         .join(" ");
@@ -403,8 +407,19 @@ function bouwMiniPopup(land, cat) {
   icoon.setAttribute("aria-hidden", "true");
   icoon.textContent = cat.icoon;
   titel.appendChild(icoon);
-  titel.appendChild(document.createTextNode(` ${cat.label} — ${land.land_naam}`));
+  // De vaste notatie "BEL - BELGIUM - België", met de categorie eronder in
+  // plaats van ernaast: alle drie de landdelen op één regel plus een
+  // categorienaam wordt te lang voor een popup van 230 pixels breed.
+  const naam = document.createElement("span");
+  naam.className = "wr-popup__land";
+  naam.textContent = landLabel(land);
+  titel.appendChild(naam);
   vak.appendChild(titel);
+
+  const onderschrift = document.createElement("p");
+  onderschrift.className = "wr-popup__categorie";
+  onderschrift.textContent = cat.label;
+  vak.appendChild(onderschrift);
 
   vak.appendChild(cat.actief && cat.popup ? cat.popup(land) : placeholderInhoud(cat));
   return vak;
@@ -586,14 +601,12 @@ function landPopup(land) {
 
 // ---------- talen (fase 3) ----------
 
-// Bij één officiële taal tonen we de volledige rij (Nederlands/Engels/lokale
-// naam/taal); bij meerdere talen bestaat er geen "de taal van dat land" om
-// apart uit te lichten, dus dan volstaat een opsomming — zie js/talen-data.js.
+// Drie namen en dan de taal (of talen). De Nederlandse en Engelse naam komen
+// uit de catalogus, de lokale naam uit js/landen-data.js, de talen uit
+// js/talen-data.js — geen van de drie staat dus twee keer opgeslagen.
 function talenPopup(land) {
-  const info = talenVoor(land.land_code);
-  if (!info) {
-    return placeholderInhoud(CATEGORIEEN.find((c) => c.id === "talen"));
-  }
+  const talen = talenVoor(land.land_code);
+  const lokaal = lokaleNaamVoor(land.land_code);
 
   const blok = document.createElement("div");
   blok.className = "wr-popup__blok";
@@ -601,13 +614,19 @@ function talenPopup(land) {
   const lijst = document.createElement("dl");
   lijst.className = "wr-popup__cijfers";
 
-  if (info.talen.length > 1) {
-    rij(lijst, "Talen", meervoudigOpsommen(info.talen));
-  } else {
-    rij(lijst, "Nederlands", land.land_naam);
-    if (info.engels) rij(lijst, "Engels", info.engels);
-    if (info.lokaleNaam) rij(lijst, "Lokale naam", info.lokaleNaam);
-    rij(lijst, "Taal", info.talen[0]);
+  rij(lijst, "Nederlands", land.land_naam);
+  if (land.land_naam_en) rij(lijst, "Engels", land.land_naam_en);
+  // Enkel tonen wanneer de lokale schrijfwijze iets toevoegt. Hoofdletters
+  // tellen niet mee: de Engelse albumnaam staat in kapitalen (ARGENTINA), dus
+  // zonder deze vergelijking zou "Argentina" er als derde naam onder komen
+  // terwijl het hetzelfde woord is.
+  const zelfdeAls = (a, b) => a.toLowerCase() === String(b || "").toLowerCase();
+  if (lokaal && !zelfdeAls(lokaal, land.land_naam) && !zelfdeAls(lokaal, land.land_naam_en)) {
+    rij(lijst, "Lokale naam", lokaal);
+  }
+
+  if (talen && talen.length) {
+    rij(lijst, talen.length > 1 ? "Talen" : "Taal", meervoudigOpsommen(talen));
   }
 
   blok.appendChild(lijst);

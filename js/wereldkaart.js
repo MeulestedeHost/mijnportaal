@@ -19,6 +19,7 @@ import {
   bewaarKeuze,
   leesKeuze,
 } from "./wereldreis.js";
+import { landLabel } from "./landen-data.js";
 
 let kaart;
 let stippenLaag;
@@ -210,7 +211,7 @@ function toonBuitenKaart(landen) {
 
     const naam = document.createElement("span");
     naam.className = "sticker-item__nummer";
-    naam.textContent = rij.land_naam;
+    naam.textContent = landLabel(rij);
 
     const cijfer = document.createElement("span");
     cijfer.className = "kind-item__cijfer " + trapVoor(rij.procent).klasse + " wr-tegel";
