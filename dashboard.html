@@ -19,6 +19,11 @@
       </a>
       <div class="navbar__actions">
         <span class="navbar__user">Welkom <span id="user-email"></span></span>
+        <!-- Het nieuws staat op de startpagina. Zonder deze link zou een
+             ingelogde ouder er niet meer bij raken: js/auth.js stuurt hem van "/"
+             normaal meteen terug naar het dashboard (het #nieuws-anker is daar de
+             uitzondering op). -->
+        <a href="/#nieuws" class="btn btn--outline btn--sm">Nieuws</a>
         <a href="/instellingen.html" class="btn btn--outline btn--sm hidden" id="beheer-link">Instellingen</a>
         <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
       </div>

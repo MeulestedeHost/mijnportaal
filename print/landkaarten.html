@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Panini Landkaarten 2026</title>
+<!-- Bron voor Panini_Landkaarten_2026.pdf: 48 landkaarten, 2 per A4-pagina,
+     elke kaart een liggende A5. Genereer de PDF met scripts/genereer-pdf.mjs
+     (Playwright, drukt deze pagina exact af op A4 zonder marges) — niet met
+     "Afdrukken → Opslaan als PDF" zoals ruilblad.html, want een browser voegt
+     daar standaard eigen marges en kop-/voetregels aan toe die de vlaggen tot
+     tegen de paginarand zouden laten lopen mislukken.
+
+     De vlaggen komen uit print/vlaggen/<CODE>.svg (flagcdn.com, publieke
+     domeinsymbolen, hier lokaal bewaard zodat deze pagina zonder internet
+     werkt). Volgorde en Engelse albumnamen: exact de tabel die is aangeleverd
+     voor het FIFA World Cup 2026-album. -->
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+
+  .vel {
+    width: 210mm;
+    height: 297mm;
+    display: flex;
+    flex-direction: column;
+    break-after: page;
+    page-break-after: always;
+  }
+  .vel:last-child { break-after: auto; page-break-after: auto; }
+
+  .kaart {
+    position: relative;
+    width: 210mm;
+    height: 148.5mm;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  /* De snijlijn zit op de kaart zelf (border-bottom van de eerste kaart van
+     elk vel) — zo staat ze altijd exact op de helft, ongeacht of de tweede
+     kaart een twee-regelige naam heeft. */
+  .kaart--boven { border-bottom: 1px dashed #999; }
+
+  .kaart__vlag { flex: 1 1 auto; min-height: 0; background: #eee; }
+  .kaart__vlag img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* Vaste minimumhoogte voor één regel; groeit vanzelf mee voor de enkele
+     lange namen (Bosnië en Herzegovina) die op twee regels uitkomen. */
+  .kaart__balk {
+    flex: none;
+    min-height: 20mm;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2mm 6mm;
+  }
+  .kaart__tekst {
+    margin: 0;
+    font-weight: 700;
+    font-size: 38pt;
+    line-height: 1.05;
+    text-align: center;
+    color: #000;
+  }
+</style>
+</head>
+<body>
+  <!-- KAARTEN wordt door scripts/genereer-pdf.mjs voor het afdrukken
+       gevuld via JavaScript — zie ook LANDEN hieronder, dat is de enige
+       plek waar de volgorde en de namen vastliggen. -->
+  <script>
+    // Exacte Panini-albumvolgorde voor het FIFA World Cup 2026-album.
+    const LANDEN = [
+      ["MEX", "MEXICO", "Mexico"],
+      ["RSA", "SOUTH AFRICA", "Zuid‑Afrika"],
+      ["KOR", "SOUTH KOREA", "Zuid‑Korea"],
+      ["CZE", "CZECHIA", "Tsjechië"],
+      ["CAN", "CANADA", "Canada"],
+      ["BIH", "BOSNIA AND HERZEGOVINA", "Bosnië en Herzegovina"],
+      ["QAT", "QATAR", "Qatar"],
+      ["SUI", "SWITZERLAND", "Zwitserland"],
+      ["BRA", "BRAZIL", "Brazilië"],
+      ["MAR", "MOROCCO", "Marokko"],
+      ["HAI", "HAITI", "Haïti"],
+      ["SCO", "SCOTLAND", "Schotland"],
+      ["USA", "UNITED STATES", "Verenigde Staten"],
+      ["PAR", "PARAGUAY", "Paraguay"],
+      ["AUS", "AUSTRALIA", "Australië"],
+      ["TUR", "TÜRKIYE", "Turkije"],
+      ["GER", "GERMANY", "Duitsland"],
+      ["CUW", "CURAÇAO", "Curaçao"],
+      ["CIV", "CÔTE D'IVOIRE", "Ivoorkust"],
+      ["ECU", "ECUADOR", "Ecuador"],
+      ["NED", "NETHERLANDS", "Nederland"],
+      ["JPN", "JAPAN", "Japan"],
+      ["SWE", "SWEDEN", "Zweden"],
+      ["TUN", "TUNISIA", "Tunesië"],
+      ["BEL", "BELGIUM", "België"],
+      ["EGY", "EGYPT", "Egypte"],
+      ["IRN", "IR IRAN", "Iran"],
+      ["NZL", "NEW ZEALAND", "Nieuw-Zeeland"],
+      ["ESP", "SPAIN", "Spanje"],
+      ["CPV", "CABO VERDE", "Kaapverdië"],
+      ["KSA", "SAUDI ARABIA", "Saoedi-Arabië"],
+      ["URU", "URUGUAY", "Uruguay"],
+      ["FRA", "FRANCE", "Frankrijk"],
+      ["SEN", "SENEGAL", "Senegal"],
+      ["IRQ", "IRAQ", "Irak"],
+      ["NOR", "NORWAY", "Noorwegen"],
+      ["ARG", "ARGENTINA", "Argentinië"],
+      ["ALG", "ALGERIA", "Algerije"],
+      ["AUT", "AUSTRIA", "Oostenrijk"],
+      ["JOR", "JORDAN", "Jordanië"],
+      ["POR", "PORTUGAL", "Portugal"],
+      ["COD", "DR CONGO", "DR Congo"],
+      ["UZB", "UZBEKISTAN", "Oezbekistan"],
+      ["COL", "COLOMBIA", "Colombia"],
+      ["ENG", "ENGLAND", "Engeland"],
+      ["CRO", "CROATIA", "Kroatië"],
+      ["GHA", "GHANA", "Ghana"],
+      ["PAN", "PANAMA", "Panama"],
+    ];
+
+    function kaart(code, naamEn, naamNl, boven) {
+      const div = document.createElement("div");
+      div.className = "kaart" + (boven ? " kaart--boven" : "");
+
+      const vlagVak = document.createElement("div");
+      vlagVak.className = "kaart__vlag";
+      const img = document.createElement("img");
+      img.src = "vlaggen/" + code + ".svg";
+      img.alt = naamNl;
+      vlagVak.appendChild(img);
+      div.appendChild(vlagVak);
+
+      const balk = document.createElement("div");
+      balk.className = "kaart__balk";
+      const p = document.createElement("p");
+      p.className = "kaart__tekst";
+      p.textContent = `${code} - ${naamEn} - ${naamNl}`;
+      balk.appendChild(p);
+      div.appendChild(balk);
+
+      return div;
+    }
+
+    const body = document.body;
+    for (let i = 0; i < LANDEN.length; i += 2) {
+      const vel = document.createElement("div");
+      vel.className = "vel";
+      vel.appendChild(kaart(...LANDEN[i], true));
+      if (LANDEN[i + 1]) vel.appendChild(kaart(...LANDEN[i + 1], false));
+      body.appendChild(vel);
+    }
+  </script>
+</body>
+</html>

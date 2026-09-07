@@ -62,6 +62,9 @@ a { color: var(--cf-blue-primary); text-decoration: none; }
 .login-card { max-width: 440px; margin: 2rem auto; }
 .login-card h1 { margin-bottom: 0.5rem; }
 .login-card__hint { color: var(--text-muted); font-size: 0.925rem; margin-bottom: 1.5rem; }
+/* Terugweg naar het nieuws op de startpagina: wie op de aanmeldpagina belandt
+   via een gedeelde link, moet niet zoeken hoe hij terug bij het bericht komt. */
+.login-terug { max-width: 440px; margin: 0 auto; font-size: 0.9rem; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.625rem 1.25rem; border: 2px solid transparent; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: background 0.15s, border-color 0.15s, opacity 0.15s; font-family: var(--font); text-decoration: none; }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -653,72 +656,123 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .wr-kaart--mini .leaflet-control-attribution { font-size: 9px; }
 
 /* ============================================================
-   Aanmeldpagina: nieuwsblok naast de aanmeldkaart
+   Nieuws op de startpagina — een forumdraad van berichten
    ============================================================
-   Statisch, geen JavaScript. Beide kolommen zijn losstaand van elkaar: het
-   nieuwsblok mag verwijderd of hergebruikt worden zonder de aanmeldflow
-   (rechts) te raken, en omgekeerd. */
-.aanmeld-layout { display: flex; align-items: flex-start; gap: 1.5rem; }
-.aanmeld-layout__login { flex: 0 0 380px; }
-/* .login-card centreert zichzelf normaal met margin: auto (zie de basisregel
-   hierboven) — dat is voor de plek waar de kaart alleen op de pagina staat.
-   Hier staat hij al in een kolom met een vaste breedte, dus die marge zou de
-   kaart enkel scheeftrekken. */
-.aanmeld-layout__login .login-card { margin: 0; }
+   De berichten staan onder elkaar, nieuwste bovenaan, elk in een eigen kaart
+   met een datum, een tekst en een rij deelknoppen. Een nieuw bericht toevoegen
+   = één <article class="nieuws-item"> kopiëren in index.html en bovenaan de
+   lijst zetten; hier hoeft niets bij. De deelknoppen zelf worden ingevuld door
+   js/nieuws.js — de CSS hieronder beschrijft enkel hoe ze eruitzien. */
+.nieuws { margin-top: 3rem; }
 
-.nieuwsblok {
+/* De koptekst van de hele draad, niet van een los bericht. */
+.nieuws__kop { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.nieuws__kop h2 { font-size: 1.6rem; color: var(--cf-blue-dark); }
+.nieuws__kop p { color: var(--text-muted); font-size: 0.95rem; }
+
+.nieuws__lijst { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.nieuws-item {
   position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 1.75rem 2rem;
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--cf-blue-light) 0%, #ffffff 55%);
-  box-shadow: var(--shadow-lg);
+  background: var(--surface);
   border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 1.5rem 1.75rem;
   overflow: hidden;
 }
 
-/* De badge hangt in de hoek als een lintje, met een vaste, niet-animerende
-   gouden gloed — bewust rustiger dan de pulserende stip op de Wereldreis-
-   kaart: dit is een aanmeldpagina die ook volwassenen zien. */
-.nieuwsblok__badge {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
+/* Het bovenste bericht krijgt een blauwe gloed en een zwaardere schaduw dan de
+   rest: in een lijst van berichten moet het
+   nieuwste eruit springen zonder dat de rest saai wordt. Zet de klasse mee op
+   het nieuwe bericht en haal ze bij het vorige weg. */
+.nieuws-item--uitgelicht {
+  background: linear-gradient(135deg, var(--cf-blue-light) 0%, var(--surface) 55%);
+  box-shadow: var(--shadow-lg);
+  border-color: #b9d4f6;
+}
+
+.nieuws-item__kop { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.nieuws-item__datum { color: var(--text-muted); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; }
+
+/* Zelfde gouden lintje als vroeger op de aanmeldpagina, maar nu meelopend in
+   de kop in plaats van absoluut in de hoek: in een lijst zou een zwevende
+   badge over het bericht erboven vallen. */
+.nieuws-item__badge {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  background: linear-gradient(135deg, #ffd54a, var(--wr-hoog, #e8b923));
+  background: linear-gradient(135deg, #ffd54a, #e8b923);
   color: #5c4400;
   font-weight: 700;
-  font-size: 0.8rem;
-  padding: 0.3rem 0.85rem;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.7rem;
   border-radius: 999px;
-  box-shadow: 0 0 0 6px rgba(232, 185, 35, 0.2), var(--shadow);
+  box-shadow: 0 0 0 4px rgba(232, 185, 35, 0.18);
 }
 
-/* padding-right houdt de tekst uit de buurt van de badge in de hoek. Ruimer
-   dan de badge zelf breed is: de badge hangt met right:1rem net buiten de
-   padding van de kaart, dus deze marge moet ook dat stukje overbruggen. */
-.nieuwsblok__inhoud { min-width: 0; padding-right: 6rem; }
-.nieuwsblok__titel { font-size: 1.4rem; color: var(--cf-blue-dark); margin-bottom: 0.75rem; line-height: 1.3; }
-.nieuwsblok__tekst { display: flex; flex-direction: column; gap: 0.65rem; color: var(--text); font-size: 0.95rem; line-height: 1.55; margin-bottom: 1.25rem; }
-.nieuwsblok__knop { display: inline-flex; }
+.nieuws-item__titel { font-size: 1.3rem; color: var(--cf-blue-dark); line-height: 1.3; margin-bottom: 0.75rem; }
+.nieuws-item__tekst { display: flex; flex-direction: column; gap: 0.65rem; color: var(--text); font-size: 0.95rem; line-height: 1.55; }
+.nieuws-item__tekst ul { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.35rem; }
 
-/* Onder elkaar zodra het naast elkaar te krap zou worden: bij 900px blijft er
-   voor het nieuwsblok, naast de vaste 380px aanmeldkolom, nog maar zo'n 500px
-   over — genoeg voor de knop en de titel, te weinig om de lopende tekst
-   prettig te lezen. */
-@media (max-width: 900px) {
-  .aanmeld-layout { flex-direction: column; }
-  .aanmeld-layout__login { flex-basis: auto; width: 100%; }
-  .aanmeld-layout__login .login-card { margin: 0 auto; }
+/* De foto krijgt een vaste verhouding mee via width/height in de HTML, zodat
+   de rest van de lijst niet verspringt terwijl de afbeelding nog laadt. */
+.nieuws-item__foto { display: block; width: 100%; height: auto; max-width: 520px; border-radius: 10px; margin-top: 1rem; border: 1px solid var(--border); }
+/* Geen eigen margin: het bijschrift is een flexitem van .nieuws-item__tekst en
+   krijgt zijn ruimte al van de gap daar. */
+.nieuws-item__bijschrift { color: var(--text-muted); font-size: 0.85rem; font-style: italic; }
+
+/* Een bericht kan meer dan één knop hebben (aanmelden én de ruilfiche), dus
+   een rij die netjes afbreekt in plaats van één losse knop. */
+.nieuws-item__knoppen { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem; }
+
+/* ---- Deelknoppen ----------------------------------------------------------
+   Een dunne scheidingslijn onderaan elk bericht. De knoppen zelf zet
+   js/nieuws.js erin; staat JavaScript uit, dan blijft deze balk gewoon leeg en
+   mist er niets aan het bericht. */
+.nieuws-item__delen { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.nieuws-item__delen:empty { display: none; }
+.nieuws-item__delen-label { color: var(--text-muted); font-size: 0.85rem; font-weight: 600; margin-right: 0.25rem; }
+
+.deelknop {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
+.deelknop svg { width: 16px; height: 16px; fill: currentColor; flex: none; }
+
+/* Elk netwerk kleurt pas bij hover in zijn eigen huiskleur. In rust blijven de
+   knoppen grijs: vier gekleurde blokjes onder elk bericht zouden harder roepen
+   dan het nieuws zelf. */
+.deelknop:hover { color: #fff; border-color: transparent; }
+.deelknop--facebook:hover { background: #1877f2; }
+.deelknop--whatsapp:hover { background: var(--wa-groen); }
+.deelknop--x:hover { background: #000000; }
+.deelknop--mail:hover { background: var(--cf-blue-primary); }
+.deelknop--kopieer:hover { background: var(--text-muted); }
+
+/* Even bevestigen dat de link écht op het klembord staat — zonder dat is een
+   kopieerknop een knop waarvan je niet weet of hij iets deed. */
+.deelknop--gekopieerd, .deelknop--gekopieerd:hover { background: var(--success); border-color: transparent; color: #fff; }
 
 @media (max-width: 640px) {
-  .nieuwsblok { padding: 1.5rem 1.25rem; border-radius: 12px; }
-  .nieuwsblok__badge { position: static; margin-bottom: 1rem; }
-  .nieuwsblok__inhoud { padding-right: 0; }
-  .nieuwsblok__titel { font-size: 1.2rem; text-align: center; }
-  .nieuwsblok__knop { width: 100%; justify-content: center; }
+  .nieuws-item { padding: 1.25rem 1.1rem; border-radius: 12px; }
+  .nieuws-item__titel { font-size: 1.15rem; }
+  .nieuws-item__knoppen .btn { width: 100%; justify-content: center; }
+  .nieuws-item__delen { gap: 0.4rem; }
+  /* Op een smal scherm passen er geen vijf knoppen mét tekst naast elkaar;
+     enkel de iconen blijven over, het label boven de rij zegt al wat ze doen. */
+  .deelknop__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .deelknop { padding: 0.55rem 0.7rem; }
 }

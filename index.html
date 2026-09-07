@@ -60,6 +60,166 @@
         <p>Houd bij welke stickers je hebt, zoekt of kan ruilen — enkel jij ziet jouw gegevens.</p>
       </div>
     </section>
+
+    <!-- Nieuws — een forumdraad: nieuwste bericht bovenaan, daaronder de
+         oudere. Alles staat hier gewoon in de HTML, er komt geen database aan
+         te pas. Een bericht toevoegen: kopieer één <article class="nieuws-item">
+         hieronder, zet het bovenaan de lijst, geef het een eigen id (daar
+         verwijzen de deelknoppen naar) en verplaats de klasse
+         "nieuws-item--uitgelicht" en de badge naar het nieuwe bericht.
+         De deelknoppen vult js/nieuws.js zelf in — laat de lege <footer> staan. -->
+    <section class="nieuws" id="nieuws" aria-labelledby="nieuws-titel">
+      <div class="nieuws__kop">
+        <h2 id="nieuws-titel">📰 Nieuws</h2>
+        <p>Alles over de ruilbeurzen en het portaal, nieuwste bericht bovenaan.</p>
+      </div>
+
+      <div class="nieuws__lijst">
+
+        <article class="nieuws-item nieuws-item--uitgelicht" id="nieuws-ruilbeurs-11-oktober" data-deel-titel="Nieuwe Panini-ruilbeurs in Meulestede op zaterdag 11 oktober">
+          <div class="nieuws-item__kop">
+            <time class="nieuws-item__datum" datetime="2026-09-07">7 september 2026</time>
+            <span class="nieuws-item__badge">✨ NIEUW</span>
+          </div>
+          <h3 class="nieuws-item__titel">🎟️ Nieuwe ruilbeurs op zaterdag 11 oktober, van 14u tot 17u</h3>
+          <div class="nieuws-item__tekst">
+            <p>
+              De eerste beurs was zo'n succes dat we er meteen een tweede plannen. Op
+              <strong>zaterdag 11 oktober, van 14u tot 17u</strong>, zijn alle verzamelaars
+              opnieuw welkom in het Cultureel Centrum Meulestede.
+            </p>
+            <p>
+              📱 <strong>Deze keer moedigen we aan om de app te gebruiken.</strong> Wie zijn
+              stickers in het portaal invult, krijgt op voorhand te zien <em>met wie</em> hij kan
+              ruilen en <em>welke stickers</em> precies. Je hoeft dus niet meer de hele zaal af te
+              gaan om te ontdekken wie je nodig hebt. Dat zal het ruilen aanzienlijk versnellen.
+            </p>
+            <p>Verder is er dit:</p>
+            <ul>
+              <li>🎫 <strong>Aanmelden is deze keer nodig.</strong> Zo weten we op voorhand wie er komt.</li>
+              <li>🎁 Je <strong>legt 10 stickers in voor de tombola</strong>. De trekking gaat door om <strong>16u</strong>.</li>
+              <li>📄 Druk je <strong>ruilfiche</strong> af als backup, voor het geval het systeem het toch zou laten afweten.</li>
+            </ul>
+          </div>
+          <div class="nieuws-item__knoppen">
+            <a
+              class="btn btn--primary btn--lg"
+              href="https://www.ccmeulestede.be/events/panini-ruilbeurs-meulestede-2de-editie-fifa2026"
+              target="_blank"
+              rel="noopener noreferrer"
+            >🎟️ Schrijf je in</a>
+            <a class="btn btn--ruilfiche btn--lg" href="/login.html">🔄 Digitaal Ruilportaal</a>
+          </div>
+          <footer class="nieuws-item__delen"></footer>
+        </article>
+
+        <article class="nieuws-item" id="nieuws-terugblik-6-september" data-deel-titel="65 kinderen op de Panini-ruilbeurs in Meulestede">
+          <div class="nieuws-item__kop">
+            <time class="nieuws-item__datum" datetime="2026-09-06">6 september 2026</time>
+          </div>
+          <h3 class="nieuws-item__titel">⚽ Een geslaagde beurs: 65 kinderen kwamen ruilen</h3>
+          <div class="nieuws-item__tekst">
+            <p>
+              Het was een geslaagde beurs. Er kwamen <strong>65 kinderen met hun ouders</strong>
+              opdagen, en iedereen had een ruilfiche ingevuld of een eigen systeem meegebracht.
+            </p>
+            <p>
+              De ouders hebben behoorlijk veel meegeholpen, en dat was mooi om zien. Veel ouders
+              stonden versteld van hoe goed de kinderen hun stickers kennen — bij naam én bij
+              nummer.
+            </p>
+            <p>
+              Wat wel opviel: je kon er als verzamelaar maar zo'n <strong>5 à 10 anderen</strong>
+              aanspreken. Er is dus nog ruimte om de beurs opnieuw te organiseren — en dat doen we
+              dan ook.
+            </p>
+            <img
+              class="nieuws-item__foto"
+              src="/img/FIFA2026_Panini_Ruilbeurs_Meulestede.jpg"
+              alt="Kinderen en ouders die stickers ruilen op de FIFA 2026 Panini-ruilbeurs in Meulestede"
+              width="505"
+              height="294"
+              loading="lazy"
+            />
+            <p class="nieuws-item__bijschrift">Ruilen in het Cultureel Centrum Meulestede, 6 september 2026.</p>
+          </div>
+          <footer class="nieuws-item__delen"></footer>
+        </article>
+
+        <article class="nieuws-item" id="nieuws-ruilfiche" data-deel-titel="Ruilfiche voor de Panini-ruilbeurs staat online">
+          <div class="nieuws-item__kop">
+            <time class="nieuws-item__datum" datetime="2026-09-04">4 september 2026</time>
+          </div>
+          <h3 class="nieuws-item__titel">📄 De ruilfiche staat online</h3>
+          <div class="nieuws-item__tekst">
+            <p>
+              Vanaf nu kan je de <strong>ruilfiche</strong> hier downloaden. Druk ze thuis af en
+              vul ze alvast in: welke stickers je zoekt, en welke je dubbel hebt.
+            </p>
+            <p>
+              Wie met een ingevulde fiche naar de beurs komt, weet meteen waar hij aan toe is en
+              ruilt merkbaar sneller.
+            </p>
+          </div>
+          <div class="nieuws-item__knoppen">
+            <a
+              class="btn btn--ruilfiche btn--lg"
+              href="/print/Ruilblad_Panini_FIFA_2026_Nieuw.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+            >📥 Download ruilfiche</a>
+          </div>
+          <footer class="nieuws-item__delen"></footer>
+        </article>
+
+        <article class="nieuws-item" id="nieuws-ruilportaal-online" data-deel-titel="FIFA Panini Ruilbeurs Meulestede en het nieuwe Ruilportaal">
+          <div class="nieuws-item__kop">
+            <time class="nieuws-item__datum" datetime="2026-09-01">1 september 2026</time>
+          </div>
+          <h3 class="nieuws-item__titel">🎉 FIFA Panini Ruilbeurs Meulestede — en het Ruilportaal gaat online</h3>
+          <div class="nieuws-item__tekst">
+            <p>⚽🌍 Wat begon als een eenvoudig idee, is uitgegroeid tot een echt succes!</p>
+            <p>
+              Op zaterdag 6 september verwelkomen we in het Cultureel Centrum Meulestede
+              maar liefst <strong>80 ingeschreven</strong> jonge FIFA Panini-verzamelaars
+              voor onze grote ruilbeurs.
+            </p>
+            <p>
+              Naast de fysieke ruilbeurs lanceren we een volledig zelf ontwikkeld
+              <strong>Panini Ruilportaal</strong>. Kinderen kunnen er hun dubbele en
+              gezochte stickers beheren en ook na de beurs verder ruilen.
+            </p>
+            <p>
+              🌍 De blikvanger is zonder twijfel de nieuwe <strong>FIFA Wereldreis</strong>:
+              een interactieve wereldkaart die gekoppeld is aan de stickercollectie.
+            </p>
+            <p>
+              Kinderen zien in één oogopslag welke landen ze al verzameld hebben, welke
+              landen bijna compleet zijn en hoe hun verzameling zich verspreidt over de
+              wereld.
+            </p>
+            <p>
+              Zo wordt stickers verzamelen meer dan alleen ruilen. Het wordt een digitale
+              ontdekkingsreis langs de landen van het WK 2026.
+            </p>
+            <p>
+              🚀 Vers van de pers, kindvriendelijk en ontwikkeld voor onze jonge
+              verzamelaars en hun ouders.
+            </p>
+          </div>
+          <div class="nieuws-item__knoppen">
+            <a
+              class="btn btn--primary btn--lg"
+              href="https://www.ccmeulestede.be/events/ruilbeurs-verzamelingen-panini-fifa-2026-en-meer"
+              target="_blank"
+              rel="noopener noreferrer"
+            >🔗 Bekijk het evenement</a>
+          </div>
+          <footer class="nieuws-item__delen"></footer>
+        </article>
+
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
@@ -70,5 +230,8 @@
 
   <script type="module" src="/js/supabase.js"></script>
   <script type="module" src="/js/auth.js"></script>
+  <!-- Vult enkel de deelknoppen onder de nieuwsberichten in; raakt de rest van
+       de pagina niet aan. -->
+  <script type="module" src="/js/nieuws.js"></script>
 </body>
 </html>

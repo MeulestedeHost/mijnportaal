@@ -179,7 +179,15 @@ function initLogout() {
 
 // Landt een geslaagde magic link op de startpagina (Site URL) i.p.v. op het
 // dashboard, dan sturen we de gebruiker alsnog door.
+//
+// Uitzondering: het nieuws staat óók op de startpagina, en die berichten worden
+// gedeeld met een link naar hun anker (/#nieuws-...). Wie al ingelogd is en zo'n
+// gedeelde link opent, moet dat bericht te zien krijgen en niet meteen op het
+// dashboard belanden — dan leest niemand die op Facebook of WhatsApp klikt ooit
+// het nieuws. Een magic link zet zijn tokens in dezelfde hash, vandaar dat we
+// enkel op het nieuws-anker uitzonderen en niet op "er staat een hash".
 async function initLandingPage() {
+  if (window.location.hash.startsWith("#nieuws")) return;
   supabase.auth.onAuthStateChange((_event, session) => {
     if (session) window.location.replace("/dashboard.html");
   });
