@@ -204,29 +204,39 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
    staan met zijn naam afgekapt. */
 /* Valt terug op de gewone randkleur zolang er nog geen land gekozen is. */
 #sticker-kaart { --land-accent: var(--border); }
-.sticker-checklist { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 0.5rem; margin-bottom: 1rem; }
+.sticker-checklist { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.5rem; margin-bottom: 1rem; }
 /* Witte knop, rand in de kleur van het land, subtiele schaduw. De landkleur
    komt van .sticker-checklist (js/stickers.js zet ze daar bij elk land), dus
    elke chip erft ze zonder dat er per knop een kleur ingesteld wordt. */
-.sticker-chip { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.65rem; border: 2px solid var(--land-accent); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
+/* Drie regels onder elkaar in plaats van alles op één rij: code, naam,
+   bediening. Dat maakt de chip hoger, maar de spelersnaam past er wel
+   volledig op — afgekapte namen ("CIV1 — Embl…") maakten de lijst
+   onbruikbaar zonder er telkens over te hoveren. */
+.sticker-chip { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.55rem 0.7rem; border: 2px solid var(--land-accent); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
 /* De status zit in de achtergrond, niet in de rand: zo blijft het land
    herkenbaar terwijl de status verandert. Lichte tinten, zodat de
    stickernummers zwart-op-licht leesbaar blijven. */
 .sticker-chip--gezocht { background: #fdeaea; }
 .sticker-chip--dubbel { background: #e4f5ea; }
 
-/* De landkop boven de checklist: dezelfde notatie als in de keuzelijst, met
-   een streep in de landkleur eronder. */
-.sticker-landkop { font-weight: 700; font-size: 1.05rem; color: var(--text); padding-bottom: 0.4rem; margin-bottom: 0.75rem; border-bottom: 3px solid var(--land-accent); }
-
 /* De landkolom op de ruilpagina: een streepje in de landkleur vóór de tekst,
    zodat een lange tabel sneller te scannen is dan met tekst alleen. */
 .land-cel { white-space: nowrap; }
 .land-streep { display: inline-block; width: 4px; height: 1em; border-radius: 2px; margin-right: 0.5rem; vertical-align: -0.15em; }
 
-/* Land breed, volgorde smal ernaast — op een telefoon onder elkaar. */
-.landkiezer { display: grid; grid-template-columns: 2fr 1fr; gap: 0 1.25rem; }
-.sticker-chip__naam { font-size: 0.85rem; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Land breed, zoekveld en volgorde smaller ernaast — op een telefoon onder
+   elkaar. */
+.landkiezer { display: grid; grid-template-columns: 2fr 1.4fr 1fr; gap: 0 1.25rem; }
+.sticker-landteller { font-size: 0.75rem; color: var(--text-muted); margin-top: -0.9rem; margin-bottom: 0.9rem; min-height: 1.1em; }
+
+/* De code draagt de herkenning ("BEL7"), dus die staat bovenaan en vet; de
+   spelersnaam eronder mag over twee regels lopen in plaats van afgekapt te
+   worden. */
+.sticker-chip__code { font-weight: 700; font-size: 0.95rem; line-height: 1.2; }
+.sticker-chip__naam { font-size: 0.8rem; color: var(--text-muted); line-height: 1.25; overflow-wrap: anywhere; }
+/* De bediening onderaan, met de teller tegen de rechterrand: zo staan alle
+   +/− knoppen in een rij chips netjes onder elkaar. */
+.sticker-chip__regel { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.15rem; }
 .sticker-chip__vink { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; white-space: nowrap; cursor: pointer; }
 .sticker-chip__vink input { width: 1.1rem; height: 1.1rem; accent-color: var(--cf-blue-primary); }
 

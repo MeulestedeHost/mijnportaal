@@ -32,8 +32,9 @@
     <div class="card" id="sticker-kaart">
       <h2>Stickers beheren</h2>
       <p class="form-meta">
-        Kies een land, vink aan wat je zoekt en zet met + en − hoeveel je er dubbel hebt. Klik
-        daarna op <strong>Bewaar wijzigingen</strong> — dat werkt de hele lijst in één keer bij.
+        Kies een land, vink aan wat je zoekt en zet met + en − hoeveel je er dubbel hebt.
+        Alles wordt <strong>vanzelf bewaard</strong> — je hoeft niets af te sluiten, ook niet
+        als je van land wisselt of de pagina sluit.
       </p>
 
       <div class="landkiezer">
@@ -44,6 +45,21 @@
           </select>
         </div>
 
+        <!-- Filtert de keuzelijst hiernaast op landcode, Engelse naam én
+             Nederlandse naam tegelijk: "CIV", "COTE" en "IVOOR" komen alle
+             drie bij hetzelfde land uit. -->
+        <div class="form-group landkiezer__zoek">
+          <label for="sticker-landzoek" class="form-label">Land zoeken</label>
+          <input
+            type="search"
+            id="sticker-landzoek"
+            class="form-input"
+            placeholder="CIV, Côte, Ivoorkust…"
+            autocomplete="off"
+          />
+          <p id="sticker-landteller" class="sticker-landteller"></p>
+        </div>
+
         <div class="form-group landkiezer__sortering">
           <label for="sticker-sortering" class="form-label">Volgorde</label>
           <select id="sticker-sortering" class="form-input">
@@ -52,8 +68,6 @@
           </select>
         </div>
       </div>
-
-      <p id="sticker-landkop" class="sticker-landkop hidden"></p>
 
       <div class="form-group hidden" id="sticker-filter-vak">
         <label for="sticker-zoek" class="form-label">Zoeken binnen dit land</label>
@@ -70,11 +84,15 @@
       <p id="sticker-leeg" class="form-meta hidden">Kies hierboven eerst een land.</p>
       <ul id="sticker-checklist" class="sticker-checklist"></ul>
 
+      <!-- Wijzigingen worden vanzelf bewaard (js/stickers.js, autosave met een
+           halve seconde uitstel). Deze balk toont enkel de stand van zaken;
+           "Bewaar wijzigingen" schrijft nú weg in plaats van straks, en
+           "Ongedaan maken" draait de laatste klik terug. -->
       <div id="sticker-bewaarbalk" class="sticker-bewaarbalk hidden">
         <span id="sticker-wijzigingen-tekst" class="sticker-wijzigingen-tekst"></span>
         <div class="form-actions">
           <button type="button" class="btn btn--primary" id="sticker-bewaar-btn">Bewaar wijzigingen</button>
-          <button type="button" class="btn btn--outline" id="sticker-annuleer-btn">Annuleren</button>
+          <button type="button" class="btn btn--outline" id="sticker-annuleer-btn">↶ Laatste wijziging ongedaan maken</button>
         </div>
       </div>
 

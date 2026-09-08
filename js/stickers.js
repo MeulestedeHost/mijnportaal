@@ -10,13 +10,18 @@
 //
 // CHECKLIST PER LAND, NIET ÉÉN STICKER TEGELIJK. Vroeger moest je per sticker
 // zoeken, aanklikken, een status kiezen en opslaan — voor twintig stickers dus
-// twintig keer hetzelfde rondje. Sinds deze versie kies je één land, vink je
-// alle gezochte stickers tegelijk aan en zet je bij de dubbels meteen het
-// juiste aantal, en bewaart één klik op "Bewaar wijzigingen" de hele lijst in
-// twee databankaanroepen (één upsert, één delete) in plaats van N aparte
-// inserts/updates. Gezocht en dubbel sluiten elkaar nog steeds uit per
-// sticker — dat is geen UI-beperking maar de databank: één rij per
-// (kind, sticker), met precies één status.
+// twintig keer hetzelfde rondje. Nu kies je één land en vink je alles in één
+// doorloop aan. "Zoek ik" en dubbel sluiten elkaar uit per sticker — dat is
+// geen UI-beperking maar de databank: één rij per (kind, sticker), met precies
+// één status.
+//
+// AUTOSAVE. Er valt niets te verliezen: elke klik gaat meteen in
+// pendingChanges en wordt een halve seconde later weggeschreven (debounce, dus
+// vijf keer op + is één aanvraag). Van land wisselen schrijft eerst weg; een
+// tabblad dat sluit vóór de ronde klaar is, laat zijn wachtrij in localStorage
+// achter en die gaat er bij de volgende lading alsnog in. De knop "Bewaar
+// wijzigingen" blijft bestaan om nú te schrijven in plaats van straks, en
+// "Ongedaan maken" draait de laatste klik terug via een undo-stapel.
 import { supabase, requireAuth } from "./supabase.js";
 import { getKind } from "./kinderen.js";
 import { landLabel, accentVoor, vergelijkLanden } from "./landen-data.js";
@@ -24,6 +29,16 @@ import { landLabel, accentVoor, vergelijkLanden } from "./landen-data.js";
 const TABEL = "stickers";
 const STATUS_TEKST = { ZOEKT: "zoek ik", RUILT: "heb ik dubbel" };
 const PAGINA = 1000; // PostgREST levert maximaal 1000 rijen per aanvraag
+
+// Hoe lang we na de laatste klik wachten voor we schrijven. Wie vijf keer op +
+// tikt, stuurt zo één aanvraag in plaats van vijf. Lang genoeg om reeksen
+// klikken samen te nemen, kort genoeg om niet als "niet bewaard" te voelen.
+const AUTOSAVE_MS = 500;
+
+// Vangnet voor het geval het tabblad sluit vóór de laatste schrijfronde klaar
+// is: wat nog openstaat gaat naar localStorage en wordt bij de volgende
+// paginalading alsnog weggeschreven. Per kind, want je kan van kind wisselen.
+const CACHE_PREFIX = "panini-stickers-openstaand";
 
 let kindId;
 let catalogus = [];
@@ -36,11 +51,25 @@ let aantalPerCode = new Map(); // code -> aantal dubbels van DIT kind
 
 // De checklist van het momenteel gekozen land. checklistState is de live,
 // bewerkbare stand (wat de gebruiker nu aanvinkt/optelt); origineelState is
-// de bevroren momentopname waarmee bewaarChecklist() vergelijkt om te weten
-// wat er precies gewijzigd is. Allebei Map<code, {gezocht, dubbel}>.
+// de databankstand van datzelfde land, de lat waartegen "nog niet bewaard"
+// gemeten wordt. Allebei Map<code, {gezocht, dubbel}>.
 let huidigLand = "";
 let checklistState = new Map();
 let origineelState = new Map();
+
+// AUTOSAVE. pendingChanges is de enige waarheid over "wat moet er nog naar de
+// databank": code -> {gezocht, dubbel}, de gewenste eindtoestand. Ze loopt
+// bewust over landen heen — mislukt een schrijfronde vlak voor je van land
+// wisselt, dan blijft die wijziging gewoon in de rij staan tot ze lukt.
+// origineelState blijft daarnaast de databankstand van het huidige land,
+// waartegen de checklist zich meet.
+let pendingChanges = new Map();
+// Elke actie legt de VORIGE toestand van die ene sticker op de stapel; undo
+// pakt er telkens één af. Per sticker, niet per lijst: dat is wat "laatste
+// wijziging ongedaan maken" voor een gebruiker betekent.
+let undoStack = [];
+let autosaveTimer = null;
+let autosaveBezig = false;
 
 document.addEventListener("DOMContentLoaded", async () => {
   const zone = document.getElementById("sticker-checklist");
@@ -87,14 +116,39 @@ document.addEventListener("DOMContentLoaded", async () => {
     toonMelding("Stickerlijst kon niet geladen worden: " + err.message, "error");
   }
 
-  document.getElementById("sticker-land").addEventListener("change", kiesLand);
+  document.getElementById("sticker-land").addEventListener("change", wisselLand);
+  document.getElementById("sticker-landzoek").addEventListener("input", vulLandKeuzelijst);
   document.getElementById("sticker-sortering").addEventListener("change", wisselSortering);
   document.getElementById("sticker-zoek").addEventListener("input", tekenChecklist);
-  document.getElementById("sticker-bewaar-btn").addEventListener("click", bewaarChecklist);
-  document.getElementById("sticker-annuleer-btn").addEventListener("click", annuleerChecklist);
+  document.getElementById("sticker-bewaar-btn").addEventListener("click", () => synchroniseer());
+  document.getElementById("sticker-annuleer-btn").addEventListener("click", maakOngedaan);
+
+  bewaakVerlaten();
+
+  // Bleef er van een vorige keer iets openstaan (tabblad gesloten vóór de
+  // laatste schrijfronde klaar was), dan gaat dat er nu alsnog in — vóór
+  // ververs(), zodat de lijsten meteen de bijgewerkte stand tonen.
+  herstelLokaleCache();
+  if (pendingChanges.size) await synchroniseer();
 
   await ververs();
 });
+
+// Bij het sluiten van het tabblad is een gewone async-aanroep niet meer
+// betrouwbaar. Daarom twee netten: visibilitychange vuurt op mobiel wél
+// betrouwbaar bij het wegklikken, en wat dan nog openstaat is via
+// localStorage bij de volgende lading terug op te halen.
+function bewaakVerlaten() {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && pendingChanges.size) void synchroniseer();
+  });
+  window.addEventListener("beforeunload", (e) => {
+    if (!pendingChanges.size) return;
+    void synchroniseer();
+    e.preventDefault();
+    e.returnValue = "";
+  });
+}
 
 // ---------- catalogus ----------
 
@@ -144,12 +198,30 @@ function verzamelLanden() {
   landen = [...perCode.values()];
 }
 
+// Accenten en hoofdletters weg, zodat "cote" ook "Côte d'Ivoire" vindt en
+// "belgie" ook "België". NFD splitst een letter met accent in de kale letter
+// plus een los accentteken; dat tweede deel gooien we weg.
+function normaliseer(tekst) {
+  return String(tekst || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 // De keuzelijst toont overal dezelfde notatie: BEL - BELGIUM - België. De
 // waarde van een optie is de landcode, niet de naam — dat is de sleutel die
 // ook in de catalogus en in de stickercodes zit.
+//
+// Het zoekveld ernaast filtert deze lijst live op alle drie de schrijfwijzen:
+// "CIV", "COTE" en "IVOOR" leiden alle drie naar hetzelfde land. Het al
+// gekozen land blijft altijd in de lijst staan, ook als het niet matcht —
+// anders zou typen in het zoekveld stilletjes je landkeuze wegnemen.
 function vulLandKeuzelijst() {
   const select = document.getElementById("sticker-land");
+  const zoekveld = document.getElementById("sticker-landzoek");
   const gekozen = select.value;
+  const term = normaliseer(zoekveld ? zoekveld.value.trim() : "");
+
   select.innerHTML = "";
 
   const leeg = document.createElement("option");
@@ -157,19 +229,37 @@ function vulLandKeuzelijst() {
   leeg.textContent = "Kies een land…";
   select.appendChild(leeg);
 
-  landen
-    .slice()
-    .sort((a, b) => vergelijkLanden(a, b, sorteerwijze))
-    .forEach((land) => {
-      const optie = document.createElement("option");
-      optie.value = land.land_code;
-      optie.textContent = landLabel(land);
-      select.appendChild(optie);
-    });
+  const gesorteerd = landen.slice().sort((a, b) => vergelijkLanden(a, b, sorteerwijze));
+  const zichtbaar = term
+    ? gesorteerd.filter((land) => land.land_code === gekozen || landMatcht(land, term))
+    : gesorteerd;
+
+  zichtbaar.forEach((land) => {
+    const optie = document.createElement("option");
+    optie.value = land.land_code;
+    optie.textContent = landLabel(land);
+    select.appendChild(optie);
+  });
 
   // Van sortering wisselen mag de gekozen verzamelaar zijn land niet
   // afnemen: de lijst wordt herbouwd, de keuze blijft.
   select.value = gekozen;
+
+  const teller = document.getElementById("sticker-landteller");
+  if (teller) {
+    const gevonden = term ? zichtbaar.filter((l) => landMatcht(l, term)).length : 0;
+    teller.textContent = term
+      ? `${gevonden} van ${landen.length} landen`
+      : "";
+  }
+}
+
+function landMatcht(land, term) {
+  return (
+    normaliseer(land.land_code).includes(term) ||
+    normaliseer(land.land_naam_en).includes(term) ||
+    normaliseer(land.land_naam).includes(term)
+  );
 }
 
 function wisselSortering() {
@@ -184,28 +274,31 @@ function omschrijving(sticker) {
 
 // ---------- checklist per land ----------
 
-// Bouwt checklistState/origineelState opnieuw op vanaf de huidige databankstand
-// (statusPerCode/aantalPerCode) zodra een ander land gekozen wordt. Wissel je
-// van land zonder te bewaren, dan gaan onbewaarde vinkjes voor het vorige land
-// dus verloren — dezelfde afweging als een formulier verlaten zonder opslaan.
+// Van land wisselen schrijft eerst weg wat er nog openstaat. Lukt dat niet
+// (netwerk weg), dan blijft het in pendingChanges staan en wordt het later
+// alsnog verstuurd — de wissel gaat gewoon door, er gaat niets verloren.
+async function wisselLand() {
+  if (pendingChanges.size) await synchroniseer();
+  kiesLand();
+}
+
+// Bouwt checklistState/origineelState opnieuw op vanaf de databankstand
+// (statusPerCode/aantalPerCode), met daarbovenop alles wat nog in
+// pendingChanges staat. Die laatste laag is er voor het geval een schrijfronde
+// faalde: dan toont het scherm nog steeds wat de gebruiker bedoelde, niet de
+// verouderde databankstand. origineelState blijft wél de kale databankstand —
+// dat is de lat waartegen "nog niet bewaard" gemeten wordt.
 function kiesLand() {
   huidigLand = document.getElementById("sticker-land").value;
   document.getElementById("sticker-filter-vak").classList.toggle("hidden", !huidigLand);
   document.getElementById("sticker-zoek").value = "";
 
-  // De accentkleur van het land staat op de kaart die zowel de landkop als de
-  // checklist bevat; alles erin erft ze via var(--land-accent). Zo hoeft de
-  // kleur niet per knop gezet te worden, en verandert ze in één keer mee bij
-  // een ander land. (Op de checklist alleen zou de landkop ernaast ze niet
-  // erven — custom properties erven naar beneden, niet zijwaarts.)
+  // De accentkleur van het land staat op de kaart die de checklist bevat;
+  // alles erin erft ze via var(--land-accent). Zo hoeft de kleur niet per chip
+  // gezet te worden en verandert ze in één keer mee bij een ander land.
   document
     .getElementById("sticker-kaart")
     .style.setProperty("--land-accent", accentVoor(huidigLand));
-
-  const kop = document.getElementById("sticker-landkop");
-  const land = landen.find((l) => l.land_code === huidigLand);
-  kop.textContent = land ? landLabel(land) : "";
-  kop.classList.toggle("hidden", !land);
 
   checklistState = new Map();
   origineelState = new Map();
@@ -214,12 +307,13 @@ function kiesLand() {
       .filter((s) => s.land_code === huidigLand)
       .forEach((s) => {
         const status = statusPerCode.get(s.code);
-        const staat = {
+        const uitDatabank = {
           gezocht: status === "ZOEKT",
           dubbel: status === "RUILT" ? aantalPerCode.get(s.code) || 1 : 0,
         };
-        checklistState.set(s.code, { ...staat });
-        origineelState.set(s.code, { ...staat });
+        const openstaand = pendingChanges.get(s.code);
+        checklistState.set(s.code, { ...(openstaand || uitDatabank) });
+        origineelState.set(s.code, { ...uitDatabank });
       });
   }
   tekenChecklist();
@@ -258,20 +352,33 @@ function tekenChecklist() {
   bijwerkenBewaarbalk();
 }
 
-// Eén chip = één sticker, met een vinkje (gezocht) en een stappenteller
-// (dubbel). Wijzigingen passen enkel checklistState aan en werken hun eigen
-// DOM-stukje bij — geen volledige herbouw van de lijst per klik, dat zou de
-// focus van de gebruiker telkens kwijtraken.
+// Eén chip = één sticker: de code vet bovenaan, de spelersnaam eronder op een
+// eigen regel, en daaronder pas de bediening. Dat is drie regels in plaats van
+// één, maar de naam past er wel volledig op — afgekapte namen als
+// "CIV1 — Embl…" maakten de lijst onbruikbaar zonder er telkens over te hoveren.
+//
+// Wijzigingen passen enkel checklistState aan en werken hun eigen DOM-stukje
+// bij — geen volledige herbouw van de lijst per klik, dat zou de focus van de
+// gebruiker telkens kwijtraken.
 function bouwChip(sticker) {
   const staat = checklistState.get(sticker.code);
   const li = document.createElement("li");
   li.className = "sticker-chip";
 
-  const naam = document.createElement("span");
-  naam.className = "sticker-chip__naam";
-  naam.title = omschrijving(sticker);
-  naam.textContent = omschrijving(sticker);
-  li.appendChild(naam);
+  const code = document.createElement("span");
+  code.className = "sticker-chip__code";
+  code.textContent = sticker.code + (sticker.glans ? " ✨" : "");
+  li.appendChild(code);
+
+  if (sticker.naam) {
+    const naam = document.createElement("span");
+    naam.className = "sticker-chip__naam";
+    naam.textContent = sticker.naam;
+    li.appendChild(naam);
+  }
+
+  const regel = document.createElement("div");
+  regel.className = "sticker-chip__regel";
 
   const vinkLabel = document.createElement("label");
   vinkLabel.className = "sticker-chip__vink";
@@ -279,8 +386,8 @@ function bouwChip(sticker) {
   vink.type = "checkbox";
   vink.checked = staat.gezocht;
   vinkLabel.appendChild(vink);
-  vinkLabel.appendChild(document.createTextNode("Gezocht"));
-  li.appendChild(vinkLabel);
+  vinkLabel.appendChild(document.createTextNode("Zoek ik"));
+  regel.appendChild(vinkLabel);
 
   const stepper = document.createElement("div");
   stepper.className = "sticker-stepper";
@@ -315,24 +422,30 @@ function bouwChip(sticker) {
   }
 
   vink.addEventListener("change", () => {
+    const vorige = { ...staat };
     staat.gezocht = vink.checked;
     // Aanvinken als gezocht en tegelijk een dubbel-aantal >0 laten staan zou
     // "ik zoek 'm én ik heb 'm dubbel" betekenen — dat kan de databank niet
     // vastleggen (één status per rij), dus resetten we het aantal.
     if (staat.gezocht) staat.dubbel = 0;
     verversChip();
+    registreerWijziging(sticker.code, vorige);
   });
   min.addEventListener("click", () => {
     if (staat.dubbel <= 0) return;
+    const vorige = { ...staat };
     staat.dubbel -= 1;
     verversChip();
+    registreerWijziging(sticker.code, vorige);
   });
   plus.addEventListener("click", () => {
+    const vorige = { ...staat };
     staat.dubbel += 1;
     // Omgekeerde reset: een dubbel-aantal instellen terwijl "gezocht" nog
     // aanstond, zou dezelfde tegenstrijdigheid geven.
     if (staat.gezocht) staat.gezocht = false;
     verversChip();
+    registreerWijziging(sticker.code, vorige);
   });
 
   // Beginstand: dezelfde opmaak als na een klik, zonder de bewaarbalk te
@@ -344,67 +457,75 @@ function bouwChip(sticker) {
   stepper.appendChild(min);
   stepper.appendChild(getal);
   stepper.appendChild(plus);
-  li.appendChild(stepper);
+  regel.appendChild(stepper);
+  li.appendChild(regel);
 
   return li;
 }
 
-// Vergelijkt checklistState met origineelState en levert twee lijsten op: wat
-// er in één upsert bij moet (nieuw gezocht, nieuw of gewijzigd aantal dubbel)
-// en welke codes helemaal terug naar "heb ik" gaan (dus verwijderd worden).
-function berekenWijzigingen() {
+// ---------- autosave ----------
+
+// Eén klik = één opdracht: leg de vorige toestand op de undo-stapel, zet de
+// nieuwe in de wachtrij naar de databank, en plan een schrijfronde.
+function registreerWijziging(code, vorige) {
+  undoStack.push({ code, vorige });
+  markeerOpenstaand(code);
+  bewaarLokaleCache();
+  bijwerkenBewaarbalk();
+  plangAutosave();
+}
+
+// Staat de nieuwe waarde toevallig weer gelijk aan wat er in de databank
+// staat (typisch na een undo), dan hoeft er niets geschreven te worden en
+// gaat de code weer uit de wachtrij.
+function markeerOpenstaand(code) {
+  const nu = checklistState.get(code);
+  const was = origineelState.get(code);
+  if (was && was.gezocht === nu.gezocht && was.dubbel === nu.dubbel) pendingChanges.delete(code);
+  else pendingChanges.set(code, { ...nu });
+}
+
+function plangAutosave() {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => void synchroniseer(), AUTOSAVE_MS);
+}
+
+// Schrijft alles weg wat openstaat: één upsert voor wat gezocht of dubbel
+// wordt, één delete voor wat terug naar "heb ik" gaat — ongeacht hoeveel
+// stickers er gewijzigd zijn. onConflict laat de unieke index
+// (kind_id, nummer) het werk doen: bestaat de rij al, dan wordt ze bijgewerkt.
+async function synchroniseer() {
+  clearTimeout(autosaveTimer);
+  if (pendingChanges.size === 0) return;
+
+  // Loopt er al een ronde, dan wachten we die af en plannen we opnieuw:
+  // twee gelijktijdige schrijfrondes op dezelfde rijen zouden elkaar kunnen
+  // overschrijven met een verouderde waarde.
+  if (autosaveBezig) {
+    plangAutosave();
+    return;
+  }
+  autosaveBezig = true;
+
+  // Momentopname: wat de gebruiker ná dit punt nog aanklikt, hoort bij de
+  // volgende ronde en mag hier niet als "bewaard" afgevinkt worden.
+  const batch = new Map(pendingChanges);
   const upsert = [];
   const verwijder = [];
-  for (const [code, nu] of checklistState) {
-    const was = origineelState.get(code);
-    if (was.gezocht === nu.gezocht && was.dubbel === nu.dubbel) continue;
-
-    if (nu.gezocht || nu.dubbel > 0) {
+  for (const [code, staat] of batch) {
+    if (staat.gezocht || staat.dubbel > 0) {
       upsert.push({
         kind_id: kindId,
         nummer: code,
-        status: nu.gezocht ? "ZOEKT" : "RUILT",
-        aantal: nu.gezocht ? 1 : nu.dubbel,
+        status: staat.gezocht ? "ZOEKT" : "RUILT",
+        aantal: staat.gezocht ? 1 : staat.dubbel,
       });
     } else {
       verwijder.push(code);
     }
   }
-  return { upsert, verwijder };
-}
 
-function bijwerkenBewaarbalk() {
-  const balk = document.getElementById("sticker-bewaarbalk");
-  const tekst = document.getElementById("sticker-wijzigingen-tekst");
-  const { upsert, verwijder } = berekenWijzigingen();
-  const totaal = upsert.length + verwijder.length;
-
-  if (totaal === 0) {
-    balk.classList.add("hidden");
-    return;
-  }
-  balk.classList.remove("hidden");
-  tekst.textContent = `${totaal} wijziging${totaal === 1 ? "" : "en"} nog niet bewaard`;
-}
-
-function annuleerChecklist() {
-  for (const [code, was] of origineelState) {
-    checklistState.set(code, { ...was });
-  }
-  tekenChecklist();
-}
-
-// Twee aanroepen in totaal, ongeacht hoeveel stickers er gewijzigd zijn: één
-// upsert voor alles wat gezocht of dubbel wordt, één delete voor alles wat
-// terug naar "heb ik" gaat. onConflict laat de bestaande unieke index
-// (kind_id, nummer) het werk doen: bestaat de rij al, dan wordt ze bijgewerkt
-// in plaats van een dubbele rij te proberen invoegen.
-async function bewaarChecklist() {
-  const { upsert, verwijder } = berekenWijzigingen();
-  if (upsert.length === 0 && verwijder.length === 0) return;
-
-  const knop = document.getElementById("sticker-bewaar-btn");
-  knop.disabled = true;
+  bijwerkenBewaarbalk();
   try {
     if (upsert.length) {
       const { error } = await supabase.from(TABEL).upsert(upsert, { onConflict: "kind_id,nummer" });
@@ -418,25 +539,155 @@ async function bewaarChecklist() {
         .in("nummer", verwijder);
       if (error) throw error;
     }
+
+    // Enkel afvinken wat sinds de momentopname niet opnieuw gewijzigd is.
+    for (const [code, staat] of batch) {
+      const huidig = pendingChanges.get(code);
+      if (huidig && huidig.gezocht === staat.gezocht && huidig.dubbel === staat.dubbel) {
+        pendingChanges.delete(code);
+      }
+      // De databank staat nu zo; origineelState is de lat waartegen de
+      // bewaarbalk meet en moet dus mee opschuiven.
+      if (origineelState.has(code)) origineelState.set(code, { ...staat });
+      if (staat.gezocht) {
+        statusPerCode.set(code, "ZOEKT");
+        aantalPerCode.set(code, 1);
+      } else if (staat.dubbel > 0) {
+        statusPerCode.set(code, "RUILT");
+        aantalPerCode.set(code, staat.dubbel);
+      } else {
+        statusPerCode.delete(code);
+        aantalPerCode.delete(code);
+      }
+    }
+    bewaarLokaleCache();
+
     const totaal = upsert.length + verwijder.length;
-    toonMelding(`${totaal} wijziging${totaal === 1 ? "" : "en"} bewaard.`, "success");
-    await ververs();
-    // ververs() slaat het herbouwen van de checklist over zolang er nog
-    // onbewaarde wijzigingen lijken te staan — maar die wijzigingen zijn hier
-    // net bewaard, dus checklistState en de nieuwe databankstand horen
-    // voortaan gelijk te zijn. Zonder deze regel zou de bewaarbalk na het
-    // bewaren dus ten onrechte "nog niet bewaard" blijven tonen.
-    if (huidigLand) kiesLand();
+    toonMelding(
+      `${totaal} wijziging${totaal === 1 ? "" : "en"} bewaard${landErbij(batch.keys())}.`,
+      "success"
+    );
+    // Bewust zonder de checklist te herbouwen: die staat al goed, en opnieuw
+    // tekenen midden in het aanvinken kost de gebruiker zijn plaats in de lijst.
+    await ververs({ herbouwChecklist: false });
   } catch (err) {
-    toonMelding("Fout bij opslaan: " + err.message, "error");
+    // Niets afvinken: alles blijft in pendingChanges (en in localStorage)
+    // staan en gaat mee met de volgende poging.
+    toonMelding("Nog niet bewaard — we proberen het straks opnieuw. (" + err.message + ")", "error");
   } finally {
-    knop.disabled = false;
+    autosaveBezig = false;
+    bijwerkenBewaarbalk();
   }
+}
+
+// " voor Ivoorkust (CIV)" — zodat een melding onderaan het scherm niet los
+// staat van het land waar je net in aan het werken was. Gaat de ronde over
+// meerdere landen (kan enkel na een mislukte poging), dan laten we het weg.
+function landErbij(codes) {
+  const landcodes = new Set();
+  for (const code of codes) {
+    const sticker = catalogusPerCode.get(code);
+    if (sticker) landcodes.add(sticker.land_code);
+  }
+  if (landcodes.size !== 1) return "";
+  const code = [...landcodes][0];
+  const land = landen.find((l) => l.land_code === code);
+  return land ? ` voor ${land.land_naam} (${code})` : ` voor ${code}`;
+}
+
+// ---------- lokale cache ----------
+
+// Het vangnet voor een tabblad dat sluit vóór de laatste ronde klaar is.
+// Mislukt localStorage (privémodus, volle opslag), dan werkt de rest gewoon
+// door: het is een extra net, geen voorwaarde.
+function cacheSleutel() {
+  return `${CACHE_PREFIX}:${kindId}`;
+}
+
+function bewaarLokaleCache() {
+  try {
+    if (pendingChanges.size === 0) localStorage.removeItem(cacheSleutel());
+    else localStorage.setItem(cacheSleutel(), JSON.stringify([...pendingChanges]));
+  } catch (err) {
+    /* geen vangnet beschikbaar; de gewone autosave blijft werken */
+  }
+}
+
+function herstelLokaleCache() {
+  let rauw = null;
+  try {
+    rauw = localStorage.getItem(cacheSleutel());
+  } catch (err) {
+    return;
+  }
+  if (!rauw) return;
+  try {
+    for (const [code, staat] of JSON.parse(rauw)) {
+      if (catalogusPerCode.has(code)) pendingChanges.set(code, staat);
+    }
+  } catch (err) {
+    // Onleesbare cache is erger dan geen cache: opruimen en verder.
+    try {
+      localStorage.removeItem(cacheSleutel());
+    } catch (e) {
+      /* niets meer aan te doen */
+    }
+  }
+}
+
+// ---------- bewaarbalk en undo ----------
+
+function bijwerkenBewaarbalk() {
+  const balk = document.getElementById("sticker-bewaarbalk");
+  const tekst = document.getElementById("sticker-wijzigingen-tekst");
+  const bewaarKnop = document.getElementById("sticker-bewaar-btn");
+  const undoKnop = document.getElementById("sticker-annuleer-btn");
+  const openstaand = pendingChanges.size;
+
+  // De balk blijft ook staan als alles bewaard is: de undo-knop hoort
+  // bereikbaar te blijven voor wat je net (automatisch) bewaarde.
+  const zichtbaar = openstaand > 0 || undoStack.length > 0;
+  balk.classList.toggle("hidden", !zichtbaar);
+  if (!zichtbaar) return;
+
+  if (autosaveBezig) tekst.textContent = "Bewaren…";
+  else if (openstaand === 0) tekst.textContent = "Alles bewaard";
+  else tekst.textContent = `${openstaand} wijziging${openstaand === 1 ? "" : "en"} nog niet bewaard`;
+
+  bewaarKnop.disabled = openstaand === 0 || autosaveBezig;
+  undoKnop.disabled = undoStack.length === 0;
+}
+
+// Eén stap terug: de sticker van de laatste actie krijgt zijn vorige waarde
+// terug, en dat is op zijn beurt gewoon een wijziging die mee autosavet.
+// Staat die sticker in een ander land dan het land dat nu open staat, dan
+// wordt er van land gewisseld zodat je ziet wat er terugdraait.
+function maakOngedaan() {
+  const laatste = undoStack.pop();
+  if (!laatste) return;
+
+  const sticker = catalogusPerCode.get(laatste.code);
+  if (sticker && sticker.land_code !== huidigLand) {
+    document.getElementById("sticker-land").value = sticker.land_code;
+    kiesLand();
+  }
+
+  checklistState.set(laatste.code, { ...laatste.vorige });
+  markeerOpenstaand(laatste.code);
+  bewaarLokaleCache();
+  tekenChecklist();
+  plangAutosave();
+
+  const naam = sticker && sticker.naam ? `${laatste.code} — ${sticker.naam}` : laatste.code;
+  toonMelding(`Laatste wijziging ongedaan gemaakt (${naam}).`, "success");
 }
 
 // ---------- lijsten ----------
 
-async function ververs() {
+// herbouwChecklist staat standaard aan, maar de autosave zet ze uit: die
+// draait terwijl de gebruiker nog aan het aanvinken is, en de lijst dan
+// opnieuw tekenen kost hem zijn plaats in een lijst van twintig stickers.
+async function ververs({ herbouwChecklist = true } = {}) {
   try {
     const { data, error } = await supabase.from(TABEL).select("*").eq("kind_id", kindId);
     if (error) throw error;
@@ -452,11 +703,10 @@ async function ververs() {
   toonLijst("zoekt-list", huidigeStickers.filter((s) => s.status === "ZOEKT"), false);
   toonLijst("ruilt-list", huidigeStickers.filter((s) => s.status === "RUILT"), true);
 
-  // Enkel automatisch herbouwen als er niets onbewaards openstaat: anders zou
-  // een Verwijder-klik op de dubbel-lijst tijdens het invullen van hetzelfde
-  // land onbewaarde vinkjes stilletjes wegvegen.
-  const { upsert, verwijder } = berekenWijzigingen();
-  if (huidigLand && upsert.length === 0 && verwijder.length === 0) kiesLand();
+  // Herbouwen mag hier zonder risico: kiesLand() legt alles wat nog in
+  // pendingChanges staat bovenop de databankstand, dus onbewaarde vinkjes
+  // overleven het opnieuw tekenen.
+  if (herbouwChecklist && huidigLand) kiesLand();
 
   await verversMatches();
 }
