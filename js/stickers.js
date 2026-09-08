@@ -55,6 +55,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  // De exportknop staat al in de navigatiebalk, maar weet zonder deze regel
+  // niet over wie het gaat. Pas hier ingevuld, want kindId komt uit de URL.
+  const exportLink = document.getElementById("export-ruilfiche");
+  if (exportLink) exportLink.href = `/print/ruilfiche.html?kind=${encodeURIComponent(kindId)}`;
+
   try {
     const kind = await getKind(kindId);
     document.getElementById("kind-naam").textContent = `${kind.voornaam} ${kind.familienaam}`;
@@ -554,8 +559,9 @@ async function pasAantalAan(sticker, delta) {
 // ---------- matches ----------
 
 // get_matches() draait als security definer in de database: enkel zo kan ze
-// de stickers van andere gezinnen zien. Buiten het beursvenster geeft ze wel
-// de stickers terug maar niet bij wie ze liggen (ander_kind is dan null).
+// de stickers van andere gezinnen zien. De voornaam komt er sinds sql/015
+// altijd bij — ook vóór de beurs, zodat buren elkaar meteen vinden. Enkel
+// e-mail en WhatsApp blijven wachten tot de beurs voorbij is (sql/014).
 async function verversMatches() {
   const ul = document.getElementById("match-list");
   const uitleg = document.getElementById("match-uitleg");
@@ -575,13 +581,7 @@ async function verversMatches() {
     return;
   }
 
-  // Bij een eigen broer of zus staat de voornaam er altijd bij; bij een ander
-  // gezin pas tijdens de beurs. Blijft er dus nog iets naamloos, dan is dat
-  // een ander gezin en klopt de uitleg over de beurs.
-  const naamloos = rijen.some((r) => !r.ander_kind);
-  uitleg.textContent = naamloos
-    ? "Stickers die jij zoekt en die iemand anders dubbel heeft. Bij wie precies, zie je tijdens de ruilbeurs."
-    : "Stickers die jij zoekt en die iemand anders dubbel heeft.";
+  uitleg.textContent = "Stickers die jij zoekt en die iemand anders dubbel heeft.";
 
   if (rijen.length === 0) {
     const leeg = document.createElement("li");
@@ -607,7 +607,12 @@ async function verversMatches() {
       bij.textContent = `bij ${rij.ander_kind} — je eigen verzamelaar`;
       bij.classList.add("sticker-item__bij--eigen");
     } else {
-      bij.textContent = rij.ander_kind ? "bij " + rij.ander_kind : "bij iemand";
+      // Wijk erbij als dat gezin ze invulde: dan zie je meteen of het een buur
+      // is met wie je nu al kan ruilen. Volledige contactgegevens staan op de
+      // ruilpagina.
+      bij.textContent = rij.ander_wijk
+        ? `bij ${rij.ander_kind} (${rij.ander_wijk})`
+        : `bij ${rij.ander_kind}`;
     }
 
     li.appendChild(label);

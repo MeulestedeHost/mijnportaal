@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ruilfiche — Panini Ruilportaal Meulestede</title>
+  <!-- De persoonlijke ruilfiche: hetzelfde blad als print/ruilblad.html, maar
+       met de vakjes al ingevuld vanuit het portaal. Wordt geopend vanaf de
+       kindpagina met ?kind=<uuid>; js/ruilfiche.js haalt de gegevens op en
+       vult alles hieronder in.
+
+       Waarom een eigen pagina op de server en geen bestand dat de browser ter
+       plekke samenstelt: de CSP in _headers staat enkel stijlen en scripts van
+       'self' toe. Een blob-document zou die CSP erven en zijn eigen opmaak
+       geblokkeerd zien. -->
+  <link rel="stylesheet" href="/css/print-ruilfiche.css" />
+</head>
+<body>
+
+  <div class="schermhulp">
+    <span>
+      <strong>Dit is jouw ruilfiche.</strong> Druk ze af met de knop hiernaast
+      (<strong>enkelzijdig</strong>, niet dubbelzijdig — dan kan je ze tegen die van
+      een andere verzamelaar houden en tegen het licht bekijken wat er matcht), of
+      bewaar ze als PDF via <em>Bestemming → Opslaan als PDF</em>. Deze balk wordt
+      niet mee afgedrukt.
+    </span>
+    <span class="schermhulp__knoppen">
+      <a id="terug-link" href="/dashboard.html">← Terug</a>
+      <button type="button" id="print-btn">🖨️ Afdrukken</button>
+    </span>
+  </div>
+
+  <header>
+    <div class="kop-regel">
+      <h1 id="fiche-titel">Ruilfiche</h1>
+      <p class="kop-datum">
+        Panini-ruilbeurs Meulestede<br />
+        zaterdag 11 oktober, 14u – 17u
+      </p>
+    </div>
+  </header>
+
+  <p class="samenvatting" id="fiche-samenvatting">Laden…</p>
+
+  <div class="landen" id="fiche-landen"></div>
+
+  <p class="leeg" id="fiche-leeg" hidden>
+    Er staat nog niets in het portaal voor deze verzamelaar. Vink eerst op de
+    kindpagina aan wat je zoekt en wat je dubbel hebt.
+  </p>
+
+  <div class="voet">
+    Gezocht en dubbel wisselen tijdens de beurs. <strong>Streep een vakje door</strong>
+    zodra je de sticker te pakken hebt of je dubbel weg is, en zet het daarna weer
+    recht in het portaal op <strong>panini.meulestede.gent</strong>.
+  </div>
+
+  <script type="module" src="/js/supabase.js"></script>
+  <script type="module" src="/js/ruilfiche.js"></script>
+</body>
+</html>

@@ -113,14 +113,50 @@
       </section>
 
       <section class="card">
-        <h2>WhatsApp tijdens de ruilbeurs</h2>
+        <h2>Wijk of gemeente</h2>
         <p class="form-meta">
-          Eén gsm-nummer voor het hele gezin. Zet je het vinkje aan, dan verschijnt bij
-          elke ruilkans van een ánder gezin een WhatsApp-knop naar dit nummer — maar
-          enkel <strong>terwijl de ruilbeurs bezig is</strong>. Daarbuiten geeft de
-          database het nummer niet eens terug, net zomin als de voornaam. Zet je het
-          vinkje uit, dan ziet niemand het ooit en blijft alles bij “zoek elkaar op de
-          beurs”.
+          De voornaam van een ruilkans staat altijd op het portaal — ook al vóór de
+          ruilbeurs zelf begint. Vul je hier je wijk in Gent in (of je gemeente,
+          woon je buiten Gent), dan staat die er meteen bij een match met een ánder
+          gezin bij. Zo zien buren meteen dat ze naast elkaar wonen en kunnen ze al
+          onderling ruilen zonder op de beurs te wachten — die blijft dan vooral
+          nodig voor wie van verder komt. Laat het veld leeg als je dat liever niet
+          deelt: dan komt er ook niets over jouw gezin te staan.
+        </p>
+        <form id="wijk-form" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="wijk-invoer" class="form-label">Wijk (Gent) of gemeente</label>
+              <input type="text" id="wijk-invoer" class="form-input" maxlength="80"
+                     placeholder="bv. Muide, Ledeberg, of Destelbergen" autocomplete="address-level2" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn--outline" id="wijk-btn">Opslaan</button>
+        </form>
+        <div id="wijk-message" class="message" role="alert" aria-live="polite"></div>
+      </section>
+
+      <section class="card">
+        <h2>Bereikbaar na de ruilbeurs</h2>
+        <p class="form-meta">
+          Voor en tijdens de ruilbeurs zoek je elkaar op met de voornaam (en wijk of
+          gemeente) die het portaal toont — daar komt geen e-mailadres of
+          telefoonnummer bij te pas. Pas <strong>zodra de ruilbeurs voorbij is</strong>,
+          toont het portaal bij elke ruilkans met een ánder gezin ook het e-mailadres
+          waarmee dat gezin is aangemeld, zodat ruilen na de beurs gewoon kan
+          verdergaan. Dat geldt voor alle gezinnen en staat niet aan of uit te zetten —
+          je eigen e-mailadres wordt dus op dezelfde manier zichtbaar voor wie na de
+          beurs nog met jou kan ruilen.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>WhatsApp na de ruilbeurs</h2>
+        <p class="form-meta">
+          Eén gsm-nummer voor het hele gezin, bovenop het e-mailadres hierboven. Zet je
+          het vinkje aan, dan verschijnt bij elke ruilkans van een ánder gezin ook een
+          WhatsApp-knop naar dit nummer — maar pas <strong>nadat de ruilbeurs voorbij
+          is</strong>. Zet je het vinkje uit, dan ziet niemand het nummer ooit.
         </p>
         <form id="contact-form" novalidate>
           <div class="form-grid">
@@ -132,7 +168,7 @@
           </div>
           <label class="checkbox-rij">
             <input type="checkbox" id="contact-delen" />
-            <span>Toon dit nummer aan andere gezinnen tijdens de ruilbeurs</span>
+            <span>Toon dit nummer aan andere gezinnen zodra de ruilbeurs voorbij is</span>
           </label>
           <button type="submit" class="btn btn--primary" id="contact-btn">Opslaan</button>
         </form>

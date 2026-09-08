@@ -28,7 +28,8 @@ gebruiker die dat kind beheert.
 4. Voer daarna de migraties in volgorde uit: `003` → `005` → `006` → `007` →
    `008` → `009_gezin_en_whatsapp.sql` → `010_wereldreis.sql` →
    `011_wereldreis_fotos.sql` → `012_stickers_aantal.sql` →
-   `013_landen_engels_en_pagina.sql`. Enkel `002` en de blokken die het zelf
+   `013_landen_engels_en_pagina.sql` → `014_na_beurs_contact.sql` →
+   `015_wijk_en_altijd_naam.sql`. Enkel `002` en de blokken die het zelf
    aankondigen zijn destructief; `009` en later zijn dat niet.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
    Wachtwoord-authenticatie is niet nodig: deze app gebruikt Magic Links en
@@ -142,21 +143,30 @@ verzamelaars van het gezin, en elk kan de ander loskoppelen. Wie loskoppelt,
 neemt de verzamelaars mee die hij zelf aanmaakte (`kinderen.user_id` wijst nog
 altijd naar de maker).
 
-## 7. WhatsApp
+## 7. Contact tussen gezinnen: voornaam, wijk, e-mail, WhatsApp
 
-Twee losstaande dingen:
+`get_matches()` geeft van een ánder gezin twee dingen **altijd** terug, en twee
+dingen **pas na het beursvenster** (`public.instellingen`, functie
+`beurs_voorbij()`):
 
-- **Tussen gezinnen.** Een gezin kan op `gezin.html` één gsm-nummer bewaren en
-  aanvinken of het gedeeld mag worden. `get_matches()` geeft dat nummer enkel
-  terug tijdens het beursvenster, aan een ánder gezin dat een match heeft. In
-  de kolom *Contacteren* op `ruilen.html` verschijnt dan een wa.me-knop met een
-  vooraf ingevuld bericht. Staat het vinkje uit of is de beurs voorbij, dan
-  komt het nummer niet eens uit de database.
-- **De organisator.** Eén nummer voor de hele beurs, in te vullen op
-  `instellingen.html` (kolommen `whatsapp_nummer` / `whatsapp_bericht` op
-  `public.instellingen`, enkel schrijfbaar voor beheerders). Staat het leeg,
-  dan toont de site nergens een knop. Het nummer is enkel leesbaar voor wie
-  ingelogd is en staat dus niet in de publieke bronbestanden.
+- **Altijd** — de voornaam van het andere kind, en de wijk of gemeente als dat
+  gezin die invulde op `gezin.html` (kolom `wijk` op `public.gezinnen`, leeg
+  laten = niet delen). Sinds `015`, en bewust ook al vóór de beurs: wie in
+  dezelfde buurt woont, kan meteen onderling ruilen en hoeft daar de beursdag
+  niet voor af te wachten — die blijft dan vooral nodig voor wie van verder
+  komt.
+- **Na** het venster — daarbovenop het e-mailadres waarmee dat gezin is
+  aangemeld (voor élk gezin, zonder vinkje, want dat adres is toch al nodig om
+  in te loggen) en een gsm-nummer wanneer dat gezin het expliciet deelt
+  (kolommen `telefoon` / `telefoon_delen`). In de kolom *Contacteren* op
+  `ruilen.html` verschijnen dan een `mailto:`-knop en een wa.me-knop, elk met
+  een vooraf ingevuld bericht. Zie `014`.
+
+Los daarvan: **de organisator** heeft één eigen WhatsApp-nummer, in te vullen
+op `instellingen.html` (kolommen `whatsapp_nummer` / `whatsapp_bericht` op
+`public.instellingen`, enkel schrijfbaar voor beheerders). Staat het leeg, dan
+toont de site nergens een knop. Het nummer is enkel leesbaar voor wie ingelogd
+is en staat dus niet in de publieke bronbestanden.
 
 ## 8. FIFA Wereldreis
 
@@ -505,9 +515,12 @@ draaien.
   `public.gezin_sleutel()`: je gezin_id, of je eigen user_id als je alleen
   werkt. Wie nooit een tweede volwassene toevoegt, houdt dus exact de oude
   afscherming.
-- Van een ánder gezin komt er niets terug behalve een voornaam, en enkel
-  tijdens het beursvenster — geen e-mailadres, familienaam, user_id of
-  kind_id. Een gsm-nummer enkel wanneer dat gezin het expliciet deelt.
+- Van een ánder gezin komt er nooit familienaam, user_id of kind_id terug.
+  Voornaam komt altijd mee, en de wijk/gemeente enkel wanneer dat gezin ze zelf
+  invulde (`sql/015_wijk_en_altijd_naam.sql`). Het e-mailadres komt er pas bij
+  ná het beursvenster, voor élk gezin (het adres waarmee dat gezin al is
+  aangemeld); een gsm-nummer enkel wanneer dat gezin het expliciet deelt, en
+  ook dan pas ná het beursvenster (`sql/014_na_beurs_contact.sql`).
 - Inputvalidatie op voornaam, familienaam, geboortejaar, stickernummer en
   status.
 - Veilige rendering via `textContent` (nooit `innerHTML` met gebruikersdata)

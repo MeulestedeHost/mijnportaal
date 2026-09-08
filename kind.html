@@ -15,6 +15,11 @@
       </a>
       <div class="navbar__actions">
         <a href="/dashboard.html" class="btn btn--outline btn--sm">← Dashboard</a>
+        <!-- De href krijgt er in js/stickers.js het ?kind=<id> van deze pagina
+             bij; zonder dat weet print/ruilfiche.html niet wiens fiche het moet
+             tonen. Staat hier al als link (en niet als knop) zodat hij met
+             middenklik in een nieuw tabblad te openen valt. -->
+        <a href="/print/ruilfiche.html" class="btn btn--outline btn--sm" id="export-ruilfiche" target="_blank" rel="noopener">📥 Export ruilfiche</a>
         <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
       </div>
     </div>

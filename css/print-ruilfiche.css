@@ -1,0 +1,167 @@
+/* print-ruilfiche.css — de persoonlijke ruilfiche (print/ruilfiche.html).
+ *
+ * Aparte stylesheet en geen <style> in de pagina zelf: de CSP in _headers
+ * houdt style-src op 'self', dus een inline stijlblok zou geblokkeerd worden.
+ *
+ * Zelfde beeldtaal als het blanco ruilblad (print/ruilblad.html): zwart-wit,
+ * landen in de volgorde van het boek, per sticker een Z- en een D-vakje. Het
+ * verschil is dat de vakjes hier al ingevuld staan met wat er in het portaal
+ * bekend is, en dat er enkel landen op staan waar dit kind iets heeft staan.
+ */
+
+@page { size: A4 portrait; margin: 8mm; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  color: #000;
+  background: #fff;
+  font-size: 9pt;
+  line-height: 1.3;
+  max-width: 194mm;
+  margin: 0 auto;
+  padding: 6mm;
+}
+
+/* De balk met de knoppen hoort op het scherm, niet op papier. */
+.schermhulp {
+  border: 1px dashed #999;
+  background: #f4f6f9;
+  padding: 3mm;
+  margin-bottom: 4mm;
+  font-size: 9pt;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4mm;
+  flex-wrap: wrap;
+}
+.schermhulp__knoppen { display: flex; gap: 2mm; flex: none; }
+.schermhulp button,
+.schermhulp a {
+  font-family: inherit;
+  font-size: 9pt;
+  font-weight: 600;
+  padding: 2mm 4mm;
+  border: 1.5px solid #1d6fe0;
+  border-radius: 2mm;
+  background: #1d6fe0;
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+}
+.schermhulp a { background: #fff; color: #1d6fe0; }
+@media print { .schermhulp { display: none; } }
+
+header { border-bottom: 2px solid #000; padding-bottom: 2mm; margin-bottom: 2.5mm; }
+.kop-regel { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; }
+h1 { font-size: 15pt; line-height: 1.2; }
+.kop-datum { font-size: 9pt; text-align: right; white-space: nowrap; }
+
+.samenvatting {
+  border: 1.5px solid #000;
+  padding: 1.5mm 2.5mm;
+  margin-bottom: 3mm;
+  font-size: 8.5pt;
+}
+.samenvatting b { font-weight: 700; }
+
+/* Zelfde keuze als op het blanco blad: grid vult rijgewijs, dus de landen
+   lopen van links naar rechts in de volgorde van het boek. column-count zou
+   ze kolomsgewijs van boven naar onder zetten en die volgorde breken.
+   Zes kolommen: anders dan het blanco blad staat hier niet elke keer
+   hetzelfde vaste aantal landen op — dat hangt af van wat dit kind heeft
+   aangeduid — dus is er geen vast aantal kolommen dat de rijen altijd precies
+   vult. */
+.landen {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 2.6mm 3mm;
+  align-items: start;
+}
+
+.land { break-inside: avoid; page-break-inside: avoid; }
+
+/* Landcode bovenaan en groot, de Engelse albumnaam er klein en bold onder, en
+   als derde regel het paginanummer met de Nederlandse naam — zo lees je van
+   boven naar onder precies wat er op het album staat en hoe je het thuis
+   noemt. */
+.land__code { font-size: 12.5pt; font-weight: 700; line-height: 1.15; }
+.land__en {
+  font-size: 7.8pt;
+  font-weight: 700;
+  /* Lange albumnamen (BOSNIA AND HERZEGOVINA) mogen de kolom niet
+     verbreden; ze breken gewoon af binnen de kolom. */
+  overflow-wrap: anywhere;
+}
+.land__nl { font-size: 8.8pt; margin-bottom: 1.1mm; }
+
+/* DE TABEL: vier kolommen — Z, een lege tussenruimte, D, en dan pas de
+   stickercode. Enkel de Z- en de D-kolom krijgen een rand; border-collapse
+   smelt die randen tussen de rijen van eenzelfde kolom samen tot één
+   doorlopende reeks vakjes. De kale spacer-kolom ertussen zorgt dat Z en D
+   niet aan elkaar plakken. De codekolom blijft helemaal kaal: dat is een
+   label, geen vakje om iets in aan te vinken. */
+.land__tabel { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.land__tabel col.v { width: 5mm; }
+.land__tabel th, .land__tabel td { padding: 0; }
+.land__tabel th.v, .land__tabel td.v {
+  height: 5mm;
+  border: 0.8px solid #666;
+  text-align: center;
+  font-size: 7.8pt;
+  font-weight: 700;
+}
+.land__tabel td.c, .land__tabel th.c {
+  text-align: left;
+  font-size: 8.2pt;
+  line-height: 5mm;
+  padding-left: 1mm;
+  overflow: hidden;
+  white-space: nowrap;
+}
+/* De vrije ruimte tussen de Z- en de D-kolom: een kale kolom zonder rand,
+   zodat de twee vakjes duidelijk apart staan in plaats van tegen elkaar aan
+   te schuren zoals bij een doorlopend raster. */
+.land__tabel col.spacer { width: 1.4mm; }
+.land__tabel th.spacer, .land__tabel td.spacer { border: none; }
+
+/* Een aangekruist vakje is zwart omrand en draagt een kruisje; bij een dubbel
+   staat het aantal in het vakje in plaats van het kruisje, want op de beurs is
+   "heb ik er drie" een ander gesprek dan "heb ik er één". */
+.land__tabel td.v--aan { border-color: #000; border-width: 1.2px; }
+
+/* De Panini-logosticker: geen land, dus geen tabelblok. Eén regel bovenaan
+   het blad met dezelfde Z/D-vakjes als de landentabellen, maar dan al
+   ingevuld als dit kind sticker 00 heeft aangeduid. */
+.logoregel {
+  display: flex;
+  align-items: center;
+  gap: 2.4mm;
+  margin-bottom: 3.5mm;
+  font-size: 10pt;
+}
+.logoregel__code { font-weight: 700; font-size: 11.5pt; }
+.logoregel__vakjes { display: flex; align-items: center; gap: 1.4mm; margin-left: auto; }
+.logoregel__label { font-weight: 700; font-size: 8.2pt; }
+.logoregel__vak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 5mm;
+  height: 5mm;
+  border: 0.8px solid #666;
+  font-size: 7.8pt;
+  font-weight: 700;
+}
+.logoregel__vak--aan { border-color: #000; border-width: 1.2px; }
+
+.leeg {
+  border: 1.5px dashed #999;
+  padding: 6mm;
+  text-align: center;
+  font-size: 10pt;
+}
+
+.voet { border-top: 1.5px solid #000; padding-top: 2mm; margin-top: 3mm; font-size: 8.5pt; }

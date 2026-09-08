@@ -42,10 +42,14 @@
         <section class="card">
           <h2>Wanneer staat de ruilmodule open?</h2>
           <p class="form-meta">
-            Buiten dit venster zien gezinnen wél hoevéél ruilkansen ze hebben, maar niet
-            bij wie de sticker ligt — daar staat dan “bij iemand”. Tijdens het venster
-            verschijnt de voornaam van het andere kind. Die grens ligt in de database,
-            dus ook wie de API rechtstreeks aanspreekt komt er niet omheen.
+            De voornaam van het andere kind — en zijn wijk of gemeente, indien ingevuld —
+            staat er altijd bij, ook vóór dit venster: zo kunnen buren al onderling ruilen
+            zonder op de beursdag te wachten (<code>sql/015_wijk_en_altijd_naam.sql</code>).
+            Dit venster bepaalt enkel wanneer daar een <strong>e-mailadres</strong> en,
+            indien gedeeld, een <strong>WhatsApp-nummer</strong> bij komen: dat gebeurt
+            zodra het venster voorbij is (<code>sql/014_na_beurs_contact.sql</code>). Die
+            grens ligt in de database, dus ook wie de API rechtstreeks aanspreekt komt er
+            niet omheen.
           </p>
 
           <div class="form-grid">

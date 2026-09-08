@@ -4,70 +4,129 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ruilblad — Panini-ruilbeurs Meulestede</title>
-  <!-- Papieren hulpmiddel voor op de beurs zelf.
-       Eén A4, bewust zwart-wit: het moet leesbaar blijven op een gewone
+  <!-- LET OP: dit bestand wordt gegenereerd door print/genereer-ruilblad.mjs.
+       Wijzigingen met de hand gaan verloren zodra dat script opnieuw draait.
+       Moet er iets anders? Pas het script aan en draai het opnieuw:
+           cd print && node genereer-ruilblad.mjs
+
+       Papieren hulpmiddel voor op de beurs, en de backup als het portaal het
+       laat afweten. Bewust zwart-wit: het moet leesbaar blijven op een gewone
        kantoorprinter en er moet met een balpen op geschreven kunnen worden.
        Afdrukken: openen in de browser en Ctrl+P. Als PDF bewaren via
-       "Bestemming: Opslaan als PDF" — dat is het bestand voor in bijlage.
-       Zet in het printvenster "Achtergrondafbeeldingen" gerust uit; de
-       stijlen hieronder gaan ervan uit dat er geen kleurvlakken nodig zijn. -->
+       "Bestemming: Opslaan als PDF" — dat is het bestand voor in bijlage. -->
   <style>
-    @page { size: A4 portrait; margin: 10mm; }
+    @page { size: A4 portrait; margin: 8mm; }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
       color: #000;
       background: #fff;
-      font-size: 10pt;
-      line-height: 1.35;
-      /* Op het scherm iets ademruimte; bij het afdrukken neemt @page het over. */
-      max-width: 190mm;
+      font-size: 9pt;
+      line-height: 1.3;
+      max-width: 194mm;
       margin: 0 auto;
-      padding: 8mm;
+      padding: 6mm;
     }
 
-    header { border-bottom: 2px solid #000; padding-bottom: 2mm; margin-bottom: 3mm; }
+    header { border-bottom: 2px solid #000; padding-bottom: 2mm; margin-bottom: 2.5mm; }
     h1 { font-size: 15pt; line-height: 1.2; }
     .kop-regel { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; }
     .kop-datum { font-size: 9pt; text-align: right; white-space: nowrap; }
 
     /* Invulregels: een lijn is duidelijker dan een kader wanneer er met de
        hand op geschreven wordt. */
-    .naamrij { display: flex; gap: 8mm; margin-bottom: 3mm; font-size: 9.5pt; }
+    .naamrij { display: flex; gap: 8mm; margin-bottom: 2.5mm; font-size: 9.5pt; }
     .naamveld { flex: 1; display: flex; align-items: baseline; gap: 2mm; }
     .naamveld .lijn { flex: 1; border-bottom: 1px solid #000; height: 5mm; }
 
-    h2 {
-      font-size: 11pt;
-      margin-bottom: 1.5mm;
-      padding: 1mm 2mm;
+    .uitleg {
       border: 1.5px solid #000;
-      background: #eee;
+      padding: 1.5mm 2.5mm;
+      margin-bottom: 3mm;
+      font-size: 8.5pt;
     }
-    .hint { font-size: 8.5pt; margin: 1mm 0 2mm; }
+    .uitleg b { font-weight: 700; }
 
-    /* Elk vakje is groot genoeg voor een code als "BEL12" of "FWC7". */
-    .vakjes {
+    /* DE LANDEN LOPEN VAN LINKS NAAR RECHTS. Zeven blokken naast elkaar, en
+       pas daarna een rij lager — grid vult standaard rijgewijs. Met
+       column-count zou de lijst kolomsgewijs van boven naar onder lopen, en
+       dan staat MEX (pagina 8) bovenaan links en RSA (pagina 10) een halve
+       bladzijde lager: precies niet de volgorde van het boek.
+       Zeven kolommen en niet zes: 49 landen (na de Panini-logosticker eruit
+       te halen) is exact 7×7. Bij zes kolommen bleef er een rij over met
+       nét één land erin en vijf lege vakken ernaast — bij zeven kolommen
+       vult elke rij helemaal op en blijft er geen vak leeg. */
+    .landen {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 1.2mm;
-      margin-bottom: 4mm;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2.6mm 3mm;
+      align-items: start;
     }
-    .vakje { border: 1px solid #999; height: 8mm; border-radius: 1mm; }
 
-    .voet { border-top: 1.5px solid #000; padding-top: 2mm; margin-top: 1mm; }
-    .voet h3 { font-size: 9.5pt; margin-bottom: 1mm; }
-    .codes {
-      column-count: 6;
-      column-gap: 4mm;
-      font-size: 7.5pt;
-      line-height: 1.45;
-      margin-bottom: 2.5mm;
+    /* Een land nooit over twee bladzijden splitsen: zoek je BEL14, dan wil je
+       niet dat de helft van België op de volgende pagina staat. */
+    .land { break-inside: avoid; page-break-inside: avoid; }
+
+    /* Landcode bovenaan en groot, de Engelse albumnaam er klein en bold
+       onder, en als derde regel het paginanummer met de Nederlandse naam —
+       zo lees je van boven naar onder precies wat er op het album staat en
+       hoe je het thuis noemt. */
+    .land__code { font-size: 12.5pt; font-weight: 700; line-height: 1.15; }
+    .land__en {
+      font-size: 7.8pt;
+      font-weight: 700;
+      /* Lange albumnamen (BOSNIA AND HERZEGOVINA) mogen de kolom niet
+         verbreden; ze breken gewoon af binnen de kolom. */
+      overflow-wrap: anywhere;
     }
-    .codes span { display: block; break-inside: avoid; }
-    .codes b { font-weight: 700; }
-    .tip { font-size: 8.5pt; }
+    .land__nl { font-size: 8.8pt; margin-bottom: 1.1mm; }
+
+    /* DE TABEL: vier kolommen — Z, een lege tussenruimte, D, en dan pas de
+       stickercode. Enkel de Z- en de D-kolom krijgen een rand; border-collapse
+       smelt die randen tussen de rijen van eenzelfde kolom samen tot één
+       doorlopende reeks vakjes. De kale spacer-kolom ertussen zorgt dat Z en D
+       niet aan elkaar plakken. De codekolom blijft helemaal kaal: dat is een
+       label, geen vakje om iets in aan te vinken. */
+    .land__tabel { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .land__tabel col.v { width: 5mm; }
+    .land__tabel th, .land__tabel td { padding: 0; }
+    .land__tabel th.v, .land__tabel td.v {
+      height: 5mm;
+      border: 0.8px solid #666;
+      text-align: center;
+      font-size: 7.8pt;
+      font-weight: 700;
+    }
+    .land__tabel td.c, .land__tabel th.c {
+      text-align: left;
+      font-size: 8.2pt;
+      line-height: 5mm;
+      padding-left: 1mm;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    /* De vrije ruimte tussen de Z- en de D-kolom: een kale kolom zonder rand,
+       zodat de twee vakjes duidelijk apart staan in plaats van tegen elkaar
+       aan te schuren zoals bij een doorlopend raster. */
+    .land__tabel col.spacer { width: 1.4mm; }
+    .land__tabel th.spacer, .land__tabel td.spacer { border: none; }
+
+    /* De Panini-logosticker: geen land, dus geen tabelblok. Eén regel
+       bovenaan het blad met dezelfde Z/D-vakjes als de landentabellen. */
+    .logoregel {
+      display: flex;
+      align-items: center;
+      gap: 2.4mm;
+      margin-bottom: 3.5mm;
+      font-size: 10pt;
+    }
+    .logoregel__code { font-weight: 700; font-size: 11.5pt; }
+    .logoregel__vakjes { display: flex; align-items: center; gap: 1.4mm; margin-left: auto; }
+    .logoregel__label { font-weight: 700; font-size: 8.2pt; }
+    .logoregel__vak { display: inline-block; width: 5mm; height: 5mm; border: 0.8px solid #666; }
+
+    .voet { border-top: 1.5px solid #000; padding-top: 2mm; margin-top: 3mm; font-size: 8.5pt; }
 
     /* Deze regel hoort op papier niet thuis: ze legt uit hoe je afdrukt. */
     .schermhulp {
@@ -83,9 +142,10 @@
 <body>
 
   <p class="schermhulp">
-    <strong>Afdrukken:</strong> Ctrl+P (of ⌘P) → één A4. Wil je er een PDF van om
-    mee te sturen, kies dan bij <em>Bestemming</em> voor “Opslaan als PDF”. Deze
-    grijze kader wordt niet mee afgedrukt.
+    <strong>Afdrukken:</strong> Ctrl+P (of ⌘P), <strong>enkelzijdig</strong> (niet
+    dubbelzijdig). Wil je er een PDF van om mee te sturen, kies dan bij
+    <em>Bestemming</em> voor “Opslaan als PDF”. Deze grijze kader wordt niet mee
+    afgedrukt.
   </p>
 
   <header>
@@ -93,7 +153,7 @@
       <h1>Mijn ruilblad</h1>
       <p class="kop-datum">
         Panini-ruilbeurs Meulestede<br />
-        zondag 6 september
+        zaterdag 11 oktober, 14u – 17u
       </p>
     </div>
   </header>
@@ -103,107 +163,1651 @@
     <span class="naamveld">Tafel / plaats <span class="lijn"></span></span>
   </div>
 
-  <h2>Deze zoek ik nog</h2>
-  <p class="hint">
-    Schrijf de code van de sticker, zoals ze in het album staat: <b>BEL12</b>,
-    <b>FWC7</b>, <b>ARG3</b>. Streep door zodra je ze te pakken hebt.
+  <p class="uitleg">
+    De landen staan in de volgorde van het album, van links naar rechts. Achter
+    elke stickercode staan twee vakjes: <b>Z</b> = deze <b>zoek</b> ik nog,
+    <b>D</b> = deze heb ik <b>dubbel</b>. Kruis aan wat voor jou geldt.
+    <b>Streep een vakje door</b> zodra je de sticker te pakken hebt, of zodra je
+    dubbel weg is — dan zie je in één oogopslag wat er nog openstaat.
+    <br /><br />
+    <b>Druk dit blad enkelzijdig af</b> (niet dubbelzijdig): zo kan je het tegen
+    het blad van een andere verzamelaar houden en tegen het licht bekijken welke
+    stickers precies matchen.
   </p>
-  <div class="vakjes">
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-  </div>
 
-  <h2>Deze heb ik dubbel</h2>
-  <p class="hint">
-    Neem ze mee in een doosje of enveloppe, in dezelfde volgorde als hieronder —
-    dan vind je ze meteen terug wanneer iemand ernaar vraagt.
+  <p class="logoregel">
+    <span class="logoregel__code">00</span>
+    <span class="logoregel__naam">Panini Logo</span>
+    <span class="logoregel__vakjes">
+      <span class="logoregel__label">Z</span><span class="logoregel__vak"></span>
+      <span class="logoregel__label">D</span><span class="logoregel__vak"></span>
+    </span>
   </p>
-  <div class="vakjes">
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
-    <span class="vakje"></span><span class="vakje"></span><span class="vakje"></span>
+
+  <div class="landen">
+      <section class="land">
+        <p class="land__code">FWC</p>
+        <p class="land__en">WORLD CUP SPECIALS</p>
+        <p class="land__nl">2 · WK-specials</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FWC19</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">MEX</p>
+        <p class="land__en">MEXICO</p>
+        <p class="land__nl">8 · Mexico</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MEX20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">RSA</p>
+        <p class="land__en">SOUTH AFRICA</p>
+        <p class="land__nl">10 · Zuid-Afrika</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">RSA20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">KOR</p>
+        <p class="land__en">SOUTH KOREA</p>
+        <p class="land__nl">12 · Zuid-Korea</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KOR20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">CZE</p>
+        <p class="land__en">CZECHIA</p>
+        <p class="land__nl">14 · Tsjechië</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CZE20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">CAN</p>
+        <p class="land__en">CANADA</p>
+        <p class="land__nl">16 · Canada</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CAN20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">BIH</p>
+        <p class="land__en">BOSNIA AND HERZEGOVINA</p>
+        <p class="land__nl">18 · Bosnië-Herzegovina</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BIH20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">QAT</p>
+        <p class="land__en">QATAR</p>
+        <p class="land__nl">20 · Qatar</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">QAT20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">SUI</p>
+        <p class="land__en">SWITZERLAND</p>
+        <p class="land__nl">22 · Zwitserland</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SUI20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">BRA</p>
+        <p class="land__en">BRAZIL</p>
+        <p class="land__nl">24 · Brazilië</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BRA20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">MAR</p>
+        <p class="land__en">MOROCCO</p>
+        <p class="land__nl">26 · Marokko</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">MAR20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">HAI</p>
+        <p class="land__en">HAITI</p>
+        <p class="land__nl">28 · Haïti</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">HAI20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">SCO</p>
+        <p class="land__en">SCOTLAND</p>
+        <p class="land__nl">30 · Schotland</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SCO20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">USA</p>
+        <p class="land__en">UNITED STATES</p>
+        <p class="land__nl">32 · Verenigde Staten</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">USA20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">PAR</p>
+        <p class="land__en">PARAGUAY</p>
+        <p class="land__nl">34 · Paraguay</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAR20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">AUS</p>
+        <p class="land__en">AUSTRALIA</p>
+        <p class="land__nl">36 · Australië</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUS20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">TUR</p>
+        <p class="land__en">TÜRKIYE</p>
+        <p class="land__nl">38 · Turkije</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUR20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">GER</p>
+        <p class="land__en">GERMANY</p>
+        <p class="land__nl">40 · Duitsland</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GER20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">CUW</p>
+        <p class="land__en">CURAÇAO</p>
+        <p class="land__nl">42 · Curaçao</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CUW20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">CIV</p>
+        <p class="land__en">CÔTE D'IVOIRE</p>
+        <p class="land__nl">44 · Ivoorkust</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CIV20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">ECU</p>
+        <p class="land__en">ECUADOR</p>
+        <p class="land__nl">46 · Ecuador</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ECU20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">NED</p>
+        <p class="land__en">NETHERLANDS</p>
+        <p class="land__nl">48 · Nederland</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NED20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">JPN</p>
+        <p class="land__en">JAPAN</p>
+        <p class="land__nl">50 · Japan</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JPN20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">SWE</p>
+        <p class="land__en">SWEDEN</p>
+        <p class="land__nl">52 · Zweden</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SWE20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">TUN</p>
+        <p class="land__en">TUNISIA</p>
+        <p class="land__nl">54 · Tunesië</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">TUN20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">BEL</p>
+        <p class="land__en">BELGIUM</p>
+        <p class="land__nl">56 · België</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">BEL20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">EGY</p>
+        <p class="land__en">EGYPT</p>
+        <p class="land__nl">60 · Egypte</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">EGY20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">IRN</p>
+        <p class="land__en">IR IRAN</p>
+        <p class="land__nl">62 · Iran</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRN20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">NZL</p>
+        <p class="land__en">NEW ZEALAND</p>
+        <p class="land__nl">64 · Nieuw-Zeeland</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NZL20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">ESP</p>
+        <p class="land__en">SPAIN</p>
+        <p class="land__nl">66 · Spanje</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ESP20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">CPV</p>
+        <p class="land__en">CABO VERDE</p>
+        <p class="land__nl">68 · Kaapverdië</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CPV20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">KSA</p>
+        <p class="land__en">SAUDI ARABIA</p>
+        <p class="land__nl">70 · Saoedi-Arabië</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">KSA20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">URU</p>
+        <p class="land__en">URUGUAY</p>
+        <p class="land__nl">72 · Uruguay</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">URU20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">FRA</p>
+        <p class="land__en">FRANCE</p>
+        <p class="land__nl">74 · Frankrijk</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">FRA20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">SEN</p>
+        <p class="land__en">SENEGAL</p>
+        <p class="land__nl">76 · Senegal</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">SEN20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">IRQ</p>
+        <p class="land__en">IRAQ</p>
+        <p class="land__nl">78 · Irak</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">IRQ20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">NOR</p>
+        <p class="land__en">NORWAY</p>
+        <p class="land__nl">80 · Noorwegen</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">NOR20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">ARG</p>
+        <p class="land__en">ARGENTINA</p>
+        <p class="land__nl">82 · Argentinië</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ARG20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">ALG</p>
+        <p class="land__en">ALGERIA</p>
+        <p class="land__nl">84 · Algerije</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ALG20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">AUT</p>
+        <p class="land__en">AUSTRIA</p>
+        <p class="land__nl">86 · Oostenrijk</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">AUT20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">JOR</p>
+        <p class="land__en">JORDAN</p>
+        <p class="land__nl">88 · Jordanië</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">JOR20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">POR</p>
+        <p class="land__en">PORTUGAL</p>
+        <p class="land__nl">90 · Portugal</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">POR20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">COD</p>
+        <p class="land__en">DR CONGO</p>
+        <p class="land__nl">92 · DR Congo</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COD20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">UZB</p>
+        <p class="land__en">UZBEKISTAN</p>
+        <p class="land__nl">94 · Oezbekistan</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">UZB20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">COL</p>
+        <p class="land__en">COLOMBIA</p>
+        <p class="land__nl">96 · Colombia</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">COL20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">ENG</p>
+        <p class="land__en">ENGLAND</p>
+        <p class="land__nl">98 · Engeland</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">ENG20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">CRO</p>
+        <p class="land__en">CROATIA</p>
+        <p class="land__nl">100 · Kroatië</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">CRO20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">GHA</p>
+        <p class="land__en">GHANA</p>
+        <p class="land__nl">102 · Ghana</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">GHA20</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="land">
+        <p class="land__code">PAN</p>
+        <p class="land__en">PANAMA</p>
+        <p class="land__nl">104 · Panama</p>
+        <table class="land__tabel">
+          <colgroup><col class="v" /><col class="spacer" /><col class="v" /><col class="c" /></colgroup>
+          <thead>
+            <tr><th class="v">Z</th><th class="spacer"></th><th class="v">D</th><th class="c"></th></tr>
+          </thead>
+          <tbody>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN1</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN2</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN3</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN4</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN5</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN6</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN7</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN8</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN9</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN10</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN11</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN12</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN13</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN14</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN15</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN16</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN17</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN18</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN19</td></tr>
+          <tr><td class="v"></td><td class="spacer"></td><td class="v"></td><td class="c">PAN20</td></tr>
+          </tbody>
+        </table>
+      </section>
   </div>
 
   <div class="voet">
-    <h3>De codes van het album</h3>
-    <div class="codes">
-      <span><b>ALG</b> Algerije</span>
-      <span><b>ARG</b> Argentinië</span>
-      <span><b>AUS</b> Australië</span>
-      <span><b>AUT</b> Oostenrijk</span>
-      <span><b>BEL</b> België</span>
-      <span><b>BIH</b> Bosnië-Herz.</span>
-      <span><b>BRA</b> Brazilië</span>
-      <span><b>CAN</b> Canada</span>
-      <span><b>CIV</b> Ivoorkust</span>
-      <span><b>COD</b> DR Congo</span>
-      <span><b>COL</b> Colombia</span>
-      <span><b>CPV</b> Kaapverdië</span>
-      <span><b>CRO</b> Kroatië</span>
-      <span><b>CUW</b> Curaçao</span>
-      <span><b>CZE</b> Tsjechië</span>
-      <span><b>ECU</b> Ecuador</span>
-      <span><b>EGY</b> Egypte</span>
-      <span><b>ENG</b> Engeland</span>
-      <span><b>ESP</b> Spanje</span>
-      <span><b>FRA</b> Frankrijk</span>
-      <span><b>FWC</b> WK-specials</span>
-      <span><b>GER</b> Duitsland</span>
-      <span><b>GHA</b> Ghana</span>
-      <span><b>HAI</b> Haïti</span>
-      <span><b>IRN</b> Iran</span>
-      <span><b>IRQ</b> Irak</span>
-      <span><b>JOR</b> Jordanië</span>
-      <span><b>JPN</b> Japan</span>
-      <span><b>KOR</b> Zuid-Korea</span>
-      <span><b>KSA</b> Saoedi-Arabië</span>
-      <span><b>MAR</b> Marokko</span>
-      <span><b>MEX</b> Mexico</span>
-      <span><b>NED</b> Nederland</span>
-      <span><b>NOR</b> Noorwegen</span>
-      <span><b>NZL</b> Nieuw-Zeeland</span>
-      <span><b>PAN</b> Panama</span>
-      <span><b>PAR</b> Paraguay</span>
-      <span><b>POR</b> Portugal</span>
-      <span><b>QAT</b> Qatar</span>
-      <span><b>RSA</b> Zuid-Afrika</span>
-      <span><b>SCO</b> Schotland</span>
-      <span><b>SEN</b> Senegal</span>
-      <span><b>SUI</b> Zwitserland</span>
-      <span><b>SWE</b> Zweden</span>
-      <span><b>TUN</b> Tunesië</span>
-      <span><b>TUR</b> Turkije</span>
-      <span><b>URU</b> Uruguay</span>
-      <span><b>USA</b> Ver. Staten</span>
-      <span><b>UZB</b> Oezbekistan</span>
-    </div>
-    <p class="tip">
-      <strong>Na de beurs:</strong> zet je blad over op
-      <strong>ruilbeurs.meulestede.gent</strong> — dan zoekt het platform voor jou
-      verder wie de stickers heeft die je nog mist. Vanaf 16 uur toont het ook
-      hier op de beurs bij wie een sticker ligt.
-    </p>
+    <strong>Na de beurs:</strong> zet je blad over op
+    <strong>panini.meulestede.gent</strong> — dan zoekt het portaal voor jou
+    verder wie de stickers heeft die je nog mist. Werkt het portaal al voor je?
+    Dan haal je met <strong>Export ruilfiche</strong> een blad op dat al ingevuld is.
   </div>
 
 </body>

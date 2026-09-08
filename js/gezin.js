@@ -1,5 +1,6 @@
 // gezin.js — Ons gezin: twee volwassenen op dezelfde verzamelaars, en het
-// gsm-nummer waarop andere gezinnen je tijdens de beurs mogen bereiken.
+// gsm-nummer waarop andere gezinnen je na de beurs mogen bereiken (het
+// e-mailadres staat er sowieso al bij, zonder vinkje — zie sql/014).
 //
 // Hoe de koppeling werkt: je zet hier naam en e-mailadres van de tweede
 // volwassene klaar (public.nodig_volwassene_uit). Die persoon logt daarna
@@ -41,6 +42,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("uitnodig-form").addEventListener("submit", nodigUit);
   document.getElementById("naam-form").addEventListener("submit", bewaarNaam);
+  document.getElementById("wijk-form").addEventListener("submit", bewaarWijk);
   document.getElementById("contact-form").addEventListener("submit", bewaarContact);
   toonOrganisatorKnop("organisator-knop", "💬 WhatsApp de organisator");
 });
@@ -82,6 +84,7 @@ function teken() {
   tekenLeden();
   tekenUitnodigingen();
   vulNaamFormulier();
+  vulWijkFormulier();
   vulContactFormulier();
 
   // Zolang er nog plaats is, blijft het formulier staan; anders zou je een
@@ -195,6 +198,10 @@ function vulNaamFormulier() {
   document.getElementById("naam-email").textContent = user.email;
 }
 
+function vulWijkFormulier() {
+  document.getElementById("wijk-invoer").value = gezin ? gezin.wijk || "" : "";
+}
+
 function vulContactFormulier() {
   document.getElementById("contact-telefoon").value = gezin ? toonTelefoon(gezin.telefoon) : "";
   document.getElementById("contact-delen").checked = Boolean(gezin && gezin.telefoon_delen);
@@ -302,6 +309,31 @@ async function bewaarNaam(e) {
   }
   knop.disabled = false;
   knop.textContent = "Naam opslaan";
+}
+
+async function bewaarWijk(e) {
+  e.preventDefault();
+  const messageEl = document.getElementById("wijk-message");
+  const invoer = document.getElementById("wijk-invoer").value.trim();
+  // Leeg mag: dan komt get_matches() gewoon niets terug voor dit gezin (zie
+  // sql/015) — leeg laten IS hier het "niet delen", er is geen apart vinkje.
+  const wijk = invoer || null;
+
+  const knop = document.getElementById("wijk-btn");
+  knop.disabled = true;
+  knop.textContent = "Opslaan…";
+  try {
+    const gezinId = await verzekerGezin();
+    const { error } = await supabase.from("gezinnen").update({ wijk }).eq("id", gezinId);
+    if (error) throw error;
+    await laadAlles();
+    teken();
+    toonMelding(messageEl, "Opgeslagen.", "success");
+  } catch (err) {
+    toonMelding(messageEl, foutTekst(err), "error");
+  }
+  knop.disabled = false;
+  knop.textContent = "Opslaan";
 }
 
 async function bewaarContact(e) {

@@ -1,17 +1,17 @@
 // ruilen.js — Ruilpagina: alle ruilkansen van alle verzamelaars van deze
 // ouder op één rij, met de kolom "Contacteren".
 //
-// De ruilmodule staat open tijdens het beursvenster uit public.instellingen
-// (in te stellen op instellingen.html). Buiten dat venster blijft de LIJST
-// zichtbaar — dát er geruild kan worden is geen geheim — maar staat er bij
-// een ander gezin geen naam. Die grens ligt in de database: get_matches geeft
-// de voornaam buiten het venster gewoon niet terug. Wat hier gebeurt is dus
-// presentatie, geen beveiliging.
-//
-// Hetzelfde geldt voor de WhatsApp-knop: get_matches geeft ander_whatsapp enkel
-// terug tijdens het beursvenster, en enkel wanneer dát gezin zijn nummer wil
-// delen (vinkje op gezin.html). Staat er geen nummer, dan blijft het bij
-// "zoek elkaar op de beurs" — de knop verschijnt dan gewoon niet.
+// Wat je van een ánder gezin te zien krijgt, en wanneer — de database bepaalt
+// dat, niet dit bestand:
+//   ALTIJD             — de voornaam, en de wijk of gemeente als dat gezin ze
+//                        invulde. Ook al vóór de beurs, zodat buren elkaar
+//                        meteen vinden en niet tot de beursdag hoeven te
+//                        wachten (sql/015).
+//   NA het beursvenster — daarbovenop het e-mailadres (van iedereen) en het
+//                        WhatsApp-nummer als dat gezin koos om het te delen
+//                        (vinkje op gezin.html) — sql/014.
+// get_matches geeft ander_email/ander_whatsapp buiten hun fase gewoon niet
+// terug; wat hier gebeurt is dus presentatie, geen beveiliging.
 import { supabase, requireAuth } from "./supabase.js";
 import { loadKinderen } from "./kinderen.js";
 import { whatsappKnop, toonOrganisatorKnop } from "./whatsapp.js";
@@ -21,8 +21,6 @@ const RICHTING = {
   jij_zoekt: { tekst: "zoekt deze", klasse: "richting--zoekt" },
   jij_hebt_dubbel: { tekst: "heeft deze dubbel", klasse: "richting--dubbel" },
 };
-
-let beursOpen = false;
 
 document.addEventListener("DOMContentLoaded", async () => {
   const inhoud = document.getElementById("ruil-inhoud");
@@ -115,23 +113,20 @@ async function toonVenster() {
   const uur = new Intl.DateTimeFormat("nl-BE", { timeStyle: "short" });
 
   if (nu < start) {
-    beursOpen = false;
-    el.className = "ruil-venster ruil-venster--dicht";
-    el.textContent = `De ruilmodule staat nog uit. Ze gaat open op ${opmaak.format(
-      start
-    )} en sluit om ${uur.format(einde)}. Tot dan zie je wél je ruilkansen, maar nog niet bij wie ze liggen.`;
+    el.className = "ruil-venster ruil-venster--open";
+    el.textContent = `De ruilbeurs begint op ${opmaak.format(start)} en sluit om ${uur.format(
+      einde
+    )}. Je ziet nu al de voornaam — en de wijk, als die is ingevuld — van wie elke sticker heeft: woon je in dezelfde buurt, dan kan je nu al onderling ruilen. E-mail en WhatsApp komen erbij zodra de beurs voorbij is.`;
   } else if (nu < einde) {
-    beursOpen = true;
     el.className = "ruil-venster ruil-venster--open";
     el.textContent = `De ruilbeurs is bezig — nog tot ${uur.format(
       einde
-    )}. Je ziet nu bij wie elke sticker ligt.`;
+    )}. Je ziet de voornaam en de wijk van wie elke sticker heeft; e-mail en WhatsApp komen erbij zodra de beurs voorbij is.`;
   } else {
-    beursOpen = false;
-    el.className = "ruil-venster ruil-venster--dicht";
+    el.className = "ruil-venster ruil-venster--open";
     el.textContent = `De ruilbeurs van ${opmaak.format(
       start
-    )} is voorbij. De ruilmodule staat weer uit tot een beheerder een nieuw beursvenster instelt.`;
+    )} is voorbij, maar ruilen kan gewoon verder: je ziet nu ook het e-mailadres (en eventueel WhatsApp) van wie je nog kan ruilen.`;
   }
 }
 
@@ -226,22 +221,35 @@ function contactCel(kind, rij) {
     td.textContent = `${rij.ander_kind} — je eigen verzamelaar, dat regel je thuis`;
     return td;
   }
-  if (beursOpen && rij.ander_kind) {
-    td.className = "contact contact--open";
-    const naam = document.createElement("span");
-    naam.textContent = `Zoek ${rij.ander_kind} op de beurs`;
-    td.appendChild(naam);
 
-    // Deelt dat gezin zijn nummer, dan hoeft niemand te zoeken. Het bericht is
-    // vooraf ingevuld: wie er belt, over welke sticker het gaat en welke kant
-    // de ruil op moet. Zo begint het gesprek niet bij "hallo, wie ben jij?".
-    const knop = whatsappKnop(rij.ander_whatsapp, ruilBericht(kind, rij), "💬 WhatsApp");
-    if (knop) td.appendChild(knop);
-    return td;
+  td.className = "contact contact--open";
+  const naam = document.createElement("span");
+  // De wijk staat tussen haakjes achter de naam: zo zie je in één oogopslag of
+  // dit een buur is (samen af te spreken, nu al) of iemand van verder (dan is
+  // de beurs zelf het moment). Niet elk gezin vult ze in — dan enkel de naam.
+  naam.textContent = rij.ander_wijk ? `${rij.ander_kind} (${rij.ander_wijk})` : rij.ander_kind;
+  td.appendChild(naam);
+
+  if (rij.ander_email) {
+    const mail = document.createElement("a");
+    mail.className = "btn btn--outline btn--sm";
+    mail.href = mailtoLink(rij.ander_email, kind, rij);
+    mail.textContent = "✉️ E-mail";
+    td.appendChild(mail);
   }
-  td.className = "contact contact--dicht";
-  td.textContent = "Beschikbaar tijdens de ruilbeurs";
+
+  // Deelt dat gezin zijn nummer, dan hoeft niemand te zoeken. Het bericht is
+  // vooraf ingevuld: wie er schrijft, over welke sticker het gaat en welke
+  // kant de ruil op moet. Zo begint het gesprek niet bij "hallo, wie ben jij?".
+  const knop = whatsappKnop(rij.ander_whatsapp, ruilBericht(kind, rij), "💬 WhatsApp");
+  if (knop) td.appendChild(knop);
   return td;
+}
+
+function mailtoLink(email, kind, rij) {
+  const onderwerp = encodeURIComponent("Panini-ruil via het Ruilportaal Meulestede");
+  const body = encodeURIComponent(ruilBericht(kind, rij));
+  return `mailto:${email}?subject=${onderwerp}&body=${body}`;
 }
 
 function ruilBericht(kind, rij) {
