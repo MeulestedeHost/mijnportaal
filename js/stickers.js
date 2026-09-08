@@ -24,7 +24,13 @@
 // "Ongedaan maken" draait de laatste klik terug via een undo-stapel.
 import { supabase, requireAuth } from "./supabase.js";
 import { getKind } from "./kinderen.js";
-import { landLabel, accentVoor, vergelijkLanden } from "./landen-data.js";
+import {
+  landLabel,
+  accentVoor,
+  vergelijkLanden,
+  normaliseer,
+  landMatcht,
+} from "./landen-data.js";
 
 const TABEL = "stickers";
 const STATUS_TEKST = { ZOEKT: "zoek ik", RUILT: "heb ik dubbel" };
@@ -198,16 +204,6 @@ function verzamelLanden() {
   landen = [...perCode.values()];
 }
 
-// Accenten en hoofdletters weg, zodat "cote" ook "Côte d'Ivoire" vindt en
-// "belgie" ook "België". NFD splitst een letter met accent in de kale letter
-// plus een los accentteken; dat tweede deel gooien we weg.
-function normaliseer(tekst) {
-  return String(tekst || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
 // De keuzelijst toont overal dezelfde notatie: BEL - BELGIUM - België. De
 // waarde van een optie is de landcode, niet de naam — dat is de sleutel die
 // ook in de catalogus en in de stickercodes zit.
@@ -252,14 +248,6 @@ function vulLandKeuzelijst() {
       ? `${gevonden} van ${landen.length} landen`
       : "";
   }
-}
-
-function landMatcht(land, term) {
-  return (
-    normaliseer(land.land_code).includes(term) ||
-    normaliseer(land.land_naam_en).includes(term) ||
-    normaliseer(land.land_naam).includes(term)
-  );
 }
 
 function wisselSortering() {

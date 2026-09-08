@@ -786,3 +786,103 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
   .deelknop__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .deelknop { padding: 0.55rem 0.7rem; }
 }
+
+/* ---------- ruilpagina: zoeken, ruilers, landen, afspraken ---------- */
+
+/* Dezelfde vorm als .landkiezer op de stickerpagina: alle filters op één rij,
+   op een smal scherm onder elkaar. */
+.ruil-filterbalk { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0 1.25rem; }
+.ruil-filterbalk .form-group { margin-bottom: 0.75rem; }
+
+/* ----- kaart per ruiler ----- */
+.ruiler-kaart { padding: 1.5rem; }
+.ruiler-kaart__kop { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ruiler-kaart__kop h2 { font-size: 1.25rem; color: var(--cf-blue-dark); }
+.ruiler-kaart__wijk { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.ruiler-kaart__eigen { text-transform: none; letter-spacing: 0; color: var(--success); background: #eaf7ee; border-color: #cbe8d4; }
+/* De contactknoppen naar rechts, los van de naam: ze horen bij de ruiler maar
+   zijn geen deel van zijn naam. */
+.ruiler-kaart__contact { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-left: auto; }
+.ruiler-kaart__eenzijdig { margin-top: 1rem; font-style: italic; }
+
+/* Twee kolommen naast elkaar, met een scheidingslijn ertussen — links wat de
+   ander voor jou heeft, rechts wat hij van jou wil. */
+.ruiler-kaart__kolommen { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.ruilkolom { min-width: 0; }
+.ruiler-kaart__kolommen > .ruilkolom + .ruilkolom { border-left: 1px solid var(--border); padding-left: 1.25rem; }
+.ruilkolom__kop { font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.3; margin-bottom: 0.75rem; }
+.ruilkolom__leeg { font-size: 0.85rem; color: var(--text-muted); font-style: italic; }
+.ruilkolom__land + .ruilkolom__land { margin-top: 0.75rem; }
+.ruilkolom__landnaam { font-size: 0.775rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; overflow-wrap: anywhere; }
+.ruilkolom__stickers { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+
+/* Elke sticker is een knop: aanklikken kiest hem als jouw kant van de ruil. */
+.ruilsticker { display: flex; align-items: baseline; gap: 0.45rem; width: 100%; text-align: left; padding: 0.35rem 0.6rem; border: 1.5px solid var(--border); border-radius: 8px; background: var(--surface); font-family: var(--font); font-size: 0.85rem; color: var(--text); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.ruilsticker:hover { border-color: var(--cf-blue-primary); background: var(--cf-blue-light); }
+.ruilsticker:focus-visible { outline: 3px solid var(--cf-blue-dark); outline-offset: 1px; }
+.ruilsticker--gekozen { border-color: var(--cf-blue-primary); background: var(--cf-blue-light); font-weight: 600; }
+.ruilsticker__code { font-weight: 700; flex: none; }
+.ruilsticker__naam { color: var(--text-muted); font-size: 0.775rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ruilsticker__aantal { margin-left: auto; flex: none; font-size: 0.75rem; color: var(--text-muted); font-weight: 700; }
+
+/* Lichtrood = "jij hebt bevestigd dat deze geruild is". Enkel op jouw scherm:
+   de bevestiging van de andere ruiler kleurt hier niets. */
+.ruilsticker--geruild { background: var(--danger-light); border-color: var(--danger); }
+.ruilsticker--geruild:hover { background: #fbe0e1; border-color: var(--danger); }
+.ruilsticker--geruild.ruilsticker--gekozen { border-width: 2px; }
+
+/* De voorgestelde ruil onderaan de kaart. */
+.ruilvoorstel { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.25rem; padding: 0.75rem 1rem; border: 1.5px solid var(--cf-blue-primary); border-radius: var(--radius); background: var(--cf-blue-light); }
+.ruilvoorstel__titel { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--cf-blue-dark); }
+.ruilvoorstel__paar { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-right: auto; }
+
+/* ----- kaart per land ----- */
+.landkaart__titel { font-size: 1.15rem; color: var(--cf-blue-dark); margin-bottom: 1rem; }
+.landkaart__stickers { display: flex; flex-direction: column; gap: 0.75rem; }
+.stickerblok { display: grid; grid-template-columns: minmax(9rem, 1fr) 1fr 1fr; gap: 0.5rem 1rem; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; }
+.stickerblok--geruild { background: var(--danger-light); border-color: var(--danger); }
+.stickerblok__code { font-size: 0.95rem; font-weight: 700; display: flex; flex-direction: column; gap: 0.1rem; }
+.stickerblok__naam { font-size: 0.775rem; font-weight: 400; color: var(--text-muted); overflow-wrap: anywhere; }
+.stickerblok__kolom { min-width: 0; }
+.stickerblok__kolomkop { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 0.2rem; }
+.stickerblok__namen { list-style: none; font-size: 0.85rem; }
+.stickerblok__leeg { color: var(--text-muted); font-style: italic; }
+
+/* ----- geregistreerde ruilen ----- */
+.afspraak { border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; }
+.afspraak + .afspraak { margin-top: 0.75rem; }
+.afspraak--voltooid { border-color: #cbe8d4; background: #f6fcf8; }
+.afspraak__kop { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.35rem; }
+.afspraak__kop h3 { font-size: 1.05rem; }
+.afspraak__status-chip { text-transform: none; letter-spacing: 0; }
+.afspraak__status-chip--klaar { color: var(--success); background: #eaf7ee; border-color: #cbe8d4; }
+.afspraak__wie { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.6rem; }
+/* Het aftekenlijstje. Bewust ☑/☐ in de tekst en niet als echt vinkje: het is
+   een stand van zaken om te lezen, geen veld om aan te klikken — dat gebeurt
+   met de knop eronder. */
+.afspraak__stappen { list-style: none; display: flex; flex-direction: column; gap: 0.15rem; margin-bottom: 0.75rem; font-size: 0.9rem; color: var(--text-muted); }
+.afspraak__stap--gedaan { color: var(--success); font-weight: 600; }
+.afspraak__acties { margin-bottom: 0.5rem; }
+.afspraak__herinnering { color: var(--danger); }
+
+/* ----- bevestigingsvenster ----- */
+.ruil-dialoog { width: min(28rem, calc(100vw - 2rem)); border: none; border-radius: var(--radius); padding: 0; box-shadow: var(--shadow-lg); color: var(--text); background: var(--surface); }
+.ruil-dialoog::backdrop { background: rgba(26, 26, 46, 0.45); }
+.ruil-dialoog__form { padding: 1.75rem; }
+.ruil-dialoog__form h2 { font-size: 1.15rem; color: var(--cf-blue-dark); margin-bottom: 1rem; }
+.ruil-dialoog__inhoud { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; }
+.ruil-dialoog__regel { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.6rem 0.875rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.ruil-dialoog__wie { font-size: 0.9rem; color: var(--text-muted); }
+.ruil-dialoog__wat { font-size: 1.05rem; }
+
+@media (max-width: 640px) {
+  /* Twee kolommen naast elkaar worden op een telefoon twee kolommen van niks;
+     onder elkaar met een lijn ertussen leest veel beter. */
+  .ruiler-kaart__kolommen { grid-template-columns: 1fr; gap: 1rem; }
+  .ruiler-kaart__kolommen > .ruilkolom + .ruilkolom { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 1rem; }
+  .ruiler-kaart__contact { margin-left: 0; width: 100%; }
+  .stickerblok { grid-template-columns: 1fr; }
+  .ruilvoorstel__paar { margin-right: 0; width: 100%; }
+  .ruilvoorstel .btn { width: 100%; justify-content: center; }
+  .afspraak__acties .btn { width: 100%; justify-content: center; }
+}

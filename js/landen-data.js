@@ -108,15 +108,47 @@ export function landLabel(land) {
   return stukken.filter(Boolean).join(" - ");
 }
 
+// ---------- zoeken ----------
+
+// Accenten en hoofdletters weg, zodat "cote" ook "Côte d'Ivoire" vindt en
+// "belgie" ook "België". NFD splitst een letter met accent in de kale letter
+// plus een los accentteken; dat tweede deel gooien we weg.
+//
+// Staat hier en niet in één pagina, omdat elke pagina met een zoekveld
+// hetzelfde moet doen: wie op de stickerpagina leert dat "IVOOR" werkt,
+// verwacht dat op de ruilpagina ook.
+export function normaliseer(tekst) {
+  return String(tekst || "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase();
+}
+
+// Matcht een land op alle drie de schrijfwijzen tegelijk: de code (CIV), de
+// Engelse albumnaam (Côte d'Ivoire) en de Nederlandse (Ivoorkust). De term
+// hoort al door normaliseer() gehaald te zijn.
+export function landMatcht(land, term) {
+  if (!term) return true;
+  return (
+    normaliseer(land.land_code).includes(term) ||
+    normaliseer(land.land_naam_en).includes(term) ||
+    normaliseer(land.land_naam).includes(term)
+  );
+}
+
 // ---------- sorteren ----------
 
-// Twee manieren om de landenlijst te ordenen. 'code' is de standaard: de
-// FIFA/Panini-code alfabetisch. 'pagina' volgt het album — de volgorde waarin
-// een kind door zijn boek bladert — en valt terug op de code voor landen
-// zonder paginanummer.
+// Drie manieren om de landenlijst te ordenen:
+//   code   — de FIFA/Panini-code alfabetisch. De standaard op de
+//            stickerpagina, want dat is wat op de sticker zelf staat.
+//   pagina — de volgorde van het album, zoals een kind door zijn boek
+//            bladert. Valt terug op de code voor landen zonder paginanummer.
+//   engels — de Engelse albumnaam alfabetisch (Argentina, Australia, …), voor
+//            wie het land opzoekt zoals het in het boek geschreven staat.
 export const SORTEERWIJZEN = [
   { id: "code", label: "Code (A-Z)" },
-  { id: "pagina", label: "Volgorde van het boek" },
+  { id: "pagina", label: "Albumvolgorde" },
+  { id: "engels", label: "Alfabetisch (Engels)" },
 ];
 
 export function vergelijkLanden(a, b, wijze = "code") {
@@ -124,6 +156,14 @@ export function vergelijkLanden(a, b, wijze = "code") {
     const pa = a.pagina == null ? Number.MAX_SAFE_INTEGER : a.pagina;
     const pb = b.pagina == null ? Number.MAX_SAFE_INTEGER : b.pagina;
     if (pa !== pb) return pa - pb;
+  }
+  if (wijze === "engels") {
+    // Zonder Engelse naam (sql/013 nog niet gedraaid) achteraan in plaats van
+    // bovenaan: een blok naamloze landen bovenaan de lijst oogt als een fout.
+    const na = a.land_naam_en || "￿";
+    const nb = b.land_naam_en || "￿";
+    const verschil = na.localeCompare(nb, "en");
+    if (verschil !== 0) return verschil;
   }
   return String(a.land_code).localeCompare(String(b.land_code), "nl");
 }

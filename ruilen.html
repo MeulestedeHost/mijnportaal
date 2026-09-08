@@ -30,18 +30,17 @@
       <p>
         Deze pagina zet naast elkaar wat jouw verzamelaars <strong>zoeken</strong> en wat
         ze <strong>dubbel</strong> hebben, en vergelijkt dat met alle andere deelnemers.
-        Elke regel hieronder is een sticker die je kan ruilen.
+        Vind je een ruil die voor allebei klopt, dan kan je ze hier
+        <strong>registreren</strong> en achteraf elk apart bevestigen.
       </p>
-      <p class="form-meta" style="margin-top:0.75rem">
-        In de kolom <strong>Contacteren</strong> staat altijd de <strong>voornaam</strong>
-        van het andere kind, met daarachter zijn <strong>wijk of gemeente</strong> als dat
-        gezin die invulde. Zo zie je meteen of het om een buur gaat — dan kan je nu al
-        onderling ruilen, nog vóór de beurs — of om iemand van verder, en dan is de beurs
-        zelf het moment. Is de beurs voorbij, dan komt er ook een
-        <strong>e-mailadres</strong> bij zodat ruilen kan verdergaan, en een
-        <strong>WhatsApp-knop</strong> als dat gezin zijn nummer deelt. Wil je zelf
-        vindbaar zijn voor de buurt? Vul je wijk in bij
-        <a href="/gezin.html">Ons gezin</a>.
+      <p class="form-meta form-meta--plat">
+        Bij elke ruiler staat altijd de <strong>voornaam</strong>, met daarachter zijn
+        <strong>wijk of gemeente</strong> als dat gezin die invulde. Zo zie je meteen of het
+        om een buur gaat — dan kan je nu al onderling ruilen, nog vóór de beurs — of om
+        iemand van verder, en dan is de beurs zelf het moment. Is de beurs voorbij, dan komt
+        er ook een <strong>e-mailadres</strong> bij, en een <strong>WhatsApp-knop</strong>
+        als dat gezin zijn nummer deelt. Wil je zelf vindbaar zijn voor de buurt? Vul je
+        wijk in bij <a href="/gezin.html">Ons gezin</a>.
       </p>
 
       <div id="ruil-venster" class="ruil-venster">Laden…</div>
@@ -51,9 +50,100 @@
       </p>
     </div>
 
+    <!-- Zoeken, weergave en sortering. Het zoekveld werkt zoals dat op de
+         stickerpagina: live, zonder knop, en ongevoelig voor hoofdletters en
+         accenten — "cote", "CIV" en "Ivoorkust" vinden alle drie hetzelfde
+         land. Het zoekt hier daarnaast ook op de naam van een ruiler en op
+         een stickercode. -->
+    <div class="card">
+      <div class="ruil-filterbalk">
+        <div class="form-group hidden" id="ruil-kind-vak">
+          <label for="ruil-kind" class="form-label">Verzamelaar</label>
+          <select id="ruil-kind" class="form-input"></select>
+        </div>
+
+        <div class="form-group">
+          <label for="ruil-zoek" class="form-label">Zoeken</label>
+          <input
+            type="search"
+            id="ruil-zoek"
+            class="form-input"
+            placeholder="BEL3, Belgium, Ivoorkust, Valentijn…"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="ruil-weergave" class="form-label">Weergave</label>
+          <select id="ruil-weergave" class="form-input">
+            <option value="ruiler">Per ruiler</option>
+            <option value="land">Per land</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="ruil-landsortering" class="form-label">Landen sorteren</label>
+          <select id="ruil-landsortering" class="form-input">
+            <option value="pagina">Albumvolgorde</option>
+            <option value="engels">Alfabetisch (Engels)</option>
+          </select>
+        </div>
+      </div>
+      <p id="ruil-teller" class="sticker-teller"></p>
+    </div>
+
     <div id="ruil-loading" class="loading">Ruilkansen zoeken…</div>
     <div id="ruil-inhoud"></div>
+
+    <!-- Geregistreerde ruilen. Bewust een aparte kaart onder de ruilkansen:
+         het is een logboek van gemaakte afspraken, geen zoeklijst. -->
+    <section class="card hidden" id="ruil-afspraken">
+      <h2>Geregistreerde ruilen</h2>
+      <p class="form-meta">
+        Een geregistreerde ruil is een <strong>afspraak</strong>, meer niet. Het portaal
+        haalt zelf <strong>nooit</strong> een sticker uit je lijst "zoek ik" of "heb ik
+        dubbel" — ook niet wanneer beide kanten bevestigd hebben. Dat blijf je zelf doen bij
+        je verzamelaar, want alleen jij weet wat er echt in de map zit.
+      </p>
+      <div id="ruil-afspraken-lijst"></div>
+      <div id="ruil-afspraken-melding" class="message" role="alert" aria-live="polite"></div>
+    </section>
+
+    <!-- Enkel zichtbaar voor wie in public.beheerders staat. De databank
+         beslist dat (ruil_overzicht geeft anders geen enkele rij terug); dit
+         verbergen is comfort, geen beveiliging. -->
+    <section class="card hidden" id="ruil-beheer">
+      <h2>Opvolging voor de organisatie</h2>
+      <p class="form-meta">
+        Alle geregistreerde ruilen van alle deelnemers, nieuwste eerst. "Half bevestigd"
+        betekent dat één van beide kanten al bevestigde en de andere nog niet — dat zijn de
+        ruilen die opvolging kunnen gebruiken.
+      </p>
+      <div id="ruil-beheer-cijfers" class="wr-cijfers"></div>
+      <div class="table-wrapper">
+        <table class="data-table" id="ruil-beheer-tabel"></table>
+      </div>
+    </section>
   </main>
+
+  <!-- Bevestigingsvenster voor "Ruil registreren". Een echt <dialog>, zodat
+       focus, Escape en de achtergrondvergrendeling door de browser geregeld
+       worden in plaats van door ons. -->
+  <dialog id="ruil-dialoog" class="ruil-dialoog" aria-labelledby="ruil-dialoog-titel">
+    <form method="dialog" class="ruil-dialoog__form">
+      <h2 id="ruil-dialoog-titel">Ruil registreren</h2>
+      <div id="ruil-dialoog-inhoud" class="ruil-dialoog__inhoud"></div>
+      <p class="form-meta" id="ruil-dialoog-uitleg">
+        Na het registreren bevestigt elke ruiler apart dat de sticker effectief geruild is.
+        Je stickerlijsten blijven ongewijzigd — die pas je zelf aan.
+      </p>
+      <div id="ruil-dialoog-fout" class="message" role="alert" aria-live="polite"></div>
+      <div class="form-actions">
+        <button type="button" class="btn btn--primary" id="ruil-dialoog-ok">Registreren</button>
+        <button type="submit" class="btn btn--outline" value="annuleer">Annuleren</button>
+      </div>
+    </form>
+  </dialog>
 
   <footer class="footer">
     <div class="container">

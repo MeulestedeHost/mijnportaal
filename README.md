@@ -29,8 +29,9 @@ gebruiker die dat kind beheert.
    `008` → `009_gezin_en_whatsapp.sql` → `010_wereldreis.sql` →
    `011_wereldreis_fotos.sql` → `012_stickers_aantal.sql` →
    `013_landen_engels_en_pagina.sql` → `014_na_beurs_contact.sql` →
-   `015_wijk_en_altijd_naam.sql`. Enkel `002` en de blokken die het zelf
-   aankondigen zijn destructief; `009` en later zijn dat niet.
+   `015_wijk_en_altijd_naam.sql` → `016_ruilen_registreren.sql`. Enkel `002`
+   en de blokken die het zelf aankondigen zijn destructief; `009` en later
+   zijn dat niet.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
    Wachtwoord-authenticatie is niet nodig: deze app gebruikt Magic Links en
    (optioneel) Google — zie §5.
@@ -167,6 +168,48 @@ op `instellingen.html` (kolommen `whatsapp_nummer` / `whatsapp_bericht` op
 `public.instellingen`, enkel schrijfbaar voor beheerders). Staat het leeg, dan
 toont de site nergens een knop. Het nummer is enkel leesbaar voor wie ingelogd
 is en staat dus niet in de publieke bronbestanden.
+
+## 7b. Ruilen registreren en bevestigen
+
+`ruilen.html` toont niet alleen wie wat heeft, maar laat een afspraak ook
+**registreren** (`016_ruilen_registreren.sql`, tabel `public.ruilen`).
+
+**Het systeem verplaatst nooit een sticker.** Een geregistreerde en zelfs een
+voltooide ruil laat `public.stickers` volledig ongemoeid: "zoek ik" en "heb ik
+dubbel" blijven staan zoals het kind ze zelf zette. Dat is een uitdrukkelijke
+keuze — een lijst die automatisch wordt bijgewerkt maar niet klopt met de map
+thuis is erger dan geen lijst, en op een beurs loopt het altijd net anders dan
+afgesproken. Het portaal onthoudt de afspraak; de collectie beheert de
+verzamelaar zelf.
+
+- **Registreren** — `ruil_registreren(eigen_kind, ander_kind, ik_krijg,
+  ander_krijgt)`. Controleert opnieuw of de match nog bestaat en in beide
+  richtingen klopt; is een van beide lijsten intussen aangepast, dan volgt een
+  duidelijke fout in plaats van een zinloze rij. Het paar wordt altijd in
+  dezelfde volgorde weggeschreven (`kind_a < kind_b`), zodat dezelfde afspraak
+  van beide kanten dezelfde rij oplevert. Twee keer registreren geeft de
+  bestaande ruil terug.
+- **Bevestigen per kant** — `ruil_bevestigen(ruil_id, kind_id, ja/nee)`. Elke
+  ruiler bevestigt voor zichzelf dat de sticker effectief van hand wisselde;
+  intrekken mag. Pas als beide kanten bevestigd hebben, is de status
+  `VOLTOOID`. De ruil blijft daarna in de historiek staan.
+- **Markering is per gebruiker** — bevestig jij, dan kleuren enkel *jouw*
+  betrokken stickers lichtrood, als herinnering om je eigen lijst na te kijken.
+  Bij de andere ruiler verandert er niets tot die zelf bevestigt.
+- **Opvolging** — `ruil_overzicht()` geeft alle ruilen van alle deelnemers
+  terug, maar enkel aan wie in `public.beheerders` staat (`007`); voor alle
+  anderen komt er geen enkele rij terug. De sectie "Opvolging voor de
+  organisatie" onderaan `ruilen.html` toont daarop de tellers en de lijst, met
+  "half bevestigd" als het geval dat opvolging vraagt.
+
+RLS op `public.ruilen` laat enkel lezen aan wie aan één van beide kanten zit.
+Schrijven kan alleen via de twee functies hierboven: die controleren méér dan
+een policy kan (bestaat de match, klopt de richting, is dit wel jouw kind).
+
+`get_matches()` kreeg in `016` twee kolommen bij: `ander_kind_id` — nodig om
+per ruiler te groeperen en een ruil aan een tegenpartij te hangen, en verder
+niets prijsgevend — en `pagina`, zodat de ruilpagina de landen in albumvolgorde
+kan zetten zonder de hele catalogus op te halen.
 
 ## 8. FIFA Wereldreis
 
@@ -394,6 +437,22 @@ netter tegenover OpenStreetMap: vervang de URL in `maakKaart()`
 Uniek per `(kind_id, nummer)`: hooguit één rij per sticker per kind (sinds
 `006_kindproof.sql`).
 
+**ruilen** (sinds `016`)
+
+| Kolom | Type | Omschrijving |
+|---|---|---|
+| id | uuid | primaire sleutel |
+| kind_a / kind_b | uuid | de twee verzamelaars; altijd `kind_a < kind_b`, zodat dezelfde afspraak van beide kanten dezelfde rij is |
+| sticker_a / sticker_b | text | wat elke kant **ontvangt** (`sticker_a` gaat naar `kind_a`) |
+| bevestigd_a / bevestigd_b | timestamptz | leeg tot die kant zelf bevestigt; beide gevuld = voltooid |
+| aangemaakt_door | uuid | wie registreerde — herkomst, geen kant |
+| created_at | timestamptz | |
+
+Een partiële unieke index op `(kind_a, kind_b, sticker_a, sticker_b)` voorkomt
+dat dezelfde **openstaande** afspraak twee keer bestaat. Voltooide ruilen
+vallen erbuiten: dezelfde twee stickers later opnieuw ruilen is een nieuwe
+afspraak.
+
 ## Row Level Security
 
 RLS staat aan op zowel `kinderen` als `stickers`, met een policy per
@@ -406,6 +465,13 @@ operatie (`SELECT` / `INSERT` / `UPDATE` / `DELETE`):
   (`kinderen.user_id = auth.uid()`). Zo kan een gebruiker nooit stickers
   van andermans kinderen zien of bewerken, ook al kent hij het uuid van de
   sticker.
+
+- **ruilen** (sinds `016`) — enkel een `SELECT`-policy: lezen mag wie via
+  `gezin_van_kind()` aan één van beide kanten van de ruil zit. Er is bewust
+  géén `INSERT`/`UPDATE`-policy. Schrijven loopt uitsluitend via
+  `ruil_registreren()` en `ruil_bevestigen()` (security definer), omdat die
+  dingen controleren die een policy niet kan: bestaat de match nog, klopt de
+  richting, en bevestig je wel voor je eigen verzamelaar.
 
 `WITH CHECK` staat op alle `INSERT`/`UPDATE`-policies, zodat een gebruiker
 via de API ook geen rij kan aanmaken of ombuigen naar een kind dat niet van
@@ -489,13 +555,20 @@ zodra dat er meer dan één is.
 - `js/stickers.js` — kinddetailpagina: kindgegevens + checklist per land
   (bulksgewijs gezocht/dubbel aanvinken) + de samenvattingslijsten.
 - `js/dashboard.js` — dashboard: onboarding-wizard en kinderenlijst.
-- `js/ruilen.js` — ruilkansen van het hele gezin, met de kolom *Contacteren*.
+- `js/ruilen.js` — ruilkansen per verzamelaar, te bekijken *per ruiler* (twee
+  kolommen: wat hij voor jou heeft, wat hij van jou wil) of *per land* (wie
+  heeft en wie zoekt deze sticker), met live zoeken op ruiler, land en
+  stickercode. Registreert ruilen, toont de bevestiging per kant en — voor
+  beheerders — het opvolgingsoverzicht.
 - `js/gezin.js` — tweede volwassene toevoegen, gsm-nummer van het gezin.
 - `js/whatsapp.js` — nummers normaliseren naar E.164 en wa.me-links bouwen.
 - `js/instellingen.js` — beheerpagina: beursvenster, glans, organisatornummer.
 - `js/wereldreis.js` — FIFA Wereldreis: coördinaten, kleuren, lagen, kaart.
 - `js/landen-data.js` — de notatie `BEL - BELGIUM - België`, de accentkleur per
-  land en de twee sorteervolgordes.
+  land, de drie sorteervolgordes (code, albumvolgorde, alfabetisch Engels) en
+  het zoeken op landen (`normaliseer()` / `landMatcht()`, accent- en
+  hoofdletterongevoelig). De stickerpagina en de ruilpagina delen die twee
+  functies, zodat "CIV", "cote" en "IVOOR" overal hetzelfde land vinden.
 - `js/voetbal-data.js` / `js/land-data.js` / `js/talen-data.js` — statische
   redactionele gegevens per land (voetbal, landinfo, talen).
 - `js/foto-data.js` — lazy ophalen van landfoto's uit Supabase (`land_fotos`).
