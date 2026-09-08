@@ -886,3 +886,113 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
   .ruilvoorstel .btn { width: 100%; justify-content: center; }
   .afspraak__acties .btn { width: 100%; justify-content: center; }
 }
+
+/* ---------- statistiekenpagina ---------- */
+
+/* Vaste kleuren per soort gegeven, zodat dezelfde reeks er overal hetzelfde
+   uitziet: blauw voor verzamelaars, oranje voor ruilen, groen voor wat af is.
+   De landkleuren komen niet hier vandaan maar uit js/landen-data.js — dat is
+   één bron voor de hele site. */
+:root {
+  --stat-verzamelaars: var(--cf-blue-primary);
+  --stat-ruilen: #c25f0a;
+  --stat-voltooid: var(--success);
+  --stat-spoor: #e6eaf1;
+}
+
+/* De tooltip van een cijferkaart hangt aan de rechterkant in plaats van
+   gecentreerd: een kaart is smal (±140 px) en een gecentreerde tekstballon van
+   260 px zou bij de laatste kaart van een rij buiten het scherm vallen. */
+.stat-cijfer { position: relative; }
+.stat-cijfer .wr-tooltip { left: auto; right: 0; transform: none; }
+.stat-cijfer .wr-tooltip::before { left: auto; right: 1rem; transform: none; }
+.stat-cijfer__voet { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
+.stat-cijfer__voet .wr-cijfer__label { line-height: 1.3; }
+.stat-cijfer .wr-cijfer__getal { overflow-wrap: anywhere; }
+
+.stat-voetnoot { margin: 1rem 0 0; font-style: italic; }
+
+/* ----- grafieken ----- */
+.stat-grafieken { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
+.stat-grafiek { min-width: 0; }
+.stat-grafiek__kop { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.stat-grafiek__kop h3 { font-size: 0.95rem; color: var(--cf-blue-dark); }
+.stat-grafiek__som { margin-top: 0.4rem; font-size: 0.8rem; color: var(--text-muted); }
+
+/* Staafdiagram: label, spoor, getal. Het spoor krijgt alle overblijvende
+   ruimte, dus het diagram schaalt mee met de kolom zonder hertekenen. */
+.stat-staven { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+.stat-staaf { display: grid; grid-template-columns: minmax(0, 1fr) 1.2fr auto; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+.stat-staaf__label { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-staaf__spoor { height: 10px; border-radius: 999px; background: var(--stat-spoor); overflow: hidden; }
+.stat-staaf__vulling { display: block; height: 100%; border-radius: 999px; background: var(--cf-blue-primary); }
+.stat-staaf__waarde { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Lijngrafiek: één SVG met een viewBox, breedte 100 %. Schalen doet de
+   browser; er is geen resize-luisteraar nodig. */
+.stat-lijngrafiek { display: block; width: 100%; height: auto; overflow: visible; }
+.stat-lijngrafiek__raster { stroke: var(--border); stroke-width: 1; }
+.stat-lijngrafiek__as { font-size: 11px; fill: var(--text-muted); font-family: var(--font); }
+.stat-lijngrafiek__lijn { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.stat-lijngrafiek__vlak { stroke: none; opacity: 0.14; }
+.stat-lijngrafiek__stip { stroke: var(--surface); stroke-width: 1.5; }
+
+.stat-lijn--verzamelaars .stat-lijngrafiek__lijn { stroke: var(--stat-verzamelaars); }
+.stat-lijn--verzamelaars .stat-lijngrafiek__vlak,
+.stat-lijn--verzamelaars .stat-lijngrafiek__stip { fill: var(--stat-verzamelaars); }
+.stat-lijn--ruilen .stat-lijngrafiek__lijn { stroke: var(--stat-ruilen); }
+.stat-lijn--ruilen .stat-lijngrafiek__vlak,
+.stat-lijn--ruilen .stat-lijngrafiek__stip { fill: var(--stat-ruilen); }
+.stat-lijn--voltooid .stat-lijngrafiek__lijn { stroke: var(--stat-voltooid); }
+.stat-lijn--voltooid .stat-lijngrafiek__vlak,
+.stat-lijn--voltooid .stat-lijngrafiek__stip { fill: var(--stat-voltooid); }
+
+.stat-periodekiezer { max-width: 16rem; }
+.stat-periodekiezer .form-group { margin-bottom: 0; }
+
+/* ----- toplijsten ----- */
+.stat-toplijsten { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
+.stat-toplijst { min-width: 0; }
+.stat-toplijst__kop { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }
+.stat-toplijst__kop h3 { font-size: 0.95rem; color: var(--cf-blue-dark); }
+.stat-toplijst__lijst { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; counter-reset: none; }
+.stat-toplijst__regel { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr) auto; align-items: baseline; gap: 0.5rem; padding: 0.35rem 0.5rem; border-radius: 8px; font-size: 0.85rem; }
+.stat-toplijst__regel:nth-child(odd) { background: var(--bg); }
+.stat-toplijst__plaats { font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.stat-toplijst__naam { min-width: 0; display: flex; align-items: baseline; gap: 0.35rem; flex-wrap: wrap; }
+.stat-toplijst__bij { color: var(--text-muted); font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-toplijst__waarde { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.stat-toplijst__leeg { color: var(--text-muted); font-style: italic; font-size: 0.85rem; }
+
+/* Schakelaar tussen twee sorteringen van dezelfde lijst. Geen keuzelijst: bij
+   twee mogelijkheden is aantikken sneller dan uitklappen. */
+.stat-toggle { display: inline-flex; gap: 0.25rem; padding: 0.2rem; margin-bottom: 0.6rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); }
+.stat-toggle__knop { padding: 0.25rem 0.75rem; border: none; border-radius: 999px; background: transparent; font-family: var(--font); font-size: 0.775rem; font-weight: 600; color: var(--text-muted); cursor: pointer; }
+.stat-toggle__knop:hover { color: var(--cf-blue-dark); }
+.stat-toggle__knop--aan { background: var(--surface); color: var(--cf-blue-dark); box-shadow: var(--shadow); }
+.stat-toggle__knop:focus-visible { outline: 3px solid var(--cf-blue-dark); outline-offset: 1px; }
+
+/* ----- inzichten ----- */
+.stat-inzichten { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+.stat-inzicht { position: relative; border: 1px solid var(--border); border-left: 4px solid var(--cf-blue-primary); border-radius: 8px; padding: 0.9rem 1rem; }
+.stat-inzicht__kop { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.35rem; }
+.stat-inzicht__kop h3 { font-size: 0.775rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); line-height: 1.3; }
+.stat-inzicht__waarde { font-size: 1.05rem; font-weight: 700; color: var(--cf-blue-dark); line-height: 1.25; overflow-wrap: anywhere; }
+.stat-inzicht__bij { font-size: 0.8rem; color: var(--text-muted); }
+/* Ook hier hangt de tooltip rechts: de kaarten staan in een raster en de
+   rechtse zou anders over de schermrand vallen. */
+.stat-inzicht .wr-tooltip { left: auto; right: 0; transform: none; }
+.stat-inzicht .wr-tooltip::before { left: auto; right: 1rem; transform: none; }
+
+@media (max-width: 640px) {
+  /* Op 390 px is een label van drie landnamen naast een balk niet te doen:
+     label boven de balk, getal ernaast. */
+  .stat-staaf { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label waarde" "spoor spoor"; row-gap: 0.2rem; }
+  .stat-staaf__label { grid-area: label; white-space: normal; }
+  .stat-staaf__waarde { grid-area: waarde; }
+  .stat-staaf__spoor { grid-area: spoor; }
+  .stat-grafieken, .stat-toplijsten { gap: 1.75rem; }
+  .stat-periodekiezer { max-width: none; }
+  /* Een volle kaartbreedte laat de tekstballon weer gewoon links beginnen. */
+  .stat-cijfer .wr-tooltip, .stat-inzicht .wr-tooltip { right: 0; max-width: calc(100vw - 3rem); }
+}

@@ -86,6 +86,38 @@
         </section>
 
         <section class="card">
+          <h2>Statistieken</h2>
+          <p class="form-meta">
+            De stickerwaarde is de <strong>winkelprijs van één sticker</strong>. Alle
+            bedragen op de <a href="/statistieken.html">statistiekenpagina</a> zijn daar een
+            vermenigvuldiging van; het is dus een nominale waarde, geen schatting van wat
+            een verzameling opbrengt. Het aantal stickers per pakje wordt enkel gebruikt
+            voor de schatting van vermeden pakjes.
+          </p>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="inst-stickerwaarde" class="form-label">Prijs van één sticker (€)</label>
+              <input type="number" id="inst-stickerwaarde" class="form-input"
+                     min="0" max="9999" step="0.01" placeholder="0,25" />
+            </div>
+            <div class="form-group">
+              <label for="inst-pakje" class="form-label">Stickers per pakje</label>
+              <input type="number" id="inst-pakje" class="form-input"
+                     min="1" max="100" step="1" placeholder="5" />
+            </div>
+          </div>
+          <p class="form-meta">
+            De ranglijst <strong>Actiefste verzamelaars</strong> is het enige onderdeel van
+            de statistieken dat voornamen van kinderen toont; al de rest zijn optellingen.
+            Daarom staat ze standaard uit. Beheerders zien ze sowieso.
+          </p>
+          <label class="checkbox-rij">
+            <input type="checkbox" id="inst-topverzamelaars" />
+            <span>Ranglijst met voornamen aan alle deelnemers tonen</span>
+          </label>
+        </section>
+
+        <section class="card">
           <h2>WhatsApp van de organisator</h2>
           <p class="form-meta">
             Eén nummer voor vragen over de beurs zelf. Het verschijnt als knop op het

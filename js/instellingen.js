@@ -1,4 +1,6 @@
-// instellingen.js — Beheerpagina voor het beursvenster en de glansstickers.
+// instellingen.js — Beheerpagina: beursvenster, glansstickers, WhatsApp van de
+// organisatie, en de knoppen achter de statistiekenpagina (stickerwaarde,
+// pakjesgrootte en of de ranglijst met voornamen voor iedereen zichtbaar is).
 //
 // De pagina is geen beveiliging: ze verbergt hooguit knoppen. Wie mag
 // opslaan, beslist RLS op public.instellingen (policy instellingen_update,
@@ -6,6 +8,13 @@
 // API rechtstreeks aanspreekt, krijgt daar nul rijen bijgewerkt.
 import { supabase, requireAuth } from "./supabase.js";
 import { normaliseerTelefoon, toonTelefoon } from "./whatsapp.js";
+
+// De kolommen die deze pagina beheert, op één plek: ze worden bij het laden
+// opgehaald en na het opslaan opnieuw teruggevraagd, en die twee lijsten
+// mogen niet uit elkaar lopen.
+const KOLOMMEN =
+  "beurs_start,beurs_einde,toon_glans,whatsapp_nummer,whatsapp_bericht," +
+  "stickerwaarde,stickers_per_pakje,toon_topverzamelaars";
 
 let origineel = null;
 let userId = null;
@@ -56,7 +65,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 async function laadInstellingen() {
   const { data, error } = await supabase
     .from("instellingen")
-    .select("beurs_start,beurs_einde,toon_glans,whatsapp_nummer,whatsapp_bericht")
+    .select(KOLOMMEN)
     .eq("id", 1)
     .single();
   if (error) throw error;
@@ -70,6 +79,14 @@ function vulFormulier() {
   document.getElementById("inst-glans").checked = Boolean(origineel.toon_glans);
   document.getElementById("inst-wa-nummer").value = toonTelefoon(origineel.whatsapp_nummer);
   document.getElementById("inst-wa-bericht").value = origineel.whatsapp_bericht || "";
+  // Draaide sql/017 nog niet, dan bestaan deze drie kolommen nog niet; dan
+  // tonen we dezelfde standaardwaarden als de databank zou gebruiken.
+  document.getElementById("inst-stickerwaarde").value =
+    origineel.stickerwaarde == null ? "0.25" : String(origineel.stickerwaarde);
+  document.getElementById("inst-pakje").value =
+    origineel.stickers_per_pakje == null ? "5" : String(origineel.stickers_per_pakje);
+  document.getElementById("inst-topverzamelaars").checked =
+    Boolean(origineel.toon_topverzamelaars);
   toonVensterStatus();
   document.getElementById("inst-message").className = "message";
 }
@@ -145,6 +162,19 @@ async function bewaar(e) {
   }
   const waBericht = document.getElementById("inst-wa-bericht").value.trim();
 
+  // Dezelfde grenzen als de CHECK op de tabel, maar met een leesbare melding
+  // in plaats van een databasefout.
+  const waarde = Number(document.getElementById("inst-stickerwaarde").value);
+  if (!Number.isFinite(waarde) || waarde < 0) {
+    toonMelding(messageEl, "De stickerwaarde moet een bedrag van 0 of meer zijn.", "error");
+    return;
+  }
+  const pakje = Number(document.getElementById("inst-pakje").value);
+  if (!Number.isInteger(pakje) || pakje < 1) {
+    toonMelding(messageEl, "Een pakje bevat minstens één sticker.", "error");
+    return;
+  }
+
   const knop = document.getElementById("inst-save-btn");
   knop.disabled = true;
   knop.textContent = "Opslaan…";
@@ -157,10 +187,13 @@ async function bewaar(e) {
         toon_glans: document.getElementById("inst-glans").checked,
         whatsapp_nummer: waNummer,
         whatsapp_bericht: waBericht || null,
+        stickerwaarde: waarde,
+        stickers_per_pakje: pakje,
+        toon_topverzamelaars: document.getElementById("inst-topverzamelaars").checked,
         updated_by: userId, // wie de beurs verzette, is achteraf de eerste vraag
       })
       .eq("id", 1)
-      .select("beurs_start,beurs_einde,toon_glans,whatsapp_nummer,whatsapp_bericht");
+      .select(KOLOMMEN);
     if (error) throw error;
     // RLS weigert stil: geen recht betekent nul bijgewerkte rijen, geen fout.
     if (!data || data.length === 0) {

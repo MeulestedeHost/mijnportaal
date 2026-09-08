@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panini Ruilportaal Meulestede — Statistieken</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="/dashboard.html" class="brand">
+        <span class="brand__logo">◆</span>
+        <span class="brand__name">Panini Ruilportaal Meulestede</span>
+      </a>
+      <div class="navbar__actions">
+        <a href="/dashboard.html" class="btn btn--outline btn--sm">← Dashboard</a>
+        <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main">
+    <div class="dashboard-header">
+      <h1>Statistieken</h1>
+    </div>
+
+    <div class="card">
+      <h2>Wat staat hier?</h2>
+      <p>
+        Alle cijfers hieronder worden op dit moment berekend uit de databank — er wordt
+        niets bewaard of bijgehouden. Bij elk cijfer staat een
+        <strong>ℹ️</strong>-knopje dat vertelt hoe het gemaakt is.
+      </p>
+      <!-- Deze kanttekening hoort bovenaan en niet ergens onderaan: ze geldt
+           voor bijna elk cijfer op de pagina. Dezelfde afleiding als de FIFA
+           Wereldreis gebruikt. -->
+      <p class="form-meta form-meta--plat">
+        <strong>Eén ding vooraf.</strong> Het portaal houdt niet bij wat een kind al in zijn
+        album <em>heeft</em> — enkel wat het zoekt en wat het dubbel heeft. "Geplakt" is dus
+        een berekening: alles wat niet als gezocht is aangeduid, geldt als aanwezig. Daarom
+        tellen enkel verzamelaars mee die al minstens één sticker invulden; wie nog niets
+        invulde zou anders als een vol album meetellen.
+      </p>
+    </div>
+
+    <div id="stat-loading" class="loading">Cijfers berekenen…</div>
+    <div id="stat-fout" class="message" role="alert" aria-live="polite"></div>
+
+    <div id="stat-leeg" class="card hidden">
+      <h2>Nog te weinig gegevens</h2>
+      <p class="form-meta form-meta--plat">
+        Er is nog geen enkele verzamelaar met stickers in het portaal. Zodra de eerste
+        lijsten ingevuld raken, verschijnen hier de cijfers.
+      </p>
+    </div>
+
+    <div id="stat-inhoud" class="hidden">
+      <!-- Blok 1 — verzamelaars en stickers -->
+      <section class="card">
+        <h2>Verzamelaars en stickers</h2>
+        <div class="wr-cijfers" id="stat-basis"></div>
+      </section>
+
+      <!-- Blok 2 — waarde -->
+      <section class="card">
+        <h2>Waarde</h2>
+        <p class="form-meta" id="stat-waarde-uitleg"></p>
+        <div class="wr-cijfers" id="stat-waarde"></div>
+      </section>
+
+      <!-- Blok 9 — voortgang album -->
+      <section class="card">
+        <h2>Voortgang van de albums</h2>
+        <div class="wr-cijfers" id="stat-voortgang"></div>
+      </section>
+
+      <!-- Blok 3 — landen -->
+      <section class="card">
+        <h2>Landen</h2>
+        <div class="wr-cijfers" id="stat-landen-cijfers"></div>
+        <div class="stat-grafieken">
+          <div class="stat-grafiek" id="stat-land-geplakt"></div>
+          <div class="stat-grafiek" id="stat-land-gezocht"></div>
+          <div class="stat-grafiek" id="stat-land-dubbels"></div>
+        </div>
+      </section>
+
+      <!-- Blok 4, 5 en 6 — ruilen, ruilwaarde, vermeden pakjes -->
+      <section class="card">
+        <h2>Ruilen</h2>
+        <div class="wr-cijfers" id="stat-ruilen"></div>
+        <p class="form-meta stat-voetnoot" id="stat-ruilen-voetnoot"></p>
+      </section>
+
+      <!-- Blok 7 — activiteit -->
+      <section class="card">
+        <h2>Activiteit doorheen de tijd</h2>
+        <div class="stat-periodekiezer">
+          <div class="form-group">
+            <label for="stat-periode" class="form-label">Periode</label>
+            <select id="stat-periode" class="form-input">
+              <option value="24u">Laatste 24 uur</option>
+              <option value="7">7 dagen</option>
+              <option value="30" selected>30 dagen</option>
+              <option value="90">90 dagen</option>
+              <option value="alles">Alles</option>
+            </select>
+          </div>
+        </div>
+        <div id="stat-activiteit" class="stat-grafieken"></div>
+      </section>
+
+      <!-- Blok 8 — toplijsten -->
+      <section class="card">
+        <h2>Toplijsten</h2>
+        <div class="stat-toplijsten">
+          <div class="stat-toplijst" id="stat-top-verzamelaars"></div>
+          <div class="stat-toplijst" id="stat-top-gezocht"></div>
+          <div class="stat-toplijst" id="stat-top-verzameld"></div>
+        </div>
+      </section>
+
+      <!-- Blok 10 — inzichten -->
+      <section class="card">
+        <h2>Interessante inzichten</h2>
+        <div class="stat-inzichten" id="stat-inzichten"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a></p>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/supabase.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/statistieken.js"></script>
+</body>
+</html>
