@@ -7,12 +7,18 @@
 // deelnemers moet ophalen, en dat zijn precies de gegevens die niemand hoort
 // te zien.
 //
+// GEEN NAMEN. Nergens op deze pagina staat de naam van een kind, ook niet in
+// de ranglijst: die toont enkel de volgorde met de bijhorende aantallen. De
+// RPC's geven geen voornamen terug, dus er valt hier ook niets te tonen.
+//
 // "GEPLAKT" IS EEN AFLEIDING. De databank kent maar twee statussen, ZOEKT en
 // RUILT — wat een kind al in zijn album heeft staat nergens. Net als de FIFA
 // Wereldreis rekent deze pagina daarom: alles wat niet als gezocht is
 // aangeduid, geldt als aanwezig. Dat klopt enkel voor wie zijn lijst invulde,
-// dus tellen alleen verzamelaars mee die al minstens één sticker registreerden.
-// Elke tooltip die op die afleiding steunt, zegt dat er ook bij.
+// dus blijven twee groepen buiten de cijfers: wie nog niets registreerde, en
+// wie duidelijk halverwege stopte (de laatste landen van het album helemaal
+// leeg, in albumvolgorde zowel als alfabetisch — zie stat_verzamelaars in
+// sql/017). Elke tooltip die op die afleiding steunt, zegt dat er ook bij.
 //
 // GEEN GRAFIEKBIBLIOTHEEK. De staafdiagrammen zijn gewone elementen met een
 // breedte in procent, de lijngrafieken zijn met de hand getekende SVG. Een
@@ -53,7 +59,7 @@ const PERIODES = {
 
 let cijfers = null;
 let landen = [];
-let verzamelaars = []; // enkel gevuld als de ranglijst getoond mag worden
+let verzamelaars = []; // aantallen zonder naam, één rij per verzamelaar
 let tipTeller = 0;
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -189,7 +195,7 @@ function tekenBasis() {
       getal: GETAL.format(cijfers.verzamelaars),
       label: "Verzamelaars",
       uitleg:
-        "Aantal verzamelaars met minstens één geregistreerde sticker — dus iedereen die al iets als gezocht of dubbel aanduidde. Wie nog niets invulde, telt niet mee.",
+        "Aantal verzamelaars met een bruikbaar ingevulde lijst. Wie nog niets registreerde telt niet mee, en wie duidelijk halverwege stopte ook niet — zie de opmerking onder deze cijfers.",
     },
     {
       icoon: "📖",
@@ -215,6 +221,25 @@ function tekenBasis() {
         "Som van alle dubbels van alle verzamelaars, met het aantal exemplaren meegerekend — vijf keer dezelfde sticker telt als vijf.",
     },
   ]);
+
+  // Wie er buiten viel en waarom. Zonder deze regel zou het aantal
+  // verzamelaars lager staan dan het aantal kinderen dat de organisatie kent,
+  // zonder dat iemand begrijpt waarom.
+  const voetnoot = document.getElementById("stat-basis-voetnoot");
+  const buiten = Number(cijfers.verzamelaars_onvolledig) || 0;
+  voetnoot.classList.toggle("hidden", buiten === 0);
+  if (buiten > 0) {
+    voetnoot.textContent =
+      `${GETAL.format(buiten)} ${
+        buiten === 1 ? "verzamelaar telt" : "verzamelaars tellen"
+      } niet mee in deze cijfers: hun lijst stopt duidelijk halverwege. ` +
+      `Bij ${buiten === 1 ? "die verzamelaar" : "hen"} staan de laatste ${GETAL.format(
+        cijfers.staart_drempel
+      )} of meer landen van de ${GETAL.format(
+        cijfers.landen_totaal
+      )} volledig leeg — zowel in albumvolgorde als alfabetisch — en dan is er niets ingevuld in plaats van niets te zoeken. ` +
+      "Meetellen zou elk gemiddelde hierboven omhoog trekken.";
+  }
 }
 
 // ---------- blok 2: waarde ----------
@@ -474,9 +499,7 @@ async function tekenToplijsten() {
     haalTop("top_verzamelde_stickers", TOP_STICKERS),
   ]);
 
-  if (cijfers.mag_topverzamelaars) {
-    verzamelaars = await haalTop("top_verzamelaars", TOP_VERZAMELAARS);
-  }
+  verzamelaars = await haalTop("top_verzamelaars", TOP_VERZAMELAARS);
   tekenTopVerzamelaars();
 
   toplijst("stat-top-gezocht", {
@@ -516,30 +539,21 @@ async function haalTop(functie, limiet) {
   }
 }
 
-// De ranglijst met voornamen heeft als enige een schakelaar: op geplakte
-// stickers of op voltooide ruilen. Beide keren dezelfde rijen, alleen anders
-// geordend — daarom wordt er niets opnieuw opgehaald.
+// De ranglijst heeft als enige een schakelaar: op geplakte stickers of op
+// voltooide ruilen. Beide keren dezelfde rijen, alleen anders geordend —
+// daarom wordt er niets opnieuw opgehaald.
+//
+// Er staan geen namen bij, enkel de plaats en de aantallen: zo zie je hoe ver
+// de verzamelaars uit elkaar liggen zonder dat er iemand aangewezen wordt.
 function tekenTopVerzamelaars() {
   const doel = document.getElementById("stat-top-verzamelaars");
   doel.textContent = "";
 
-  if (!cijfers.mag_topverzamelaars) {
-    doel.appendChild(
-      toplijstKop("🏆", "Actiefste verzamelaars", "Deze lijst toont voornamen van kinderen.")
-    );
-    const uitleg = document.createElement("p");
-    uitleg.className = "form-meta form-meta--plat stat-toplijst__leeg";
-    uitleg.textContent =
-      "Een ranglijst met voornamen staat standaard uit — de andere cijfers op deze pagina zijn optellingen, deze lijst gaat over herkenbare kinderen. De organisatie kan ze op de instellingenpagina voor iedereen openzetten; beheerders zien ze altijd.";
-    doel.appendChild(uitleg);
-    return;
-  }
-
   let sortering = "geplakt";
   const kop = toplijstKop(
     "🏆",
-    "Actiefste verzamelaars",
-    "Enkel voornamen. Sorteer op het aantal geplakte stickers (een berekening: album min gezocht) of op het aantal voltooide ruilen."
+    "Sterkste verzamelingen",
+    "De verzamelaars op volgorde, zonder naam. Sorteer op het aantal geplakte stickers (een berekening: album min gezocht) of op het aantal voltooide ruilen."
   );
   doel.appendChild(kop);
 
@@ -549,8 +563,8 @@ function tekenTopVerzamelaars() {
   lijstVak.className = "stat-toplijst__lijst";
 
   const opties = [
-    { id: "geplakt", label: "Meeste stickers" },
-    { id: "voltooide_ruilen", label: "Meeste ruilen" },
+    { id: "geplakt", label: "Op stickers" },
+    { id: "voltooide_ruilen", label: "Op ruilen" },
   ];
   opties.forEach((optie) => {
     const knop = document.createElement("button");
@@ -584,22 +598,28 @@ function vulVerzamelaars(lijst, veld) {
     return;
   }
 
-  rijen.forEach((r, i) =>
+  // Het cijfer waarop gesorteerd wordt, staat vooraan; het andere erachter als
+  // context. Rechts telkens een derde getal, zodat een regel iets vertelt en
+  // niet enkel een rangschikking is.
+  rijen.forEach((r, i) => {
+    const vulling = cijfers.album_totaal
+      ? KOMMA.format((100 * r.geplakt) / cijfers.album_totaal) + " %"
+      : "";
     lijst.appendChild(
       toplijstRegel({
         plaats: i + 1,
-        label: r.voornaam,
-        bij:
-          veld === "geplakt"
-            ? `${GETAL.format(r.voltooide_ruilen)} voltooide ruilen`
-            : `${GETAL.format(r.geplakt)} stickers`,
-        waarde:
+        label:
           veld === "geplakt"
             ? `${GETAL.format(r.geplakt)} stickers`
-            : `${GETAL.format(r.voltooide_ruilen)} ruilen`,
+            : `${GETAL.format(r.voltooide_ruilen)} voltooide ruilen`,
+        bij:
+          veld === "geplakt"
+            ? `${GETAL.format(r.gezocht)} nog gezocht`
+            : `${GETAL.format(r.geplakt)} stickers`,
+        waarde: veld === "geplakt" ? vulling : `${GETAL.format(r.dubbels)} dubbels`,
       })
-    )
-  );
+    );
+  });
 }
 
 function toplijst(id, { icoon, titel, uitleg, rijen }) {
@@ -730,30 +750,30 @@ function tekenInzichten() {
     });
   }
 
-  if (cijfers.mag_topverzamelaars && verzamelaars.length) {
-    const meesteStickers = verzamelaars
-      .slice()
-      .sort((a, b) => b.geplakt - a.geplakt)[0];
+  // Zonder naam: het gaat om het record, niet om wie het heeft.
+  if (verzamelaars.length) {
+    const meesteStickers = verzamelaars.slice().sort((a, b) => b.geplakt - a.geplakt)[0];
     const meesteRuilen = verzamelaars
       .slice()
       .sort((a, b) => b.voltooide_ruilen - a.voltooide_ruilen)[0];
     kaarten.push({
       icoon: "🏅",
-      titel: "Verzamelaar met de meeste stickers",
-      waarde: meesteStickers.voornaam,
-      bij: `${GETAL.format(meesteStickers.geplakt)} van ${GETAL.format(
-        cijfers.album_totaal
-      )} stickers`,
+      titel: "Verste verzameling",
+      waarde: `${GETAL.format(meesteStickers.geplakt)} stickers`,
+      bij: `van de ${GETAL.format(cijfers.album_totaal)} · nog ${GETAL.format(
+        meesteStickers.gezocht
+      )} te gaan`,
       uitleg:
-        "Op basis van de berekening album min gezocht. Wie zijn ontbrekende stickers nog niet volledig invulde, staat hier dus te hoog.",
+        "De verzamelaar die het verst staat, op basis van de berekening album min gezocht. Zonder naam: het gaat om hoever, niet om wie.",
     });
     if (meesteRuilen.voltooide_ruilen > 0) {
       kaarten.push({
         icoon: "🤝",
-        titel: "Verzamelaar met de meeste ruilen",
-        waarde: meesteRuilen.voornaam,
-        bij: `${GETAL.format(meesteRuilen.voltooide_ruilen)} voltooide ruilen`,
-        uitleg: "Aantal ruilen dat door beide kanten bevestigd werd.",
+        titel: "Meeste ruilen door één verzamelaar",
+        waarde: `${GETAL.format(meesteRuilen.voltooide_ruilen)} ruilen`,
+        bij: "door beide kanten bevestigd",
+        uitleg:
+          "Het hoogste aantal voltooide ruilen dat één verzamelaar op zijn naam heeft. De naam zelf staat er niet bij.",
       });
     }
   }

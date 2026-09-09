@@ -984,6 +984,17 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .stat-inzicht .wr-tooltip { left: auto; right: 0; transform: none; }
 .stat-inzicht .wr-tooltip::before { left: auto; right: 1rem; transform: none; }
 
+/* Boven een grafiek of een toplijst staat het ℹ️-knopje achter een titel, dus
+   ergens midden in de rij. Een gecentreerde tekstballon steekt daar buiten de
+   kolom (en op een telefoon buiten het scherm), ook als hij onzichtbaar is —
+   hij telt gewoon mee voor de paginabreedte. Daarom hangt hij hier aan de
+   linkerkant van de hele kop in plaats van onder het knopje; het pijltje valt
+   dan weg, want dat zou naar de verkeerde plek wijzen. */
+.stat-grafiek__kop, .stat-toplijst__kop { position: relative; }
+.stat-grafiek__kop .wr-tooltip-wrap, .stat-toplijst__kop .wr-tooltip-wrap { position: static; }
+.stat-grafiek__kop .wr-tooltip, .stat-toplijst__kop .wr-tooltip { left: 0; right: auto; transform: none; }
+.stat-grafiek__kop .wr-tooltip::before, .stat-toplijst__kop .wr-tooltip::before { display: none; }
+
 @media (max-width: 640px) {
   /* Op 390 px is een label van drie landnamen naast een balk niet te doen:
      label boven de balk, getal ernaast. */
@@ -993,6 +1004,31 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
   .stat-staaf__spoor { grid-area: spoor; }
   .stat-grafieken, .stat-toplijsten { gap: 1.75rem; }
   .stat-periodekiezer { max-width: none; }
-  /* Een volle kaartbreedte laat de tekstballon weer gewoon links beginnen. */
-  .stat-cijfer .wr-tooltip, .stat-inzicht .wr-tooltip { right: 0; max-width: calc(100vw - 3rem); }
+
+  /* Op een telefoon zweeft de tekstballon niet meer boven de pagina maar
+     klapt hij ín de kaart open. Een zwevende ballon is hier onhoudbaar: een
+     kaart is nog geen halve schermbreedte, dus welke kant hij ook uitgaat, hij
+     valt buiten beeld. Uitklappen duwt de kaart wat langer en blijft altijd
+     leesbaar. display:contents haalt het omhulsel uit de weg zodat de ballon
+     zelf een rij in de flexbox wordt. */
+  .stat-cijfer__voet, .stat-inzicht__kop { flex-wrap: wrap; }
+  .stat-cijfer .wr-tooltip-wrap, .stat-inzicht .wr-tooltip-wrap { display: contents; }
+  .stat-cijfer .wr-tooltip, .stat-inzicht .wr-tooltip {
+    position: static;
+    display: none;
+    opacity: 1;
+    flex: 1 0 100%;
+    width: auto;
+    max-width: none;
+    margin-top: 0.5rem;
+    box-shadow: none;
+  }
+  .stat-cijfer .wr-tooltip::before, .stat-inzicht .wr-tooltip::before { display: none; }
+  .stat-cijfer:focus-within .wr-tooltip,
+  .stat-inzicht:focus-within .wr-tooltip { display: block; }
+
+  /* Zolang de uitleg openstaat, neemt de kaart de volle breedte. In een halve
+     kolom wordt zo'n zin anders een sliert van tien regels. Bij het wegklikken
+     schuift ze vanzelf terug. */
+  .stat-cijfer:focus-within { grid-column: 1 / -1; }
 }

@@ -29,9 +29,9 @@ gebruiker die dat kind beheert.
    `008` → `009_gezin_en_whatsapp.sql` → `010_wereldreis.sql` →
    `011_wereldreis_fotos.sql` → `012_stickers_aantal.sql` →
    `013_landen_engels_en_pagina.sql` → `014_na_beurs_contact.sql` →
-   `015_wijk_en_altijd_naam.sql` → `016_ruilen_registreren.sql`. Enkel `002`
-   en de blokken die het zelf aankondigen zijn destructief; `009` en later
-   zijn dat niet.
+   `015_wijk_en_altijd_naam.sql` → `016_ruilen_registreren.sql` →
+   `017_statistieken.sql`. Enkel `002` en de blokken die het zelf aankondigen
+   zijn destructief; `009` en later zijn dat niet.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
    Wachtwoord-authenticatie is niet nodig: deze app gebruikt Magic Links en
    (optioneel) Google — zie §5.
@@ -410,6 +410,81 @@ Wordt het portaal ooit druk bezocht, dan is een aanbieder met een sleutel
 netter tegenover OpenStreetMap: vervang de URL in `maakKaart()`
 (`js/wereldreis.js`), zet de nieuwe host in `_headers` en pas de attributie aan.
 
+## 9. Statistieken
+
+`statistieken.html` toont het hele portaal in cijfers: verzamelaars, stickers,
+waarde, landen, ruilen, activiteit doorheen de tijd en toplijsten. Alles wordt
+op het moment van opvragen berekend — er wordt niets bijgehouden of
+gecachet — door zes RPC's in `017_statistieken.sql`. De pagina telt zelf niets
+op: dat zou betekenen dat de browser de stickerrijen van álle deelnemers moet
+downloaden, en dat zijn precies de gegevens die niemand hoort te zien.
+
+**Geen namen.** Nergens op de pagina staat de naam van een kind, ook niet in de
+ranglijst: die toont enkel de volgorde met de bijhorende aantallen. Geen enkele
+functie in `017` geeft een voornaam terug, dus er valt ook niets te lekken.
+
+### "Geplakt" is een afleiding, geen telling
+
+De databank houdt niet bij wat een kind al in zijn album heeft — er zijn maar
+twee statussen, `ZOEKT` en `RUILT`. Net als de FIFA Wereldreis rekent deze
+pagina daarom: **alles wat niet als gezocht is aangeduid, geldt als aanwezig**.
+
+Die afleiding klopt enkel voor wie zijn lijst effectief invulde, en dat is niet
+vanzelfsprekend: een leeg profiel ziet er zo uit als een volledig album en
+trekt élk gemiddelde omhoog. `stat_verzamelaars()` laat daarom twee groepen
+buiten alle cijfers:
+
+1. wie nog geen enkele sticker registreerde;
+2. wie **duidelijk halverwege gestopt** is. Wie zijn ontbrekende stickers
+   invult, werkt de landenlijst af in een van de twee volgordes die de
+   stickerpagina aanbiedt: alfabetisch op landcode, of de volgorde van het
+   boek. Stopt iemand halverwege, dan blijft er in díe volgorde een
+   aaneengesloten staart landen over waar niets bij geregistreerd staat — niet
+   gezocht én niet dubbel. Per verzamelaar wordt in beide volgordes gekeken hoe
+   ver hij geraakte en de gunstigste van de twee genomen; blijft er dan nog
+   altijd een staart over van minstens een vijfde van alle landen (en minstens
+   vijf), dan telt hij niet mee.
+
+De pagina vermeldt onder blok 1 hoeveel verzamelaars er om die tweede reden
+buiten bleven, met de drempel erbij. Wie écht alles van de laatste landen heeft
+en er niets van zoekt of dubbel heeft, valt zo ten onrechte buiten — dat weegt
+niet op tegen één leeg profiel dat als een vol album meetelt.
+
+### Wat er ingesteld kan worden
+
+Op `instellingen.html` (beheerders): de **prijs van één sticker**
+(`instellingen.stickerwaarde`, standaard € 0,25) en het **aantal stickers per
+pakje** (`stickers_per_pakje`, standaard 5). Alle bedragen op de pagina zijn
+een vermenigvuldiging van het eerste; het tweede wordt enkel gebruikt voor de
+schatting van vermeden pakjes.
+
+### De schatting van vermeden pakjes
+
+Het enige cijfer op de pagina dat een model is en geen telling. Stickers uit
+pakjes komen willekeurig, en hoe voller je album, hoe vaker je een dubbele
+trekt — het coupon collector-probleem. Om van *j* naar *j+1* verschillende
+stickers te gaan op een album van *N* heb je gemiddeld `N/(N-j)` stickers
+nodig. Voor de laatste *g* stickers die iemand verzamelde is dat samen:
+
+```
+N * (1/(N-bezit+1) + 1/(N-bezit+2) + ... + 1/(N-bezit+g))
+```
+
+waarbij *g* het aantal stickers is dat via voltooide ruilen binnenkwam (één per
+voltooide ruil, per kant). Gedeeld door de pakjesgrootte geeft dat de
+schatting. Het model neemt aan dat alle stickers even vaak voorkomen en dat een
+pakje geen dubbels van zichzelf bevat — allebei niet helemaal waar — en houdt
+er geen rekening mee dat je bij een ruil zelf ook een sticker weggeeft. De
+pagina zegt daarom met zoveel woorden dat dit **een schatting is en geen
+besparing**.
+
+### Een kanttekening bij twee toplijsten
+
+Omdat "geplakt" gedefinieerd is als "niet gezocht", is het aantal verzamelaars
+van een sticker per definitie het totaal min het aantal zoekers. *Meest
+gezochte stickers* en *meest verzamelde stickers* zijn dus elkaars spiegelbeeld
+en geen twee onafhankelijke metingen. De tooltip bij de tweede lijst zegt dat.
+
 ## Database structuur
 
 **kinderen**
@@ -562,7 +637,12 @@ zodra dat er meer dan één is.
   beheerders — het opvolgingsoverzicht.
 - `js/gezin.js` — tweede volwassene toevoegen, gsm-nummer van het gezin.
 - `js/whatsapp.js` — nummers normaliseren naar E.164 en wa.me-links bouwen.
-- `js/instellingen.js` — beheerpagina: beursvenster, glans, organisatornummer.
+- `js/instellingen.js` — beheerpagina: beursvenster, glans, organisatornummer,
+  stickerwaarde en pakjesgrootte.
+- `js/statistieken.js` — statistiekenpagina: cijferkaarten met tooltips,
+  staafdiagrammen (gewone elementen op procentbreedte) en lijngrafieken (met de
+  hand getekende SVG). Geen grafiekbibliotheek: een pakket van 200 kB voor zes
+  grafiekjes weegt niet op tegen de laadtijd.
 - `js/wereldreis.js` — FIFA Wereldreis: coördinaten, kleuren, lagen, kaart.
 - `js/landen-data.js` — de notatie `BEL - BELGIUM - België`, de accentkleur per
   land, de drie sorteervolgordes (code, albumvolgorde, alfabetisch Engels) en

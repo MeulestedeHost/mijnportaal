@@ -1,6 +1,6 @@
 // instellingen.js — Beheerpagina: beursvenster, glansstickers, WhatsApp van de
-// organisatie, en de knoppen achter de statistiekenpagina (stickerwaarde,
-// pakjesgrootte en of de ranglijst met voornamen voor iedereen zichtbaar is).
+// organisatie, en de twee getallen achter de statistiekenpagina (prijs van een
+// sticker en aantal stickers per pakje).
 //
 // De pagina is geen beveiliging: ze verbergt hooguit knoppen. Wie mag
 // opslaan, beslist RLS op public.instellingen (policy instellingen_update,
@@ -14,7 +14,7 @@ import { normaliseerTelefoon, toonTelefoon } from "./whatsapp.js";
 // mogen niet uit elkaar lopen.
 const KOLOMMEN =
   "beurs_start,beurs_einde,toon_glans,whatsapp_nummer,whatsapp_bericht," +
-  "stickerwaarde,stickers_per_pakje,toon_topverzamelaars";
+  "stickerwaarde,stickers_per_pakje";
 
 let origineel = null;
 let userId = null;
@@ -79,14 +79,12 @@ function vulFormulier() {
   document.getElementById("inst-glans").checked = Boolean(origineel.toon_glans);
   document.getElementById("inst-wa-nummer").value = toonTelefoon(origineel.whatsapp_nummer);
   document.getElementById("inst-wa-bericht").value = origineel.whatsapp_bericht || "";
-  // Draaide sql/017 nog niet, dan bestaan deze drie kolommen nog niet; dan
+  // Draaide sql/017 nog niet, dan bestaan deze twee kolommen nog niet; dan
   // tonen we dezelfde standaardwaarden als de databank zou gebruiken.
   document.getElementById("inst-stickerwaarde").value =
     origineel.stickerwaarde == null ? "0.25" : String(origineel.stickerwaarde);
   document.getElementById("inst-pakje").value =
     origineel.stickers_per_pakje == null ? "5" : String(origineel.stickers_per_pakje);
-  document.getElementById("inst-topverzamelaars").checked =
-    Boolean(origineel.toon_topverzamelaars);
   toonVensterStatus();
   document.getElementById("inst-message").className = "message";
 }
@@ -189,7 +187,6 @@ async function bewaar(e) {
         whatsapp_bericht: waBericht || null,
         stickerwaarde: waarde,
         stickers_per_pakje: pakje,
-        toon_topverzamelaars: document.getElementById("inst-topverzamelaars").checked,
         updated_by: userId, // wie de beurs verzette, is achteraf de eerste vraag
       })
       .eq("id", 1)

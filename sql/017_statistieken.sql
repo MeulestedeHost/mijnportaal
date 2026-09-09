@@ -7,31 +7,35 @@
 -- precies de gegevens die niemand hoort te zien. Wat hieronder teruggegeven
 -- wordt zijn optellingen, geen rijen.
 --
+-- GEEN NAMEN. Nergens op deze pagina komt de naam van een kind voor, ook niet
+-- in de ranglijst: die toont enkel de volgorde (1, 2, 3 …) met de bijhorende
+-- aantallen. Een statistiekenpagina hoort te gaan over hoeveel, niet over wie.
+-- Daarom is er ook geen enkele functie hieronder die een voornaam teruggeeft.
+--
 -- WAT "GEPLAKT" HIER BETEKENT — LEES DIT EERST. De databank houdt niet bij
 -- wat een kind al in zijn album heeft: er zijn maar twee statussen, ZOEKT en
 -- RUILT (zie sql/002 en js/stickers.js). "Geplakt" is dus een AFLEIDING, en
 -- wel dezelfde die de FIFA Wereldreis al gebruikt (wereldreis_landen in
 -- sql/012): alles wat niet als gezocht is aangeduid, geldt als aanwezig.
 --
--- Dat klopt enkel voor wie zijn ontbrekende stickers ook effectief invulde.
--- Daarom telt elke berekening hieronder uitsluitend VERZAMELAARS MET MINSTENS
--- ÉÉN GEREGISTREERDE STICKER mee: een kind dat nog niets invulde zou anders
--- als een vol album meetellen en elk gemiddelde omhoog trekken. Die afbakening
--- is meteen ook de definitie die kaart 1 ("actieve verzamelaars") gebruikt.
--- De tooltips op de pagina zeggen dit er telkens bij.
+-- Die afleiding klopt enkel voor wie zijn ontbrekende stickers ook effectief
+-- invulde. Twee filters houden ze eerlijk (zie stat_verzamelaars hieronder):
+--   1. wie nog geen enkele sticker registreerde, telt niet mee;
+--   2. wie duidelijk halverwege gestopt is — de laatste landen van het album
+--      staan volledig leeg — telt ook niet mee.
 --
--- WIE ZIET WAT. Optellingen zijn er voor elke aangemelde deelnemer: hoeveel
--- verzamelaars, hoeveel stickers, welke landen. NAMEN liggen anders — een
--- ranglijst van andermans kinderen is iets anders dan een totaal. De toplijst
--- van verzamelaars komt daarom enkel terug voor beheerders, of wanneer de
--- organisatie ze bewust openzet met de schakelaar toon_topverzamelaars op de
--- instellingenpagina. Standaard staat die uit.
+-- Niet destructief voor gebruikersgegevens: er wordt geen kind, sticker of ruil
+-- aangeraakt. Wat het script wél doet is twee kolommen bijzetten op
+-- public.instellingen en acht functies (her)aanmaken.
 --
--- Niet destructief: drie kolommen bij op public.instellingen en zeven
--- functies bij. Er verdwijnt niets.
+-- HERDRAAIBAAR. Elke functie wordt eerst gedropt en dan opnieuw aangemaakt.
+-- Dat moet: create or replace weigert zodra de kolomlijst van een functie
+-- verandert ("cannot change return type of existing function"), en dat is
+-- precies wat er gebeurt wanneer een eerdere versie van dit script al liep.
+-- Het script mag dus zo vaak uitgevoerd worden als nodig.
 
 -- ============================================================
--- 1. Drie instelbare getallen
+-- 1. Twee instelbare getallen
 -- ============================================================
 -- De stickerwaarde is nominaal: wat een sticker in een pakje kost, niet wat
 -- hij "waard" is. Ze staat in de databank en niet als constante in de code,
@@ -53,27 +57,30 @@ alter table public.instellingen
 comment on column public.instellingen.stickers_per_pakje is
   'Aantal stickers per pakje. Enkel gebruikt voor de schatting van vermeden pakjes.';
 
--- Staat dit uit (standaard), dan ziet enkel een beheerder de ranglijst met
--- voornamen. Aan = iedereen die aangemeld is ziet ze.
+-- Opruiming. Een eerdere versie van dít script zette hier een schakelaar
+-- toon_topverzamelaars neer: de ranglijst toonde toen voornamen en die moesten
+-- afgeschermd kunnen worden. De ranglijst is intussen volledig anoniem — enkel
+-- de volgorde met de aantallen — dus de schakelaar heeft geen betekenis meer
+-- en wordt nergens nog gelezen. Bevatte niets dan die ene ja/nee-instelling;
+-- er gaan dus geen gebruikersgegevens verloren. Liep dit script nooit eerder,
+-- dan doet deze regel niets.
 alter table public.instellingen
-  add column if not exists toon_topverzamelaars boolean not null default false;
-
-comment on column public.instellingen.toon_topverzamelaars is
-  'Mag de ranglijst met voornamen van verzamelaars aan alle deelnemers getoond worden? Standaard nee; beheerders zien ze altijd.';
+  drop column if exists toon_topverzamelaars;
 
 -- ============================================================
 -- 2. Twee interne hulpfuncties
 -- ============================================================
 -- Elke statistiek vertrekt van dezelfde twee vragen: welke stickers tellen mee
 -- (glansvarianten wel of niet), en wie telt als verzamelaar. Die staan hier
--- één keer in plaats van vijf keer overgeschreven.
+-- één keer in plaats van zes keer overgeschreven.
 --
--- BEWUST NIET AANROEPBAAR VAN BUITENAF: stat_verzamelaars() geeft kind-uuid's
--- en voornamen terug van álle deelnemers. De functies hieronder mogen ze
--- gebruiken (security definer draait als de eigenaar), een aangemelde
--- gebruiker niet — vandaar de revoke zonder grant.
+-- BEWUST NIET AANROEPBAAR VAN BUITENAF: stat_verzamelaars() geeft de kind-uuid's
+-- van álle deelnemers terug. De functies hieronder mogen ze gebruiken (security
+-- definer draait als de eigenaar), een aangemelde gebruiker niet — vandaar de
+-- revoke zonder grant.
 
-create or replace function public.stat_catalogus()
+drop function if exists public.stat_catalogus();
+create function public.stat_catalogus()
 returns table (
   code         text,
   land_code    text,
@@ -97,21 +104,77 @@ revoke all on function public.stat_catalogus() from public;
 revoke all on function public.stat_catalogus() from anon;
 revoke all on function public.stat_catalogus() from authenticated;
 
-create or replace function public.stat_verzamelaars()
-returns table (kind_id uuid, voornaam text)
+-- WIE TELT ALS VERZAMELAAR — EN WAAROM SOMMIGEN NIET.
+--
+-- Omdat "geplakt" berekend wordt als "album min gezocht", ziet een kind dat
+-- niets invulde eruit als iemand met een volledig album. Dat trekt élk
+-- gemiddelde op deze pagina scheef. Twee filters:
+--
+--   1. Geen enkele sticker geregistreerd → niet meegeteld. Simpel.
+--
+--   2. Duidelijk halverwege gestopt → niet meegeteld. Wie zijn ontbrekende
+--      stickers invult, werkt de landenlijst af in de volgorde die op de
+--      stickerpagina gekozen kan worden: alfabetisch op landcode, of de
+--      volgorde van het boek. Stopt iemand halverwege, dan blijft er in díe
+--      volgorde een aaneengesloten staart landen over waar hij niets bij
+--      registreerde — niet gezocht én niet dubbel.
+--
+--      Per verzamelaar wordt daarom in beide volgordes gekeken hoe ver hij
+--      geraakte, en de gunstigste van de twee genomen (least(...) op het
+--      bereik = de kortste staart). Blijft er dan nog altijd een staart over
+--      van minstens een vijfde van alle landen, dan is de lijst duidelijk
+--      onafgewerkt en blijft de verzamelaar buiten de cijfers.
+--
+-- KANTTEKENING. Wie écht alles van de laatste landen heeft en er niets van
+-- zoekt of dubbel heeft, valt hier ten onrechte buiten. Dat weegt niet op
+-- tegen het alternatief: één leeg profiel dat als een vol album meetelt,
+-- vertekent de gemiddelden veel harder. De pagina vermeldt hoeveel
+-- verzamelaars er om deze reden buiten bleven.
+drop function if exists public.stat_verzamelaars();
+create function public.stat_verzamelaars()
+returns table (kind_id uuid)
 language sql
 stable
 security definer
 set search_path = ''
 as $fn$
-  select k.id, k.voornaam
-  from public.kinderen k
-  where exists (
-    select 1
+  with cat as (select * from public.stat_catalogus()),
+  landen as (
+    select c.land_code, min(c.pagina) as pagina
+    from cat c
+    group by c.land_code
+  ),
+  volgorde as (
+    select
+      l.land_code,
+      row_number() over (order by l.pagina nulls last, l.land_code) as boek,
+      row_number() over (order by l.land_code)                      as alfabet
+    from landen l
+  ),
+  aantal as (select count(*)::int as landen from landen),
+  drempel as (
+    -- Minstens een vijfde van de landen, en nooit minder dan vijf: bij een
+    -- korte landenlijst zou 20 % anders één of twee landen worden.
+    select greatest(5, ceil(0.20 * (select landen from aantal)))::int as staart
+  ),
+  ingevuld as (
+    select distinct s.kind_id, c.land_code
     from public.stickers s
-    join public.stat_catalogus() c on c.code = s.nummer
-    where s.kind_id = k.id
-  );
+    join cat c on c.code = s.nummer
+  ),
+  bereik as (
+    select
+      i.kind_id,
+      max(v.boek)    as tot_boek,
+      max(v.alfabet) as tot_alfabet
+    from ingevuld i
+    join volgorde v on v.land_code = i.land_code
+    group by i.kind_id
+  )
+  select b.kind_id
+  from bereik b
+  where (select landen from aantal) - least(b.tot_boek, b.tot_alfabet)
+        < (select staart from drempel);
 $fn$;
 
 revoke all on function public.stat_verzamelaars() from public;
@@ -147,24 +210,27 @@ revoke all on function public.stat_verzamelaars() from authenticated;
 -- ergens vandaan moest komen. Het cijfer zegt "zoveel pakjes had je nodig
 -- gehad om dit langs de winkel te doen", niet "zoveel geld is er bespaard".
 -- De pagina zegt dat er met zoveel woorden bij.
-create or replace function public.statistieken()
+drop function if exists public.statistieken();
+create function public.statistieken()
 returns table (
-  verzamelaars        integer,
-  album_totaal        integer,
-  geplakt             bigint,
-  gezocht             bigint,
-  dubbels             bigint,
-  stickerwaarde       numeric,
-  stickers_per_pakje  integer,
-  landen_gemiddeld    numeric,
-  albumvulling        numeric,
-  dubbels_gemiddeld   numeric,
-  gezocht_gemiddeld   numeric,
-  ruilen_totaal       integer,
-  ruilen_voltooid     integer,
-  ruilen_open         integer,
-  vermeden_pakjes     numeric,
-  mag_topverzamelaars boolean
+  verzamelaars           integer,
+  verzamelaars_onvolledig integer,
+  landen_totaal          integer,
+  staart_drempel         integer,
+  album_totaal           integer,
+  geplakt                bigint,
+  gezocht                bigint,
+  dubbels                bigint,
+  stickerwaarde          numeric,
+  stickers_per_pakje     integer,
+  landen_gemiddeld       numeric,
+  albumvulling           numeric,
+  dubbels_gemiddeld      numeric,
+  gezocht_gemiddeld      numeric,
+  ruilen_totaal          integer,
+  ruilen_voltooid        integer,
+  ruilen_open            integer,
+  vermeden_pakjes        numeric
 )
 language sql
 stable
@@ -173,15 +239,28 @@ set search_path = ''
 as $fn$
   with inst as (
     select
-      coalesce(i.stickerwaarde, 0.25)        as waarde,
-      coalesce(i.stickers_per_pakje, 5)      as pakje,
-      coalesce(i.toon_topverzamelaars, false) as toptonen
+      coalesce(i.stickerwaarde, 0.25)   as waarde,
+      coalesce(i.stickers_per_pakje, 5) as pakje
     from public.instellingen i
     where i.id = 1
   ),
   cat as (select * from public.stat_catalogus()),
   n as (select count(*)::int as totaal from cat),
   vz as (select * from public.stat_verzamelaars()),
+  -- Iedereen met minstens één sticker, dus inclusief wie op de staarttoets
+  -- afviel: het verschil met vz is precies het aantal dat buiten de cijfers
+  -- bleef.
+  met_stickers as (
+    select count(distinct s.kind_id)::int as n
+    from public.stickers s
+    join cat c on c.code = s.nummer
+  ),
+  land_totalen as (
+    select c.land_code, count(*)::int as totaal from cat c group by c.land_code
+  ),
+  drempel as (
+    select greatest(5, ceil(0.20 * (select count(*) from land_totalen)))::int as staart
+  ),
   per_kind as (
     select
       v.kind_id,
@@ -202,9 +281,6 @@ as $fn$
   met_bezit as (
     select p.*, (select totaal from n) - p.gezocht as bezit
     from per_kind p
-  ),
-  land_totalen as (
-    select c.land_code, count(*)::int as totaal from cat c group by c.land_code
   ),
   gezocht_per_land as (
     select s.kind_id, c.land_code, count(*)::int as gezocht
@@ -248,6 +324,9 @@ as $fn$
   )
   select
     (select count(*)::int from vz),
+    (select n from met_stickers) - (select count(*)::int from vz),
+    (select count(*)::int from land_totalen),
+    (select staart from drempel),
     (select totaal from n),
     (select coalesce(sum(b.bezit), 0)::bigint from met_bezit b),
     (select coalesce(sum(p.gezocht), 0)::bigint from per_kind p),
@@ -261,8 +340,7 @@ as $fn$
     (select totaal from ruil),
     (select voltooid from ruil),
     (select totaal - voltooid from ruil),
-    (select round((select stickers from pakjes) / (select pakje from inst), 1)),
-    (select toptonen from inst) or public.is_beheerder()
+    (select round((select stickers from pakjes) / (select pakje from inst), 1))
   where auth.uid() is not null;
 $fn$;
 
@@ -276,7 +354,8 @@ grant execute on function public.statistieken() to authenticated;
 -- Voedt de drie staafdiagrammen (meest verzameld, meest gezocht, meeste
 -- dubbels) en de inzichten onderaan. Eén aanroep, alle landen; sorteren doet
 -- de pagina zelf, want ze toont dezelfde rijen drie keer anders geordend.
-create or replace function public.statistieken_landen()
+drop function if exists public.statistieken_landen();
+create function public.statistieken_landen()
 returns table (
   land_code    text,
   land_naam    text,
@@ -344,7 +423,8 @@ grant execute on function public.statistieken_landen() to authenticated;
 -- lijsten zijn dus elkaars spiegelbeeld: de meest gezochte sticker is exact
 -- de minst verzamelde. De pagina zegt dat in de tooltip, zodat niemand ze
 -- leest als twee onafhankelijke metingen.
-create or replace function public.top_gezochte_stickers(p_limiet integer default 10)
+drop function if exists public.top_gezochte_stickers(integer);
+create function public.top_gezochte_stickers(p_limiet integer default 10)
 returns table (
   code      text,
   land_code text,
@@ -371,7 +451,8 @@ revoke all on function public.top_gezochte_stickers(integer) from public;
 revoke all on function public.top_gezochte_stickers(integer) from anon;
 grant execute on function public.top_gezochte_stickers(integer) to authenticated;
 
-create or replace function public.top_verzamelde_stickers(p_limiet integer default 10)
+drop function if exists public.top_verzamelde_stickers(integer);
+create function public.top_verzamelde_stickers(p_limiet integer default 10)
 returns table (
   code         text,
   land_code    text,
@@ -420,7 +501,8 @@ grant execute on function public.top_verzamelde_stickers(integer) to authenticat
 --
 -- Voor een ruil geldt als "voltooid op" het moment van de LAATSTE van de twee
 -- bevestigingen — dat is wanneer hij effectief rond was.
-create or replace function public.statistieken_activiteit(
+drop function if exists public.statistieken_activiteit(timestamptz, text);
+create function public.statistieken_activiteit(
   p_vanaf timestamptz default null,
   p_stap  text default 'day'
 )
@@ -479,16 +561,18 @@ revoke all on function public.statistieken_activiteit(timestamptz, text) from an
 grant execute on function public.statistieken_activiteit(timestamptz, text) to authenticated;
 
 -- ============================================================
--- 7. Ranglijst van verzamelaars — met namen, dus afgeschermd
+-- 7. Ranglijst van verzamelaars — zonder namen
 -- ============================================================
--- Optellingen mag iedereen zien; een ranglijst van andermans kinderen is iets
--- anders. Deze functie geeft daarom niets terug tenzij je beheerder bent, of
--- de organisatie de schakelaar toon_topverzamelaars aanzette. Enkel de
--- voornaam, nooit de familienaam: meer is er niet nodig om een lijstje te
--- lezen.
-create or replace function public.top_verzamelaars(p_limiet integer default 10)
+-- Enkel de volgorde en de aantallen: plaats 1 heeft er zoveel, plaats 2
+-- zoveel. Wie dat is, staat er niet bij en komt hier ook niet uit de databank.
+-- Zo laat de lijst zien hoe ver de verzamelaars uit elkaar liggen zonder dat
+-- er een kind mee aangewezen wordt.
+--
+-- De rijen komen ongesorteerd terug: de pagina zet ze zelf op stickers of op
+-- ruilen, en dat is dezelfde lijst, twee keer anders geordend.
+drop function if exists public.top_verzamelaars(integer);
+create function public.top_verzamelaars(p_limiet integer default 10)
 returns table (
-  voornaam         text,
   geplakt          integer,
   gezocht          integer,
   dubbels          integer,
@@ -499,22 +583,10 @@ stable
 security definer
 set search_path = ''
 as $fn$
-  with toegestaan as (
-    select
-      auth.uid() is not null
-      and (
-        public.is_beheerder()
-        or coalesce(
-          (select i.toon_topverzamelaars from public.instellingen i where i.id = 1),
-          false
-        )
-      ) as ok
-  ),
-  cat as (select * from public.stat_catalogus()),
+  with cat as (select * from public.stat_catalogus()),
   n as (select count(*)::int as totaal from cat),
   vz as (select * from public.stat_verzamelaars())
   select
-    v.voornaam,
     ((select totaal from n) - (
       select count(*) from public.stickers s join cat c on c.code = s.nummer
        where s.kind_id = v.kind_id and s.status = 'ZOEKT'
@@ -527,7 +599,7 @@ as $fn$
       where r.bevestigd_a is not null and r.bevestigd_b is not null
         and (r.kind_a = v.kind_id or r.kind_b = v.kind_id))::int
   from vz v
-  where (select ok from toegestaan)
+  where auth.uid() is not null
   limit greatest(coalesce(p_limiet, 10), 1);
 $fn$;
 
@@ -540,18 +612,27 @@ grant execute on function public.top_verzamelaars(integer) to authenticated;
 -- ============================================================
 -- 1) De hoofdcijfers in één rij:
 --      select * from public.statistieken();
---    -- verzamelaars telt enkel kinderen met minstens één sticker;
---    -- geplakt = verzamelaars * album_totaal - gezocht.
+--    -- verzamelaars telt enkel wie een bruikbare lijst heeft;
+--    -- verzamelaars_onvolledig zegt hoeveel er om die reden buiten bleven.
 --
--- 2) Klopt de albumvulling met de hand?
+-- 2) Wie valt er buiten, en klopt dat? Deze query toont per kind hoe ver het
+--    in beide volgordes geraakte en hoe lang de lege staart is:
+--      with cat as (select * from public.stat_catalogus()),
+--           landen as (select land_code, min(pagina) p from cat group by land_code),
+--           v as (select land_code,
+--                        row_number() over (order by p nulls last, land_code) boek,
+--                        row_number() over (order by land_code) alfabet from landen),
+--           i as (select distinct s.kind_id, c.land_code
+--                   from public.stickers s join cat c on c.code = s.nummer)
+--      select i.kind_id,
+--             (select count(*) from landen) - least(max(v.boek), max(v.alfabet)) as staart
+--        from i join v on v.land_code = i.land_code
+--       group by i.kind_id order by staart desc;
+--
+-- 3) Klopt de albumvulling met de hand?
 --      select album_totaal, geplakt, verzamelaars,
 --             round(100.0 * geplakt / (verzamelaars * album_totaal), 1) as vulling
 --        from public.statistieken();
---
--- 3) De ranglijst hoort leeg te zijn voor een gewone deelnemer zolang
---    toon_topverzamelaars uit staat:
---      select count(*) from public.top_verzamelaars(10);
---    -- als beheerder: het aantal verzamelaars; als deelnemer: 0.
 --
 -- 4) Activiteit per dag over de laatste week:
 --      select * from public.statistieken_activiteit(now() - interval '7 days', 'day');
