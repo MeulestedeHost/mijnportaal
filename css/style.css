@@ -218,10 +218,14 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
    stickernummers zwart-op-licht leesbaar blijven. */
 .sticker-chip--gezocht { background: #fdeaea; }
 .sticker-chip--dubbel { background: #e4f5ea; }
-/* Een paar tellen oplichten na een sprong vanuit de zoekresultaten. In een
-   raster van tweehonderd chips die op elkaar lijken, is "ergens in het
+/* Dezelfde blauwe rand, twee verschillende redenen om ze te zetten:
+   --gevonden is een paar tellen oplichten na een sprong vanuit de
+   zoekresultaten (tijdelijk, met een timer), --zoektreffer is de sticker(s)
+   die nu al matchen met wat er in "Of zoek een sticker of speler" staat
+   terwijl je typt (blijft staan zolang de zoekterm matcht, geen timer). In
+   een raster van tweehonderd chips die op elkaar lijken, is "ergens in het
    midden" nog steeds zoeken; de ring wijst aan wélke het is. */
-.sticker-chip--gevonden { outline: 3px solid var(--cf-blue-primary); outline-offset: 2px; }
+.sticker-chip--gevonden, .sticker-chip--zoektreffer { outline: 3px solid var(--cf-blue-primary); outline-offset: 2px; }
 
 /* De landkolom op de ruilpagina: een streepje in de landkleur vóór de tekst,
    zodat een lange tabel sneller te scannen is dan met tekst alleen. */

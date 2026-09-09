@@ -34,7 +34,8 @@
       <p class="form-meta">
         Kies een land, vink aan wat je zoekt en zet met + en − hoeveel je er dubbel hebt.
         Weet je al welke sticker je zoekt? Typ dan meteen de code, de speler of het land in het
-        zoekveld eronder — je springt er in één klik naartoe.
+        zoekveld eronder: staat hij al in de lijst hieronder, dan licht hij daar meteen op; hoort
+        hij bij een ander land, dan spring je er met één klik naartoe.
         Alles wordt <strong>vanzelf bewaard</strong> — je hoeft niets af te sluiten, ook niet
         als je van land wisselt of de pagina sluit.
       </p>
@@ -85,9 +86,13 @@
       </div>
 
       <!-- De tweede weg naar een sticker: niet eerst het land, maar meteen de
-           sticker, de speler of het team. Zoekt over alle landen heen; een
-           resultaat aanklikken zet het land goed en springt naar die ene
-           sticker in de checklist hieronder. -->
+           sticker, de speler of het team. Zoekt over alle landen heen.
+           Hoort de treffer al bij het land dat hieronder open staat, dan licht
+           hij daar rechtstreeks op in de checklist (bouwChip/pasZoekMarkeringToe
+           in js/stickers.js) — geen apart "zoeken binnen dit land"-veldje meer
+           nodig, want dat deed precies hetzelfde in het klein. Hoort hij bij
+           een ander land, dan staat hij in de lijst eronder; die aanklikken
+           (of Enter) zet het land goed en springt naar de sticker. -->
       <div class="form-group stickerzoek">
         <label for="sticker-globaalzoek" class="form-label">Of zoek een sticker of speler</label>
         <input
@@ -108,17 +113,6 @@
           aria-label="Zoekresultaten"
         ></ul>
         <p id="sticker-globaalmeer" class="zoekresultaten__meer hidden" aria-live="polite"></p>
-      </div>
-
-      <div class="form-group hidden" id="sticker-filter-vak">
-        <label for="sticker-zoek" class="form-label">Zoeken binnen dit land</label>
-        <input
-          type="text"
-          id="sticker-zoek"
-          class="form-input"
-          placeholder="Typ een nummer of naam om de lijst te verkorten"
-          autocomplete="off"
-        />
       </div>
 
       <p id="sticker-teller" class="sticker-teller"></p>

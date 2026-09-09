@@ -58,6 +58,10 @@ const ZOEK_MAX = 20;
 // terug te vinden na het scrollen, kort genoeg om niet te blijven roepen.
 const MARKEER_MS = 3000;
 
+// Voorvoegsel van het DOM-id van een chip (zie chipId), ook gebruikt om van
+// een chip-element terug naar zijn code te rekenen (pasZoekMarkeringToe).
+const CHIP_ID_PREFIX = "sticker-chip-";
+
 // Vangnet voor het geval het tabblad sluit vóór de laatste schrijfronde klaar
 // is: wat nog openstaat gaat naar localStorage en wordt bij de volgende
 // paginalading alsnog weggeschreven. Per kind, want je kan van kind wisselen.
@@ -95,10 +99,16 @@ let undoStack = [];
 let autosaveTimer = null;
 let autosaveBezig = false;
 
-// Het zoeken naar stickers en spelers over alle landen heen. zoekResultaten is
-// wat er onder het veld staat (afgekapt op ZOEK_MAX), zoekActief de rij die
-// met de pijltjes aangeduid is en die Enter kiest.
+// Het zoeken naar stickers en spelers over alle landen heen, opgesplitst in
+// twee groepen. zoekResultaten zijn de treffers bij een ANDER land dan het
+// geopende: die staan in de lijst onder het veld (afgekapt op ZOEK_MAX) en
+// vragen een klik of Enter om te wisselen van land. zoekBinnenLand zijn de
+// treffers bij het land dat al open staat: die krijgen geen lijst, want ze
+// zijn al zichtbaar — ze worden rechtstreeks gemarkeerd in de checklist
+// (pasZoekMarkeringToe). zoekActief is de rij in zoekResultaten die met de
+// pijltjes aangeduid is en die Enter kiest.
 let zoekResultaten = [];
+let zoekBinnenLand = [];
 let zoekActief = -1;
 let zoekTimer = null;
 let markeerTimer = null;
@@ -159,7 +169,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   sorteerKiezer.addEventListener("change", wisselSortering);
-  document.getElementById("sticker-zoek").addEventListener("input", tekenChecklist);
   koppelZoekveld();
   document.getElementById("sticker-bewaar-btn").addEventListener("click", () => synchroniseer());
   document.getElementById("sticker-annuleer-btn").addEventListener("click", maakOngedaan);
@@ -284,8 +293,6 @@ async function wisselLand() {
 // dat is de lat waartegen "nog niet bewaard" gemeten wordt.
 function kiesLand() {
   huidigLand = landcombo.waarde();
-  document.getElementById("sticker-filter-vak").classList.toggle("hidden", !huidigLand);
-  document.getElementById("sticker-zoek").value = "";
 
   // De accentkleur van het land staat op de kaart die de checklist bevat;
   // alles erin erft ze via var(--land-accent). Zo hoeft de kleur niet per chip
@@ -313,6 +320,12 @@ function kiesLand() {
   tekenChecklist();
 }
 
+// Toont altijd ALLE stickers van het gekozen land, ongefilterd — er is geen
+// apart zoekveld meer dat hier rijen uit weghaalt. Het globale zoekveld
+// hierboven markeert in plaats daarvan de treffers rechtstreeks in deze
+// volledige lijst (pasZoekMarkeringToe hieronder), dus na elke herbouw wordt
+// die markering opnieuw gezet: staat er nog een zoekterm, dan moet die na een
+// nieuw land of een undo weer op de juiste chips staan.
 function tekenChecklist() {
   const ul = document.getElementById("sticker-checklist");
   const teller = document.getElementById("sticker-teller");
@@ -327,22 +340,11 @@ function tekenChecklist() {
   }
   leeg.classList.add("hidden");
 
-  const term = document.getElementById("sticker-zoek").value.trim().toLowerCase();
   const stickersVanLand = catalogus.filter((s) => s.land_code === huidigLand);
-  const zichtbaar = term
-    ? stickersVanLand.filter(
-        (s) =>
-          String(s.nummer) === term ||
-          s.code.toLowerCase().includes(term) ||
-          (s.naam || "").toLowerCase().includes(term)
-      )
-    : stickersVanLand;
+  teller.textContent = `${stickersVanLand.length} sticker${stickersVanLand.length === 1 ? "" : "s"}`;
+  stickersVanLand.forEach((sticker) => ul.appendChild(bouwChip(sticker)));
 
-  teller.textContent = term
-    ? `${zichtbaar.length} van ${stickersVanLand.length} stickers getoond`
-    : `${stickersVanLand.length} sticker${stickersVanLand.length === 1 ? "" : "s"}`;
-
-  zichtbaar.forEach((sticker) => ul.appendChild(bouwChip(sticker)));
+  pasZoekMarkeringToe();
   bijwerkenBewaarbalk();
 }
 
@@ -466,8 +468,16 @@ function bouwChip(sticker) {
 
 // De tweede weg naar een sticker. De eerste blijft "kies een land en vink af";
 // deze is voor wie al weet wélke sticker hij zoekt en niet eerst wil uitzoeken
-// bij welk land Musiala hoort. Zoekt daarom over alle landen heen, en een
-// resultaat aanklikken doet de landkeuze vanzelf.
+// bij welk land Musiala hoort. Zoekt daarom over alle landen heen.
+//
+// Twee uitkomsten, geen tussenstap. Hoort de treffer bij het land dat al open
+// staat, dan is hij al zichtbaar in de (ongefilterde) checklist eronder — die
+// krijgt gewoon een blauwe rand terwijl je typt, zonder klik. Er is dus geen
+// apart "zoeken binnen dit land"-veldje meer: dat deed precies hetzelfde,
+// alleen via filteren (rijen verbergen) in plaats van markeren. Hoort de
+// treffer bij een ANDER land, dan kán hij niet zomaar verschijnen — het land
+// moet nog wisselen — en daarvoor blijft de resultatenlijst onder het veld
+// staan: die aanklikken (of Enter) kiest het land en springt naar de sticker.
 //
 // Alles gebeurt in het geheugen: de catalogus staat er al, dus er gaat geen
 // aanvraag uit en de lijst kan bij elke aanslag mee.
@@ -483,6 +493,20 @@ function koppelZoekveld() {
       zoek();
       return;
     }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (zoekResultaten.length > 0) {
+        // Zonder pijltjes gebruikt: dan is de bovenste rij bedoeld. Dat is
+        // ook het geval waar er maar één resultaat overblijft.
+        void kiesZoekresultaat(zoekResultaten[Math.max(zoekActief, 0)]);
+      } else if (zoekBinnenLand.length > 0) {
+        // Niets om naar te wisselen — de treffer staat al in de checklist
+        // hieronder en is al gemarkeerd. Enter geeft er dan gewoon focus aan,
+        // zodat ook wie met het toetsenbord werkt er meteen bij kan.
+        toonSticker(zoekBinnenLand[0].code);
+      }
+      return;
+    }
     if (zoekResultaten.length === 0) return;
     switch (e.key) {
       case "ArrowDown":
@@ -496,12 +520,6 @@ function koppelZoekveld() {
       // Home en End blijven met opzet van de tekst zelf: dit is een zoekveld
       // waar je in typt, en de cursor naar het begin van je zoekterm brengen
       // hoort daar te blijven werken.
-      case "Enter":
-        e.preventDefault();
-        // Zonder pijltjes gebruikt: dan is de bovenste rij bedoeld. Dat is
-        // ook het geval waar er maar één resultaat overblijft.
-        void kiesZoekresultaat(zoekResultaten[Math.max(zoekActief, 0)]);
-        break;
       default:
         break;
     }
@@ -538,20 +556,49 @@ function zoek() {
   const term = normaliseer(document.getElementById("sticker-globaalzoek").value.trim());
   if (!term) {
     zoekResultaten = [];
-    tekenZoekresultaten(0, "");
+    zoekBinnenLand = [];
+    pasZoekMarkeringToe();
+    tekenZoekresultaten(0, 0, "");
     return;
   }
-  // Dezelfde volgorde als de landkeuzelijst: zoeken filtert, het sorteert niet.
-  const treffers = catalogus.filter((s) => stickerMatcht(s, term)).sort(vergelijkCatalogus);
-  zoekResultaten = treffers.slice(0, ZOEK_MAX);
-  tekenZoekresultaten(treffers.length, term);
+  const treffers = catalogus.filter((s) => stickerMatcht(s, term));
+  // Dezelfde volgorde als de landkeuzelijst: zoeken filtert/splitst, het
+  // sorteert de gevonden landen niet anders dan ingesteld.
+  zoekBinnenLand = huidigLand
+    ? treffers.filter((s) => s.land_code === huidigLand).sort(vergelijkCatalogus)
+    : [];
+  const andereLanden = (huidigLand ? treffers.filter((s) => s.land_code !== huidigLand) : treffers).sort(
+    vergelijkCatalogus
+  );
+  zoekResultaten = andereLanden.slice(0, ZOEK_MAX);
+  pasZoekMarkeringToe();
+  tekenZoekresultaten(andereLanden.length, treffers.length, term);
 }
 
 function vergelijkCatalogus(a, b) {
   return vergelijkLanden(a, b, sorteerwijze) || a.nummer - b.nummer;
 }
 
-function tekenZoekresultaten(totaal, term) {
+// Zet de blauwe rand op elke chip van het geopende land die met de huidige
+// zoekterm matcht, en haalt hem weg bij de rest. Draait na elke aanslag én na
+// elke herbouw van de checklist (tekenChecklist) — die laatste is nodig omdat
+// een nieuw land of een undo de chips vervangt door verse exemplaren zonder
+// de klasse.
+function pasZoekMarkeringToe() {
+  const term = normaliseer(document.getElementById("sticker-globaalzoek").value.trim());
+  const treffers =
+    term && huidigLand
+      ? new Set(
+          catalogus.filter((s) => s.land_code === huidigLand && stickerMatcht(s, term)).map((s) => s.code)
+        )
+      : new Set();
+  document.querySelectorAll("#sticker-checklist .sticker-chip").forEach((chip) => {
+    const code = chip.id.slice(CHIP_ID_PREFIX.length);
+    chip.classList.toggle("sticker-chip--zoektreffer", treffers.has(code));
+  });
+}
+
+function tekenZoekresultaten(totaalAndereLanden, totaalTreffers, term) {
   const veld = document.getElementById("sticker-globaalzoek");
   const lijst = document.getElementById("sticker-globaalresultaten");
   const meer = document.getElementById("sticker-globaalmeer");
@@ -573,12 +620,15 @@ function tekenZoekresultaten(totaal, term) {
     lijst.appendChild(rij);
   });
 
-  // Onderregel: ofwel hoeveel er niet getoond worden, ofwel dat er niets is.
-  // Allebei nieuws waar je iets mee doet — verder typen — dus staat het in een
-  // aria-live-gebied en niet enkel in beeld.
-  const extra = totaal - zoekResultaten.length;
+  // Onderregel: ofwel hoeveel er niet getoond worden, ofwel dat er nergens
+  // een match is. Allebei nieuws waar je iets mee doet — verder typen — dus
+  // staat het in een aria-live-gebied en niet enkel in beeld. Zit alles wat
+  // gevonden werd al in het geopende land (totaalAndereLanden 0, maar
+  // totaalTreffers > 0), dan blijft dit gebied leeg: de markering in de
+  // checklist hieronder is dan het enige signaal, en dat volstaat.
+  const extra = totaalAndereLanden - zoekResultaten.length;
   if (!term) meer.textContent = "";
-  else if (totaal === 0) meer.textContent = "Geen stickers gevonden.";
+  else if (totaalTreffers === 0) meer.textContent = "Geen stickers gevonden.";
   else if (extra > 0) meer.textContent = `+ ${extra} extra resultaten — typ verder om te verfijnen.`;
   else meer.textContent = "";
   meer.classList.toggle("hidden", meer.textContent === "");
@@ -600,26 +650,19 @@ function zetZoekActief(index) {
 
 // Een resultaat aanklikken doet in één beweging alles wat je anders met de
 // hand moest doen: het juiste land kiezen, de checklist laden en naar die ene
-// sticker toe. De zoekresultaten blijven staan, zodat je meteen naar de
-// volgende treffer kan springen.
+// sticker toe. zoekResultaten bevat per definitie enkel ANDERE landen dan het
+// geopende (zoek() splitst dat al), dus hier hoeft nooit gecontroleerd te
+// worden of het land al klopt. De zoekresultaten blijven na de sprong staan,
+// zodat je meteen naar de volgende treffer kan springen.
 async function kiesZoekresultaat(sticker) {
   if (!sticker) return;
-  if (sticker.land_code !== huidigLand) {
-    landcombo.zetWaarde(sticker.land_code);
-    await wisselLand(); // schrijft eerst weg wat nog openstond
-  } else {
-    // Zelfde land, maar het filtervak eronder kan de sticker verstoppen.
-    const filter = document.getElementById("sticker-zoek");
-    if (filter.value) {
-      filter.value = "";
-      tekenChecklist();
-    }
-  }
+  landcombo.zetWaarde(sticker.land_code);
+  await wisselLand(); // schrijft eerst weg wat nog openstond
   toonSticker(sticker.code);
 }
 
 function chipId(code) {
-  return "sticker-chip-" + code;
+  return CHIP_ID_PREFIX + code;
 }
 
 // Erheen scrollen alleen volstaat niet: in een raster van tweehonderd chips

@@ -659,12 +659,28 @@ dat hier vroeger naast stond, is daarmee overbodig geworden.
 over álle landen heen, op stickernummer, stickercode, spelersnaam en team (bij
 dit album is het team het land, dus "GER", "Germany" en "Duitsland" werken hier
 ook). Er gaat geen aanvraag uit — de catalogus staat al in het geheugen — dus
-150 ms uitstel volstaat om niet bij elke aanslag te hertekenen. Er verschijnen
-maximaal twintig resultaten; wat er niet bij staat, wordt geteld ("+ 34 extra
-resultaten"). Een resultaat aanklikken doet in één beweging wat je anders met de
-hand deed: het land in de keuzelijst zetten, de checklist van dat land laden,
-naar die ene sticker scrollen, hem een paar tellen laten oplichten en hem de
-focus geven.
+150 ms uitstel volstaat om niet bij elke aanslag te hertekenen.
+
+De checklist eronder toont altijd **alle** stickers van het geopende land,
+ongefilterd — er is geen apart "Zoeken binnen dit land"-veldje meer dat daar
+rijen uit haalt, want dat deed in het klein precies hetzelfde als dit ene
+zoekveld. In plaats daarvan splitst de zoekopdracht zich in twee:
+
+- Hoort de treffer bij het land dat al open staat, dan staat hij al gewoon
+  in de lijst — en die chip krijgt meteen een blauwe rand terwijl je typt.
+  Geen klik nodig, geen lijst eronder: `pasZoekMarkeringToe()` in
+  `js/stickers.js` zet en haalt die rand telkens weer bij elke aanslag.
+- Hoort de treffer bij een ánder land, dan kan hij niet zomaar verschijnen —
+  het land moet eerst wisselen. Die treffers staan (tot maximaal twintig, de
+  rest geteld: "+ 34 extra resultaten") in de vertrouwde resultatenlijst
+  onder het veld. Zo'n resultaat aanklikken (of ernaartoe pijlen en Enter)
+  doet in één beweging wat je anders met de hand deed: het land in de
+  keuzelijst zetten, de checklist van dat land laden, naar die ene sticker
+  scrollen, hem een paar tellen laten oplichten en hem de focus geven.
+
+Blijkt de treffer al in de geopende checklist te staan (dus geen lijst om uit
+te kiezen) en druk je toch Enter, dan krijgt die chip gewoon de focus — handig
+voor wie met het toetsenbord werkt.
 
 ## Frontend
 
