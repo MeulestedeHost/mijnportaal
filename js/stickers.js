@@ -25,12 +25,12 @@
 import { supabase, requireAuth } from "./supabase.js";
 import { getKind } from "./kinderen.js";
 import {
-  landLabel,
   accentVoor,
   vergelijkLanden,
   normaliseer,
   landMatcht,
 } from "./landen-data.js";
+import { maakLandcombo } from "./landcombo.js";
 
 const TABEL = "stickers";
 const STATUS_TEKST = { ZOEKT: "zoek ik", RUILT: "heb ik dubbel" };
@@ -41,6 +41,23 @@ const PAGINA = 1000; // PostgREST levert maximaal 1000 rijen per aanvraag
 // klikken samen te nemen, kort genoeg om niet als "niet bewaard" te voelen.
 const AUTOSAVE_MS = 500;
 
+// Uitstel van het zoeken naar stickers en spelers. Kort, want er gaat geen
+// aanvraag uit: de catalogus staat al in het geheugen en we filteren gewoon
+// een lijst. Dezelfde 150 ms als het herschikken van de wereldkaart
+// (js/wereldkaart.js) — genoeg om niet bij elke aanslag de hele lijst te
+// hertekenen, te kort om als vertraging te voelen. De 500 ms hierboven is van
+// een andere orde: die spaart netwerkaanvragen uit.
+const ZOEK_UITSTEL_MS = 150;
+
+// Hoeveel zoekresultaten er onder het veld passen voor het een lijst wordt
+// waar je doorheen moet scrollen. Wat er niet bij staat, wordt geteld ("+ 34
+// extra resultaten") — dat is het signaal om verder te typen.
+const ZOEK_MAX = 20;
+
+// Hoe lang een aangeklikte sticker opgelicht blijft staan. Lang genoeg om hem
+// terug te vinden na het scrollen, kort genoeg om niet te blijven roepen.
+const MARKEER_MS = 3000;
+
 // Vangnet voor het geval het tabblad sluit vóór de laatste schrijfronde klaar
 // is: wat nog openstaat gaat naar localStorage en wordt bij de volgende
 // paginalading alsnog weggeschreven. Per kind, want je kan van kind wisselen.
@@ -50,7 +67,8 @@ let kindId;
 let catalogus = [];
 let catalogusPerCode = new Map();
 let landen = []; // één rij per land: code, namen, paginanummer
-let sorteerwijze = "code";
+let landcombo; // de landkeuze waarin je kan typen (js/landcombo.js)
+let sorteerwijze = "pagina";
 let huidigeStickers = [];
 let statusPerCode = new Map(); // code -> status van DIT kind
 let aantalPerCode = new Map(); // code -> aantal dubbels van DIT kind
@@ -76,6 +94,14 @@ let pendingChanges = new Map();
 let undoStack = [];
 let autosaveTimer = null;
 let autosaveBezig = false;
+
+// Het zoeken naar stickers en spelers over alle landen heen. zoekResultaten is
+// wat er onder het veld staat (afgekapt op ZOEK_MAX), zoekActief de rij die
+// met de pijltjes aangeduid is en die Enter kiest.
+let zoekResultaten = [];
+let zoekActief = -1;
+let zoekTimer = null;
+let markeerTimer = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   const zone = document.getElementById("sticker-checklist");
@@ -109,6 +135,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  // De sorteervolgorde komt uit de keuzelijst zelf, zodat de standaard maar op
+  // één plek staat (kind.html) en de lijst hier nooit anders geordend raakt
+  // dan wat er in het vakje "Volgorde" te lezen valt.
+  const sorteerKiezer = document.getElementById("sticker-sortering");
+  sorteerwijze = sorteerKiezer.value;
+  landcombo = maakLandcombo({
+    wortel: document.getElementById("sticker-landcombo"),
+    opKies: () => void wisselLand(),
+  });
+
   try {
     const toonGlans = await glansstickersAan();
     catalogus = await laadCatalogus();
@@ -117,15 +153,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     catalogusPerCode = new Map(catalogus.map((s) => [s.code, s]));
     if (!toonGlans) catalogus = catalogus.filter((s) => !s.glans);
     verzamelLanden();
-    vulLandKeuzelijst();
+    vulLandcombo();
   } catch (err) {
     toonMelding("Stickerlijst kon niet geladen worden: " + err.message, "error");
   }
 
-  document.getElementById("sticker-land").addEventListener("change", wisselLand);
-  document.getElementById("sticker-landzoek").addEventListener("input", vulLandKeuzelijst);
-  document.getElementById("sticker-sortering").addEventListener("change", wisselSortering);
+  sorteerKiezer.addEventListener("change", wisselSortering);
   document.getElementById("sticker-zoek").addEventListener("input", tekenChecklist);
+  koppelZoekveld();
   document.getElementById("sticker-bewaar-btn").addEventListener("click", () => synchroniseer());
   document.getElementById("sticker-annuleer-btn").addEventListener("click", maakOngedaan);
 
@@ -204,57 +239,28 @@ function verzamelLanden() {
   landen = [...perCode.values()];
 }
 
-// De keuzelijst toont overal dezelfde notatie: BEL - BELGIUM - België. De
-// waarde van een optie is de landcode, niet de naam — dat is de sleutel die
-// ook in de catalogus en in de stickercodes zit.
+// De landen gaan gesorteerd naar de keuzelijst; die filtert er tijdens het
+// typen enkel nog rijen uit en laat de volgorde met rust. Zo blijft wat de
+// gebruiker bij "Volgorde" instelde ook tijdens het zoeken gelden.
 //
-// Het zoekveld ernaast filtert deze lijst live op alle drie de schrijfwijzen:
-// "CIV", "COTE" en "IVOOR" leiden alle drie naar hetzelfde land. Het al
-// gekozen land blijft altijd in de lijst staan, ook als het niet matcht —
-// anders zou typen in het zoekveld stilletjes je landkeuze wegnemen.
-function vulLandKeuzelijst() {
-  const select = document.getElementById("sticker-land");
-  const zoekveld = document.getElementById("sticker-landzoek");
-  const gekozen = select.value;
-  const term = normaliseer(zoekveld ? zoekveld.value.trim() : "");
-
-  select.innerHTML = "";
-
-  const leeg = document.createElement("option");
-  leeg.value = "";
-  leeg.textContent = "Kies een land…";
-  select.appendChild(leeg);
-
-  const gesorteerd = landen.slice().sort((a, b) => vergelijkLanden(a, b, sorteerwijze));
-  const zichtbaar = term
-    ? gesorteerd.filter((land) => land.land_code === gekozen || landMatcht(land, term))
-    : gesorteerd;
-
-  zichtbaar.forEach((land) => {
-    const optie = document.createElement("option");
-    optie.value = land.land_code;
-    optie.textContent = landLabel(land);
-    select.appendChild(optie);
-  });
-
-  // Van sortering wisselen mag de gekozen verzamelaar zijn land niet
-  // afnemen: de lijst wordt herbouwd, de keuze blijft.
-  select.value = gekozen;
-
-  const teller = document.getElementById("sticker-landteller");
-  if (teller) {
-    const gevonden = term ? zichtbaar.filter((l) => landMatcht(l, term)).length : 0;
-    teller.textContent = term
-      ? `${gevonden} van ${landen.length} landen`
-      : "";
-  }
+// De keuzelijst zet er zelf het paginanummer bij ("BEL - BELGIUM - België
+// (p.56)"): bij een land hoort dat, want het wijst de weg in het fysieke
+// album. Bij een sticker niet — zie omschrijving() hieronder.
+function vulLandcombo() {
+  landcombo.zetLanden(landen.slice().sort((a, b) => vergelijkLanden(a, b, sorteerwijze)));
 }
 
 function wisselSortering() {
   sorteerwijze = document.getElementById("sticker-sortering").value;
-  vulLandKeuzelijst();
+  vulLandcombo();
+  // De zoekresultaten volgen dezelfde volgorde en moeten dus mee herschikken.
+  zoek();
 }
 
+// "BEL3 — Kevin De Bruyne". Zonder paginanummer, ook al staat dat in de rij:
+// de albumpagina hoort bij het land en niet bij de sticker. Ze bij elke
+// stickerregel herhalen zou suggereren dat net die sticker daar staat, en dat
+// klopt niet — een land beslaat meerdere bladzijden.
 function omschrijving(sticker) {
   const glans = sticker.glans ? " ✨" : "";
   return sticker.naam ? `${sticker.code}${glans} — ${sticker.naam}` : sticker.code + glans;
@@ -277,7 +283,7 @@ async function wisselLand() {
 // verouderde databankstand. origineelState blijft wél de kale databankstand —
 // dat is de lat waartegen "nog niet bewaard" gemeten wordt.
 function kiesLand() {
-  huidigLand = document.getElementById("sticker-land").value;
+  huidigLand = landcombo.waarde();
   document.getElementById("sticker-filter-vak").classList.toggle("hidden", !huidigLand);
   document.getElementById("sticker-zoek").value = "";
 
@@ -352,6 +358,11 @@ function bouwChip(sticker) {
   const staat = checklistState.get(sticker.code);
   const li = document.createElement("li");
   li.className = "sticker-chip";
+  // Een eigen id en tabindex=-1 maken de chip het doelwit van een
+  // zoekresultaat: springen, oplichten en focus krijgen (toonSticker()). In de
+  // tabvolgorde komt hij daarmee niet — daar staan de vinkjes en knopjes al.
+  li.id = chipId(sticker.code);
+  li.tabIndex = -1;
 
   const code = document.createElement("span");
   code.className = "sticker-chip__code";
@@ -449,6 +460,184 @@ function bouwChip(sticker) {
   li.appendChild(regel);
 
   return li;
+}
+
+// ---------- zoeken naar een sticker of speler ----------
+
+// De tweede weg naar een sticker. De eerste blijft "kies een land en vink af";
+// deze is voor wie al weet wélke sticker hij zoekt en niet eerst wil uitzoeken
+// bij welk land Musiala hoort. Zoekt daarom over alle landen heen, en een
+// resultaat aanklikken doet de landkeuze vanzelf.
+//
+// Alles gebeurt in het geheugen: de catalogus staat er al, dus er gaat geen
+// aanvraag uit en de lijst kan bij elke aanslag mee.
+function koppelZoekveld() {
+  const veld = document.getElementById("sticker-globaalzoek");
+  const lijst = document.getElementById("sticker-globaalresultaten");
+
+  veld.addEventListener("input", plangZoek);
+  veld.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      veld.value = "";
+      zoek();
+      return;
+    }
+    if (zoekResultaten.length === 0) return;
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        zetZoekActief(zoekActief + 1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        zetZoekActief(zoekActief - 1);
+        break;
+      // Home en End blijven met opzet van de tekst zelf: dit is een zoekveld
+      // waar je in typt, en de cursor naar het begin van je zoekterm brengen
+      // hoort daar te blijven werken.
+      case "Enter":
+        e.preventDefault();
+        // Zonder pijltjes gebruikt: dan is de bovenste rij bedoeld. Dat is
+        // ook het geval waar er maar één resultaat overblijft.
+        void kiesZoekresultaat(zoekResultaten[Math.max(zoekActief, 0)]);
+        break;
+      default:
+        break;
+    }
+  });
+
+  // Zelfde reden als bij de landkeuzelijst: de muisknop indrukken op een
+  // <li> haalt anders de focus uit het zoekveld weg.
+  lijst.addEventListener("mousedown", (e) => e.preventDefault());
+  lijst.addEventListener("click", (e) => {
+    const rij = e.target.closest(".zoekresultaat");
+    if (rij) void kiesZoekresultaat(catalogusPerCode.get(rij.dataset.code));
+  });
+}
+
+function plangZoek() {
+  clearTimeout(zoekTimer);
+  zoekTimer = setTimeout(zoek, ZOEK_UITSTEL_MS);
+}
+
+// Stickernummer, code, spelersnaam en het team waar hij voor speelt — dat
+// laatste is bij dit album gewoon het land, dus daar mag "Germany",
+// "Duitsland" en "GER" alle drie voor gebruikt worden.
+function stickerMatcht(sticker, term) {
+  return (
+    normaliseer(sticker.code).includes(term) ||
+    String(sticker.nummer) === term ||
+    normaliseer(sticker.naam).includes(term) ||
+    landMatcht(sticker, term)
+  );
+}
+
+function zoek() {
+  clearTimeout(zoekTimer);
+  const term = normaliseer(document.getElementById("sticker-globaalzoek").value.trim());
+  if (!term) {
+    zoekResultaten = [];
+    tekenZoekresultaten(0, "");
+    return;
+  }
+  // Dezelfde volgorde als de landkeuzelijst: zoeken filtert, het sorteert niet.
+  const treffers = catalogus.filter((s) => stickerMatcht(s, term)).sort(vergelijkCatalogus);
+  zoekResultaten = treffers.slice(0, ZOEK_MAX);
+  tekenZoekresultaten(treffers.length, term);
+}
+
+function vergelijkCatalogus(a, b) {
+  return vergelijkLanden(a, b, sorteerwijze) || a.nummer - b.nummer;
+}
+
+function tekenZoekresultaten(totaal, term) {
+  const veld = document.getElementById("sticker-globaalzoek");
+  const lijst = document.getElementById("sticker-globaalresultaten");
+  const meer = document.getElementById("sticker-globaalmeer");
+
+  lijst.innerHTML = "";
+  zoekActief = -1;
+  veld.removeAttribute("aria-activedescendant");
+  veld.setAttribute("aria-expanded", String(zoekResultaten.length > 0));
+  lijst.classList.toggle("hidden", zoekResultaten.length === 0);
+
+  zoekResultaten.forEach((sticker, i) => {
+    const rij = document.createElement("li");
+    rij.className = "zoekresultaat";
+    rij.id = "sticker-zoekresultaat-" + i;
+    rij.setAttribute("role", "option");
+    rij.setAttribute("aria-selected", "false");
+    rij.dataset.code = sticker.code;
+    rij.textContent = omschrijving(sticker);
+    lijst.appendChild(rij);
+  });
+
+  // Onderregel: ofwel hoeveel er niet getoond worden, ofwel dat er niets is.
+  // Allebei nieuws waar je iets mee doet — verder typen — dus staat het in een
+  // aria-live-gebied en niet enkel in beeld.
+  const extra = totaal - zoekResultaten.length;
+  if (!term) meer.textContent = "";
+  else if (totaal === 0) meer.textContent = "Geen stickers gevonden.";
+  else if (extra > 0) meer.textContent = `+ ${extra} extra resultaten — typ verder om te verfijnen.`;
+  else meer.textContent = "";
+  meer.classList.toggle("hidden", meer.textContent === "");
+}
+
+function zetZoekActief(index) {
+  if (zoekResultaten.length === 0) return;
+  zoekActief = Math.min(Math.max(index, 0), zoekResultaten.length - 1);
+  const lijst = document.getElementById("sticker-globaalresultaten");
+  [...lijst.children].forEach((el, i) => {
+    el.classList.toggle("zoekresultaat--actief", i === zoekActief);
+    el.setAttribute("aria-selected", String(i === zoekActief));
+  });
+  const el = lijst.children[zoekActief];
+  if (!el) return;
+  document.getElementById("sticker-globaalzoek").setAttribute("aria-activedescendant", el.id);
+  el.scrollIntoView({ block: "nearest" });
+}
+
+// Een resultaat aanklikken doet in één beweging alles wat je anders met de
+// hand moest doen: het juiste land kiezen, de checklist laden en naar die ene
+// sticker toe. De zoekresultaten blijven staan, zodat je meteen naar de
+// volgende treffer kan springen.
+async function kiesZoekresultaat(sticker) {
+  if (!sticker) return;
+  if (sticker.land_code !== huidigLand) {
+    landcombo.zetWaarde(sticker.land_code);
+    await wisselLand(); // schrijft eerst weg wat nog openstond
+  } else {
+    // Zelfde land, maar het filtervak eronder kan de sticker verstoppen.
+    const filter = document.getElementById("sticker-zoek");
+    if (filter.value) {
+      filter.value = "";
+      tekenChecklist();
+    }
+  }
+  toonSticker(sticker.code);
+}
+
+function chipId(code) {
+  return "sticker-chip-" + code;
+}
+
+// Erheen scrollen alleen volstaat niet: in een raster van tweehonderd chips
+// die op elkaar lijken, is "ergens in het midden" nog steeds zoeken. Daarom
+// ook oplichten en de focus geven — dan weet ook wie met het toetsenbord
+// werkt of een schermlezer gebruikt waar hij beland is.
+function toonSticker(code) {
+  const chip = document.getElementById(chipId(code));
+  if (!chip) return;
+  clearTimeout(markeerTimer);
+  document
+    .querySelectorAll(".sticker-chip--gevonden")
+    .forEach((el) => el.classList.remove("sticker-chip--gevonden"));
+  chip.classList.add("sticker-chip--gevonden");
+  chip.scrollIntoView({ block: "center", behavior: "smooth" });
+  // preventScroll, anders vecht de focus met het zachte scrollen hierboven.
+  chip.focus({ preventScroll: true });
+  markeerTimer = setTimeout(() => chip.classList.remove("sticker-chip--gevonden"), MARKEER_MS);
 }
 
 // ---------- autosave ----------
@@ -656,7 +845,7 @@ function maakOngedaan() {
 
   const sticker = catalogusPerCode.get(laatste.code);
   if (sticker && sticker.land_code !== huidigLand) {
-    document.getElementById("sticker-land").value = sticker.land_code;
+    landcombo.zetWaarde(sticker.land_code);
     kiesLand();
   }
 

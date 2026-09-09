@@ -102,10 +102,22 @@ export function lokaleNaamVoor(landCode) {
 // land_naam_en — zo komen ze uit public.sticker_catalogus en uit de RPC's.
 // Draaide sql/013 nog niet, dan ontbreekt de Engelse naam en valt het label
 // terug op "BEL - België" in plaats van een lege streep.
-export function landLabel(land) {
+//
+// { pagina: true } zet de albumpagina erachter:
+//
+//     BEL - BELGIUM - België (p.56)
+//
+// Bewust een keuze van de oproeper en niet de standaard, want de pagina hoort
+// enkel bij een LAND. Ze bestaat om het land in het fysieke album terug te
+// vinden; bij een individuele sticker ("BEL3 — Kevin De Bruyne") zou ze doen
+// alsof net die sticker op die bladzijde staat. Waar landen in een lijst
+// staan, hoort ze er dus bij; op een stickerregel nooit.
+export function landLabel(land, { pagina = false } = {}) {
   if (!land) return "";
   const stukken = [land.land_code, land.land_naam_en, land.land_naam];
-  return stukken.filter(Boolean).join(" - ");
+  const naam = stukken.filter(Boolean).join(" - ");
+  if (!pagina || land.pagina == null) return naam;
+  return `${naam} (p.${land.pagina})`;
 }
 
 // ---------- zoeken ----------
@@ -134,6 +146,20 @@ export function landMatcht(land, term) {
     normaliseer(land.land_naam_en).includes(term) ||
     normaliseer(land.land_naam).includes(term)
   );
+}
+
+// Zoals landMatcht(), maar ook op het paginanummer: wie met zijn album open
+// naast zich zit, kent een land vaak als "die van bladzijde 56" en typt dat
+// liever dan een naam. Als voorloop en niet als exacte gelijkheid, zodat "5"
+// meteen alles van blz. 5 en 50 tot 59 toont in plaats van niets.
+//
+// Apart gehouden en niet in landMatcht() verwerkt, want de ruilpagina zoekt
+// met diezelfde functie door een lijst STICKERS: daar hoort "56" het
+// stickernummer te vinden, niet elke Belgische sticker.
+export function landMatchtMetPagina(land, term) {
+  if (!term) return true;
+  if (land.pagina != null && String(land.pagina).startsWith(term)) return true;
+  return landMatcht(land, term);
 }
 
 // ---------- sorteren ----------

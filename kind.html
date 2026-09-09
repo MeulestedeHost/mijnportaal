@@ -33,40 +33,81 @@
       <h2>Stickers beheren</h2>
       <p class="form-meta">
         Kies een land, vink aan wat je zoekt en zet met + en − hoeveel je er dubbel hebt.
+        Weet je al welke sticker je zoekt? Typ dan meteen de code, de speler of het land in het
+        zoekveld eronder — je springt er in één klik naartoe.
         Alles wordt <strong>vanzelf bewaard</strong> — je hoeft niets af te sluiten, ook niet
         als je van land wisselt of de pagina sluit.
       </p>
 
       <div class="landkiezer">
+        <!-- Geen <select>: een browser laat zijn keuzelijst niet filteren
+             terwijl ze openstaat, en zijn ingebouwde type-ahead kijkt enkel
+             naar de eerste letters van het label — dus naar de landcode. Wie
+             "Duitsland" of "Germany" typt, kwam daar nergens uit. Deze
+             keuzelijst (js/landcombo.js) zoekt tijdens het typen op code,
+             Engelse naam, Nederlandse naam én paginanummer tegelijk. -->
         <div class="form-group landkiezer__land">
-          <label for="sticker-land" class="form-label">Land</label>
-          <select id="sticker-land" class="form-input form-input--groot">
-            <option value="">Kies een land…</option>
-          </select>
-        </div>
-
-        <!-- Filtert de keuzelijst hiernaast op landcode, Engelse naam én
-             Nederlandse naam tegelijk: "CIV", "COTE" en "IVOOR" komen alle
-             drie bij hetzelfde land uit. -->
-        <div class="form-group landkiezer__zoek">
-          <label for="sticker-landzoek" class="form-label">Land zoeken</label>
-          <input
-            type="search"
-            id="sticker-landzoek"
-            class="form-input"
-            placeholder="CIV, Côte, Ivoorkust…"
-            autocomplete="off"
-          />
-          <p id="sticker-landteller" class="sticker-landteller"></p>
+          <label id="sticker-land-label" for="sticker-land-knop" class="form-label">Land</label>
+          <div class="landcombo" id="sticker-landcombo">
+            <button
+              type="button"
+              id="sticker-land-knop"
+              class="form-input form-input--groot landcombo__knop"
+              role="combobox"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="sticker-land-lijst"
+              aria-labelledby="sticker-land-label sticker-land-waarde"
+            >
+              <span class="landcombo__waarde landcombo__waarde--leeg" id="sticker-land-waarde">Kies een land…</span>
+              <span class="landcombo__pijl" aria-hidden="true">▾</span>
+            </button>
+            <div class="landcombo__paneel hidden">
+              <p class="landcombo__status" aria-live="polite"></p>
+              <ul
+                class="landcombo__lijst"
+                id="sticker-land-lijst"
+                role="listbox"
+                aria-labelledby="sticker-land-label"
+              ></ul>
+              <p class="landcombo__leeg hidden">Geen landen gevonden</p>
+            </div>
+          </div>
         </div>
 
         <div class="form-group landkiezer__sortering">
           <label for="sticker-sortering" class="form-label">Volgorde</label>
           <select id="sticker-sortering" class="form-input">
+            <option value="pagina">Albumvolgorde</option>
             <option value="code">Code (A-Z)</option>
-            <option value="pagina">Volgorde van het boek</option>
           </select>
         </div>
+      </div>
+
+      <!-- De tweede weg naar een sticker: niet eerst het land, maar meteen de
+           sticker, de speler of het team. Zoekt over alle landen heen; een
+           resultaat aanklikken zet het land goed en springt naar die ene
+           sticker in de checklist hieronder. -->
+      <div class="form-group stickerzoek">
+        <label for="sticker-globaalzoek" class="form-label">Of zoek een sticker of speler</label>
+        <input
+          type="search"
+          id="sticker-globaalzoek"
+          class="form-input"
+          placeholder="Zoek op stickercode, speler, team of land"
+          autocomplete="off"
+          role="combobox"
+          aria-expanded="false"
+          aria-autocomplete="list"
+          aria-controls="sticker-globaalresultaten"
+        />
+        <ul
+          id="sticker-globaalresultaten"
+          class="zoekresultaten hidden"
+          role="listbox"
+          aria-label="Zoekresultaten"
+        ></ul>
+        <p id="sticker-globaalmeer" class="zoekresultaten__meer hidden" aria-live="polite"></p>
       </div>
 
       <div class="form-group hidden" id="sticker-filter-vak">

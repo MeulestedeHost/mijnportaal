@@ -218,16 +218,60 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
    stickernummers zwart-op-licht leesbaar blijven. */
 .sticker-chip--gezocht { background: #fdeaea; }
 .sticker-chip--dubbel { background: #e4f5ea; }
+/* Een paar tellen oplichten na een sprong vanuit de zoekresultaten. In een
+   raster van tweehonderd chips die op elkaar lijken, is "ergens in het
+   midden" nog steeds zoeken; de ring wijst aan wélke het is. */
+.sticker-chip--gevonden { outline: 3px solid var(--cf-blue-primary); outline-offset: 2px; }
 
 /* De landkolom op de ruilpagina: een streepje in de landkleur vóór de tekst,
    zodat een lange tabel sneller te scannen is dan met tekst alleen. */
 .land-cel { white-space: nowrap; }
 .land-streep { display: inline-block; width: 4px; height: 1em; border-radius: 2px; margin-right: 0.5rem; vertical-align: -0.15em; }
 
-/* Land breed, zoekveld en volgorde smaller ernaast — op een telefoon onder
-   elkaar. */
-.landkiezer { display: grid; grid-template-columns: 2fr 1.4fr 1fr; gap: 0 1.25rem; }
-.sticker-landteller { font-size: 0.75rem; color: var(--text-muted); margin-top: -0.9rem; margin-bottom: 0.9rem; min-height: 1.1em; }
+/* Land zo breed als er overblijft, volgorde net breed genoeg voor zijn eigen
+   tekst — op een telefoon onder elkaar. Het aparte zoekveld dat hier vroeger
+   tussen stond is weg: er wordt nu getypt ín de keuzelijst zelf, en dat maakt
+   plaats om "BEL - BELGIUM - België (p.56)" onafgekapt te tonen.
+   minmax(0, …) op de eerste kolom, want zonder die 0 weigert een grid-kolom
+   smaller te worden dan zijn langste optie en duwt hij de tweede kolom weg. */
+.landkiezer { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, 14rem); gap: 0 1.25rem; align-items: start; }
+
+/* ---------- landkeuze waarin je kan typen (js/landcombo.js) ---------- */
+/* Ziet eruit als een <select> — dezelfde .form-input-doos met een pijltje —
+   maar het is een knop met een eigen lijst eronder, want een echte <select>
+   laat zich niet filteren terwijl hij openstaat. */
+.landcombo { position: relative; }
+.landcombo__knop { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; text-align: left; cursor: pointer; }
+/* Afkappen met … in plaats van de knop te laten groeien: de landnaam past
+   ruim, maar een uitzonderlijk lange mag de opmaak niet uit elkaar duwen. */
+.landcombo__waarde { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.landcombo__waarde--leeg { color: #a0a8b4; }
+.landcombo__pijl { flex: none; color: var(--text-muted); font-size: 0.8em; }
+/* Zweeft over wat eronder staat in plaats van de pagina open te duwen: zo
+   verspringt de checklist niet elke keer dat je de lijst opendoet. */
+.landcombo__paneel { position: absolute; z-index: 60; top: calc(100% + 0.25rem); left: 0; right: 0; padding: 0.4rem; background: var(--surface); border: 1.5px solid var(--cf-blue-primary); border-radius: 8px; box-shadow: var(--shadow-lg); }
+/* Toont wat er getypt staat en hoeveel landen er nog overblijven. Een filter
+   dat je niet ziet staan, voelt als een lijst die dingen kwijt is. */
+.landcombo__status { font-size: 0.75rem; color: var(--text-muted); padding: 0.15rem 0.5rem 0.35rem; border-bottom: 1px solid var(--border); margin-bottom: 0.25rem; }
+.landcombo__lijst { list-style: none; max-height: 15rem; overflow-y: auto; overscroll-behavior: contain; }
+.landcombo__optie { padding: 0.4rem 0.5rem; border-radius: 6px; cursor: pointer; font-size: 0.95rem; overflow-wrap: anywhere; }
+.landcombo__optie[aria-selected="true"] { font-weight: 700; }
+/* De aanduiding volgt de pijltjes én de muis, in dezelfde kleur: er is er
+   altijd maar één, en Enter kiest die. */
+.landcombo__optie:hover, .landcombo__optie--actief { background: var(--cf-blue-light); color: var(--cf-blue-dark); }
+.landcombo__leeg { padding: 0.5rem; font-size: 0.9rem; color: var(--text-muted); }
+
+/* ---------- zoeken naar een sticker of speler ---------- */
+/* De resultaten staan in de gewone stroom onder het veld en zweven niet: op
+   een telefoon is een zwevende lijst over de checklist heen lastiger weg te
+   krijgen dan een lijst die de pagina gewoon een stukje langer maakt. */
+.zoekresultaten { list-style: none; margin-top: 0.5rem; max-height: 17rem; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border: 1.5px solid var(--border); border-radius: 8px; }
+/* overflow-wrap: anywhere houdt een lange spelersnaam binnen de lijst in
+   plaats van de pagina op een smal scherm zijwaarts te laten scrollen. */
+.zoekresultaat { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.95rem; cursor: pointer; overflow-wrap: anywhere; }
+.zoekresultaat:last-child { border-bottom: none; }
+.zoekresultaat:hover, .zoekresultaat--actief { background: var(--cf-blue-light); color: var(--cf-blue-dark); }
+.zoekresultaten__meer { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; }
 
 /* De code draagt de herkenning ("BEL7"), dus die staat bovenaan en vet; de
    spelersnaam eronder mag over twee regels lopen in plaats van afgekapt te

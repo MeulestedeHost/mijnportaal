@@ -577,11 +577,26 @@ als twee letters ("BE"), en op de vlaggen van Engeland en Schotland struikelt
 nog meer software. Een weergave die op de helft van de toestellen iets anders
 laat zien dan bedoeld, is geen herkenningspunt.
 
-**Twee sorteervolgordes.** Standaard alfabetisch op de 3-lettercode; daarnaast
-"Volgorde van het boek", die de albumpagina's volgt (MEX op 8, RSA op 10, …
-PAN op 104). Die paginanummers staan sinds `013` in
-`sticker_catalogus.pagina` — een kolom die al sinds `003` bestond maar leeg
-bleef.
+**Het paginanummer hoort bij het land, niet bij de sticker.** Waar landen in
+een lijst staan — de landkeuze op `kind.html` — staat de albumpagina erachter:
+
+```
+BEL - BELGIUM - België (p.56)
+```
+
+Dat is `landLabel(land, { pagina: true })`; zonder die optie blijft het label
+zoals het overal elders staat. Bij een individuele sticker komt de pagina er
+**nooit** bij ("BEL3 — Kevin De Bruyne", niet "BEL3 — Kevin De Bruyne (p.56)"):
+ze wijst de weg naar het land in het fysieke album, en een land beslaat
+meerdere bladzijden.
+
+**Twee sorteervolgordes.** Standaard "Albumvolgorde", die de albumpagina's
+volgt (MEX op 8, RSA op 10, … PAN op 104) — dat is de volgorde waarin een kind
+door zijn boek bladert, en dus de volgorde waarin het zijn stickers doorneemt.
+Daarnaast alfabetisch op de 3-lettercode. Die paginanummers staan sinds `013`
+in `sticker_catalogus.pagina` — een kolom die al sinds `003` bestond maar leeg
+bleef. Zoeken en filteren laten de ingestelde volgorde altijd met rust: er
+verdwijnen enkel rijen uit, er wordt nooit herschikt.
 
 **Waar wat staat.** De Nederlandse en Engelse naam en het paginanummer zijn
 catalogusgegevens en staan in de databank (`sticker_catalogus.land_naam`,
@@ -621,6 +636,36 @@ Het aantal dubbels is ook zichtbaar bij een ruilkans (`js/ruilen.js`, het
 `get_matches()` geeft sinds `012` een `aantal`-kolom mee, getoond als `×N`
 zodra dat er meer dan één is.
 
+## Twee wegen naar een sticker
+
+Op `kind.html` kan je op twee manieren werken, en de bedoeling is dat allebei
+sneller zijn dan scrollen.
+
+**1. Eerst het land.** De landkeuzelijst is geen `<select>` meer maar een eigen
+keuzelijst (`js/landcombo.js`), want een browser laat zijn keuzelijst niet
+filteren zolang ze openstaat en zijn ingebouwde type-ahead kijkt enkel naar de
+eerste letters van het label — dus naar de landcode. Wie "Duitsland" of
+"Germany" typte, kwam nergens uit. Nu staat de lijst open en typ je gewoon: de
+letters worden aan elkaar geplakt zolang ze binnen **1000 ms** na elkaar komen
+(daarna begint er een nieuwe zoekterm, net als bij een `<select>`), en er wordt
+tegelijk gezocht op landcode, Engelse naam, Nederlandse naam en paginanummer —
+`GER`, `Germany`, `Duitsland` en `40` leiden alle vier naar hetzelfde land. De
+eerste treffer staat meteen aangeduid, dus blijft er één land over, dan volstaat
+Enter. Levert het niets op, dan staat er "Geen landen gevonden". Pijltjes, Home,
+End, Enter, Escape en Tab doen wat je verwacht; het aparte veldje "Land zoeken"
+dat hier vroeger naast stond, is daarmee overbodig geworden.
+
+**2. Meteen de sticker.** Het veld "Of zoek een sticker of speler" eronder zoekt
+over álle landen heen, op stickernummer, stickercode, spelersnaam en team (bij
+dit album is het team het land, dus "GER", "Germany" en "Duitsland" werken hier
+ook). Er gaat geen aanvraag uit — de catalogus staat al in het geheugen — dus
+150 ms uitstel volstaat om niet bij elke aanslag te hertekenen. Er verschijnen
+maximaal twintig resultaten; wat er niet bij staat, wordt geteld ("+ 34 extra
+resultaten"). Een resultaat aanklikken doet in één beweging wat je anders met de
+hand deed: het land in de keuzelijst zetten, de checklist van dat land laden,
+naar die ene sticker scrollen, hem een paar tellen laten oplichten en hem de
+focus geven.
+
 ## Frontend
 
 - `js/supabase.js` — Supabase-client + `getCurrentUser()`/`requireAuth()`.
@@ -628,7 +673,11 @@ zodra dat er meer dan één is.
 - `js/kinderen.js` — CRUD voor kinderen; filtert niet zelf op `user_id`, want
   wat je ziet en mag wijzigen beslist RLS (gezinsbreed sinds `009`).
 - `js/stickers.js` — kinddetailpagina: kindgegevens + checklist per land
-  (bulksgewijs gezocht/dubbel aanvinken) + de samenvattingslijsten.
+  (bulksgewijs gezocht/dubbel aanvinken) + het zoeken naar een sticker of
+  speler over alle landen heen + de samenvattingslijsten.
+- `js/landcombo.js` — de landkeuzelijst waarin je kan typen: knop met
+  `role="combobox"` en een eigen `listbox` eronder, omdat een `<select>` zich
+  niet laat filteren terwijl hij openstaat.
 - `js/dashboard.js` — dashboard: onboarding-wizard en kinderenlijst.
 - `js/ruilen.js` — ruilkansen per verzamelaar, te bekijken *per ruiler* (twee
   kolommen: wat hij voor jou heeft, wat hij van jou wil) of *per land* (wie
@@ -644,11 +693,13 @@ zodra dat er meer dan één is.
   hand getekende SVG). Geen grafiekbibliotheek: een pakket van 200 kB voor zes
   grafiekjes weegt niet op tegen de laadtijd.
 - `js/wereldreis.js` — FIFA Wereldreis: coördinaten, kleuren, lagen, kaart.
-- `js/landen-data.js` — de notatie `BEL - BELGIUM - België`, de accentkleur per
-  land, de drie sorteervolgordes (code, albumvolgorde, alfabetisch Engels) en
-  het zoeken op landen (`normaliseer()` / `landMatcht()`, accent- en
-  hoofdletterongevoelig). De stickerpagina en de ruilpagina delen die twee
-  functies, zodat "CIV", "cote" en "IVOOR" overal hetzelfde land vinden.
+- `js/landen-data.js` — de notatie `BEL - BELGIUM - België` (met `{ pagina:
+  true }` als `BEL - BELGIUM - België (p.56)`), de accentkleur per land, de drie
+  sorteervolgordes (code, albumvolgorde, alfabetisch Engels) en het zoeken op
+  landen (`normaliseer()` / `landMatcht()`, accent- en hoofdletterongevoelig;
+  `landMatchtMetPagina()` neemt ook het paginanummer mee, voor de landkeuze).
+  De stickerpagina en de ruilpagina delen die functies, zodat "CIV", "cote" en
+  "IVOOR" overal hetzelfde land vinden.
 - `js/voetbal-data.js` / `js/land-data.js` / `js/talen-data.js` — statische
   redactionele gegevens per land (voetbal, landinfo, talen).
 - `js/foto-data.js` — lazy ophalen van landfoto's uit Supabase (`land_fotos`).
