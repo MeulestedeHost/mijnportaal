@@ -31,8 +31,9 @@ gebruiker die dat kind beheert.
    `013_landen_engels_en_pagina.sql` → `014_na_beurs_contact.sql` →
    `015_wijk_en_altijd_naam.sql` → `016_ruilen_registreren.sql` →
    `017_statistieken.sql` → `018_favorieten.sql` →
-   `019_stickers_updated_at.sql`. Enkel `002` en de blokken die het zelf
-   aankondigen zijn destructief; `009` en later zijn dat niet.
+   `019_stickers_updated_at.sql` → `020_favorieten_algemeen.sql`. Enkel `002`
+   en de blokken die het zelf aankondigen zijn destructief; `009` en later
+   zijn dat niet.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
    Wachtwoord-authenticatie is niet nodig: deze app gebruikt Magic Links en
    (optioneel) Google — zie §5.
@@ -679,6 +680,46 @@ je zulke geschiedenis niet met terugwerkende kracht kan verzamelen, en omdat de
 rangschikking later gaat wegen hoe *vers* iemands lijst is (niet hoe "goed" die
 persoon is; zie Todo.md voor dat onderscheid).
 
+### Ook favorieten op de stickerpagina (algemene favorieten)
+
+Sinds `020_favorieten_algemeen.sql` staat er ook een sterretje naast elke sticker op
+`kind.html` — in de checklist én in de samenvattingslijsten "Zoek ik"/"Heb ik dubbel".
+Daar is nog geen ruiler in beeld, dus stelt de ster hier een eenvoudigere vraag dan op
+de ruilpagina: **staat er, in welke vorm dan ook, een reservering op deze sticker?**
+Niet "bestaat er specifiek nog een niet-toegewezen rij" — gewoon aan of uit. Zet je 'm
+aan zonder dat er al een ruiler gekozen is, dan wordt het een **algemene** favoriet:
+dezelfde rij in `public.favorieten`, maar met `ander_kind_id = null` — "dit is mijn
+prioriteit, wijs zelf de beste ruiler toe". Geen "elders"-stand hier; die gaat over
+BIJ WIE je reserveert, en die vraag hoort pas op de ruilpagina thuis.
+
+`js/ruilen.js` lost zo'n algemene favoriet bij elke tekenbeurt op (niet één keer,
+vastgeklikt in de databank): van alle ruilers die de sticker hebben of willen, krijgt
+de **hoogst gerangschikte** (dezelfde volgorde als de ruilerkaarten zelf — favoriet →
+tweerichting → bundelgrootte → naam) de volle gouden ster, en de rest de gele contour
+— zowel in "Per ruiler" als in "Per land". Ruilt iemand de sticker intussen weg, of
+biedt een nieuwe verzamelaar hem aan, dan verschuift de ster gewoon mee de volgende
+keer dat de pagina tekent; er ligt geen verouderde toewijzing vast.
+
+**Kies je op de ruilpagina zelf expliciet een ándere ruiler** dan waar de algemene
+favoriet naartoe wees, dan verhuist diezelfde reservering daarheen en wordt hij
+concreet — het budget staat geen tweede rij toe. De ster op `kind.html` blijft dan
+gewoon AAN staan: die vraagt niet meer of er nog een algemene rij is, maar of er
+überhaupt een reservering op deze sticker staat, en dat klopt nog steeds — nu gewoon
+bij een specifieke ruiler. (Een eerdere versie liet de ster hier uitgaan zodra de
+keuze concreet werd; dat bleek verwarrend, want je had de favoriet niet opgeheven,
+je had 'm net bevestigd.) Uitzetten op `kind.html` verwijdert wél alles wat op die
+sticker gereserveerd staat, ook een intussen concrete reservering bij een specifieke
+ruiler — de ster hier is een simpele schakelaar, geen teller per ruiler. Wie
+fijnmaziger controle wil (juist déze reservering weg, een andere laten staan), regelt
+dat op de ruilpagina zelf.
+
+Waarom dit zonder de trigger uit `018` te wijzigen kan: het budget wordt bewaakt per
+`(kind_id, code, richting)` — geen enkele check kijkt naar `ander_kind_id`. Een
+algemene rij telt dus precies even zwaar mee als een concrete. `020` voegt enkel een
+eigen unieke index toe die *twee* algemene favorieten voor dezelfde sticker tegenhoudt
+(dat ving de bestaande index voor "zoek ik" toevallig al af, maar voor dubbels nog
+niet).
+
 Het aantal dubbels is ook zichtbaar bij een ruilkans (`js/ruilen.js`, het
 "Iemand heeft het dubbel"-paneel in `js/stickers.js`, en het WhatsApp-bericht):
 `get_matches()` geeft sinds `012` een `aantal`-kolom mee, getoond als `×N`
@@ -738,7 +779,9 @@ voor wie met het toetsenbord werkt.
   wat je ziet en mag wijzigen beslist RLS (gezinsbreed sinds `009`).
 - `js/stickers.js` — kinddetailpagina: kindgegevens + checklist per land
   (bulksgewijs gezocht/dubbel aanvinken) + het zoeken naar een sticker of
-  speler over alle landen heen + de samenvattingslijsten.
+  speler over alle landen heen + de samenvattingslijsten. Sterretje per
+  sticker voor een algemene favoriet (sql/020) — js/ruilen.js wijst die toe
+  aan een concrete ruiler.
 - `js/landcombo.js` — de landkeuzelijst waarin je kan typen: knop met
   `role="combobox"` en een eigen `listbox` eronder, omdat een `<select>` zich
   niet laat filteren terwijl hij openstaat.

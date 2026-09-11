@@ -113,6 +113,28 @@ let zoekActief = -1;
 let zoekTimer = null;
 let markeerTimer = null;
 
+// FAVORIETEN (sql/018 + sql/020). Op de ruilpagina reserveer je een favoriet
+// bij een specifieke ruiler; hier is er nog geen ruiler in beeld. De ster
+// toont daarom een eenvoudigere vraag: STAAT ER, in welke vorm dan ook, een
+// reservering op deze sticker? — of dat nu nog een ALGEMENE rij is
+// (ander_kind_id = null, "wijs zelf de beste ruiler toe") of intussen een
+// concrete (want je koos zelf een ruiler op de ruilpagina), maakt hier niets
+// uit. Klikken zet of verwijdert dus gewoon "heb ik hier een favoriet op
+// staan" — geen "elders"-stand zoals op de ruilpagina, want die gaat over BIJ
+// WIE je reserveert, en dat is een andere vraag dan OF je reserveert.
+//
+// Bewust niet enkel de algemene rij tonen: kies je op de ruilpagina expliciet
+// een ándere ruiler dan waar sql/ruilen.js een algemene favoriet automatisch
+// naartoe wees, dan wordt diezelfde reservering concreet in plaats van
+// verdwijnen (het budget staat geen tweede rij toe). Zou de ster hier enkel
+// op de algemene rij letten, dan leek het alsof die keuze de favoriet
+// ongedaan maakte — terwijl je hem net bevestigde, alleen dan bij een
+// specifieke ruiler. Zie js/ruilen.js: berekenFavorietenWeergave().
+let favorieten = []; // alle rijen uit public.favorieten voor dit kind
+// Staat op false zolang sql/018 niet gedraaid is. Dan verdwijnen enkel de
+// sterretjes; de rest van de stickerpagina werkt onveranderd door.
+let favorietenBeschikbaar = true;
+
 document.addEventListener("DOMContentLoaded", async () => {
   const zone = document.getElementById("sticker-checklist");
   if (!zone) return;
@@ -167,6 +189,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (err) {
     toonMelding("Stickerlijst kon niet geladen worden: " + err.message, "error");
   }
+
+  await haalFavorieten();
 
   sorteerKiezer.addEventListener("change", wisselSortering);
   koppelZoekveld();
@@ -348,6 +372,112 @@ function tekenChecklist() {
   bijwerkenBewaarbalk();
 }
 
+// ---------- favorieten (sql/018 + sql/020) ----------
+
+async function haalFavorieten() {
+  const { data, error } = await supabase
+    .from("favorieten")
+    .select("id,code,richting,ander_kind_id")
+    .eq("kind_id", kindId);
+  favorietenBeschikbaar = !error;
+  favorieten = error ? [] : data || [];
+}
+
+// Alles wat op deze sticker (in deze richting) gereserveerd staat — algemeen
+// of al bij een concrete ruiler, dat maakt hier niets uit. Meer dan één rij
+// kan enkel bij dubbels (budget > 1): dan kan je zowel algemeen als bij een
+// paar concrete ruilers tegelijk gereserveerd hebben.
+function favorietenOp(code, richting) {
+  return favorieten.filter((f) => f.code === code && f.richting === richting);
+}
+
+// Geeft de sterknop voor deze sticker terug in zijn HUIDIGE toestand, of null
+// als er niets te favorieten valt. richting bepaalt de aanroeper (gezocht of
+// dubbel), want de twee plekken waar deze ster staat — de checklist en de
+// samenvattingslijsten — lezen die elk uit een andere bron: de checklist uit
+// de live checklistState, de samenvattingslijsten uit de opgehaalde rij zelf.
+function maakFavorietSter(code, naam, richting) {
+  if (!favorietenBeschikbaar) return null;
+  const bestaand = favorietenOp(code, richting);
+  const knop = document.createElement("button");
+  knop.type = "button";
+  knop.className = "favoriet" + (bestaand.length ? " favoriet--gekozen" : "");
+  knop.textContent = bestaand.length ? "★" : "☆";
+  knop.dataset.code = code;
+  knop.dataset.richting = richting;
+  knop.setAttribute("aria-pressed", String(bestaand.length > 0));
+  const wat = naam ? `${code} — ${naam}` : code;
+  knop.title = !bestaand.length
+    ? `Markeer als favoriet — op de ruilpagina krijgt de best passende ruiler er meteen een volle ster voor (${wat})`
+    : bestaand.length > 1
+    ? `Niet langer favoriet — verwijdert al je ${bestaand.length} reserveringen van deze sticker (${wat})`
+    : `Niet langer favoriet (${wat})`;
+  knop.setAttribute("aria-label", knop.title);
+  knop.addEventListener("click", () => void wisselFavoriet(code, richting));
+  return knop;
+}
+
+// Eén klik, twee handelingen — geen "elders"-stand zoals op de ruilpagina:
+// die stand gaat over BIJ WIE je reserveert, en dat is hier nog niet aan de
+// orde. Hier is het gewoon aan of uit: "heb ik hier een favoriet op staan".
+//
+// Uitzetten verwijdert ALLES wat op deze sticker gereserveerd staat, ook een
+// eventuele concrete reservering bij een specifieke ruiler — de ster is een
+// simpele schakelaar, geen teller per ruiler. Wie fijnmaziger controle wil
+// (bij wie precies), regelt dat op de ruilpagina zelf.
+async function wisselFavoriet(code, richting) {
+  const bestaand = favorietenOp(code, richting);
+  try {
+    if (bestaand.length) {
+      const { error } = await supabase
+        .from("favorieten")
+        .delete()
+        .eq("kind_id", kindId)
+        .eq("code", code)
+        .eq("richting", richting);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from("favorieten")
+        .insert({ kind_id: kindId, ander_kind_id: null, code, richting });
+      if (error) throw error;
+    }
+    await haalFavorieten();
+    verversAlleFavorietSterren();
+  } catch (err) {
+    toonMelding(
+      ontbrekendeTabel(err)
+        ? "Draai eerst sql/018_favorieten.sql en sql/020_favorieten_algemeen.sql in Supabase — favorieten zijn nog niet beschikbaar."
+        : "Favoriet kon niet bewaard worden: " + err.message,
+      "error"
+    );
+  }
+}
+
+// Onderscheidt "de tabel bestaat nog niet" (sql/018/020 niet gedraaid) van
+// een gewone weigering (budget op, dus een reservering die al bestaat). NIET
+// op err.message.includes("favorieten") controleren: de naam van de unieke
+// index die het budget bewaakt bevat zelf "favorieten"
+// ("favorieten_zoekt_een_per_sticker"), dus die tekst gaf een misleidende
+// melding bij een gewone dubbele reservering. PostgREST meldt een onbekende
+// tabel/kolom altijd met één van deze twee zinsneden; een constraint-
+// schending nooit.
+function ontbrekendeTabel(err) {
+  return err.message.includes("schema cache") || err.message.includes("does not exist");
+}
+
+// Ná een wijziging staat favorieten alweer goed; wat nog moet volgen is de
+// DOM. Dezelfde sticker kan tegelijk in de checklist én in "Zoek ik" of "Heb
+// ik dubbel" hieronder staan — die moeten allebei meeveranderen, dus wordt
+// elke sterknop op het scherm herbouwd in plaats van enkel de aangeklikte.
+function verversAlleFavorietSterren() {
+  document.querySelectorAll(".favoriet[data-code]").forEach((oud) => {
+    const sticker = catalogusPerCode.get(oud.dataset.code);
+    const nieuw = maakFavorietSter(oud.dataset.code, sticker?.naam, oud.dataset.richting);
+    if (nieuw) oud.replaceWith(nieuw);
+  });
+}
+
 // Eén chip = één sticker: de code vet bovenaan, de spelersnaam eronder op een
 // eigen regel, en daaronder pas de bediening. Dat is drie regels in plaats van
 // één, maar de naam past er wel volledig op — afgekapte namen als
@@ -366,17 +496,42 @@ function bouwChip(sticker) {
   li.id = chipId(sticker.code);
   li.tabIndex = -1;
 
+  const kop = document.createElement("div");
+  kop.className = "sticker-chip__kop";
+
+  const titel = document.createElement("div");
+  titel.className = "sticker-chip__titel";
   const code = document.createElement("span");
   code.className = "sticker-chip__code";
   code.textContent = sticker.code + (sticker.glans ? " ✨" : "");
-  li.appendChild(code);
+  titel.appendChild(code);
 
   if (sticker.naam) {
     const naam = document.createElement("span");
     naam.className = "sticker-chip__naam";
     naam.textContent = sticker.naam;
-    li.appendChild(naam);
+    titel.appendChild(naam);
   }
+  kop.appendChild(titel);
+
+  // De ster staat rechts van de code, en is enkel zinvol zolang deze sticker
+  // actief gezocht of dubbel is — daarbuiten valt er niets voor te
+  // reserveren. sterPlek wordt herbouwd bij elke wijziging (verversChip
+  // hieronder), zodat hij vanzelf verschijnt/verdwijnt/wisselt van richting
+  // mee met het vinkje en de stepper.
+  const sterPlek = document.createElement("span");
+  sterPlek.className = "sticker-chip__ster";
+  kop.appendChild(sterPlek);
+  li.appendChild(kop);
+
+  function verversSterPlek() {
+    sterPlek.replaceChildren();
+    const richting = staat.gezocht ? "jij_zoekt" : staat.dubbel > 0 ? "jij_hebt_dubbel" : null;
+    if (!richting) return;
+    const ster = maakFavorietSter(sticker.code, sticker.naam, richting);
+    if (ster) sterPlek.appendChild(ster);
+  }
+  verversSterPlek();
 
   const regel = document.createElement("div");
   regel.className = "sticker-chip__regel";
@@ -419,6 +574,7 @@ function bouwChip(sticker) {
     min.disabled = staat.dubbel <= 0;
     li.classList.toggle("sticker-chip--gezocht", staat.gezocht);
     li.classList.toggle("sticker-chip--dubbel", staat.dubbel > 0);
+    verversSterPlek();
     bijwerkenBewaarbalk();
   }
 
@@ -958,10 +1114,20 @@ function toonLijst(lijstId, stickers, toonStepper) {
     const li = document.createElement("li");
     li.className = "sticker-item";
 
+    // Ster + code + naam samen in één blokje: los van de code zou de ster
+    // door justify-content: space-between (.sticker-item) ver van de tekst
+    // komen te staan waar hij bij hoort.
+    const titel = document.createElement("div");
+    titel.className = "sticker-item__titel";
+    const richting = sticker.status === "ZOEKT" ? "jij_zoekt" : "jij_hebt_dubbel";
+    const ster = maakFavorietSter(sticker.nummer, uitCatalogus?.naam, richting);
+    if (ster) titel.appendChild(ster);
+
     const label = document.createElement("span");
     label.className = "sticker-item__nummer";
     label.textContent = uitCatalogus ? omschrijving(uitCatalogus) : sticker.nummer;
-    li.appendChild(label);
+    titel.appendChild(label);
+    li.appendChild(titel);
 
     // Enkel de dubbel-lijst krijgt een stapper: "gezocht" is een aan/uit-ding
     // zonder aantal, dat regel je via de checklist hierboven.

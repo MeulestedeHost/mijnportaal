@@ -58,6 +58,11 @@ let favorieten = []; // rijen uit public.favorieten voor de actieve verzamelaar
 // Staat op false zolang sql/018 niet gedraaid is. Dan verdwijnen enkel de
 // sterretjes; de rest van de ruilpagina werkt onveranderd door.
 let favorietenBeschikbaar = true;
+// favorieten, maar met elke ALGEMENE favoriet (ander_kind_id = null, sinds
+// sql/020 — gezet vanaf kind.html) toegewezen aan een concrete ruiler. Dit is
+// waar alle weergave-code naar kijkt; enkel wisselFavoriet() schrijft naar de
+// echte tabel. Herberekend bij elke teken(), zie berekenFavorietenWeergave().
+let favorietenWeergave = [];
 
 let zoekterm = "";
 let weergave = "ruiler";
@@ -296,9 +301,11 @@ function budgetVoor(rij) {
 }
 
 // Alle reserveringen die je van deze sticker in deze richting al gezet hebt —
-// bij deze ruiler of bij eender welke andere.
+// bij deze ruiler of bij eender welke andere. Leest favorietenWeergave, dus
+// een algemene favoriet (kind.html) die hier al aan een ruiler is toegewezen
+// telt gewoon mee, zonder dat deze functie het verschil hoeft te kennen.
 function reserveringenVoor(rij) {
-  return favorieten.filter((f) => f.code === rij.code && f.richting === rij.richting);
+  return favorietenWeergave.filter((f) => f.code === rij.code && f.richting === rij.richting);
 }
 
 function reserveringBij(rij) {
@@ -352,7 +359,7 @@ async function wisselFavoriet(rij) {
     herstelNaSterklik(rij);
   } catch (err) {
     toonFavorietFout(
-      err.message.includes("favorieten")
+      ontbrekendeTabel(err)
         ? "Draai eerst sql/018_favorieten.sql in Supabase — de favorietentabel bestaat nog niet."
         : "Favoriet kon niet bewaard worden: " + err.message
     );
@@ -364,6 +371,18 @@ function toonFavorietFout(tekst) {
   if (!el) return;
   el.textContent = tekst;
   el.className = "message message--show message--error";
+}
+
+// Onderscheidt "de tabel bestaat nog niet" (sql/018 niet gedraaid) van een
+// gewone weigering (budget op, dus een echte reservering die al bestaat).
+// NIET op `err.message.includes("favorieten")` controleren: de naam van de
+// unieke index die het budget bewaakt is zelf "favorieten_zoekt_een_per_
+// sticker", dus die tekst bevat "favorieten" net zo goed als een ontbrekende
+// tabel — dat gaf een misleidende melding bij een gewone dubbele reservering.
+// PostgREST meldt een onbekende tabel/kolom altijd met één van deze twee
+// zinsneden; een constraint-schending nooit.
+function ontbrekendeTabel(err) {
+  return err.message.includes("schema cache") || err.message.includes("does not exist");
 }
 
 // De ster staat NAAST de stickerknop en niet erin: een knop in een knop mag
@@ -380,7 +399,10 @@ function herstelNaSterklik(rij) {
   );
   if (!ster) return;
   ster.focus({ preventScroll: true });
-  const kaart = ster.closest(".ruiler-kaart");
+  // .ruiler-kaart in "Per ruiler", .landkaart in "Per land" — de ster zelf
+  // zit in allebei diep genest, dus de kaart erboven is wat in beeld moet
+  // blijven staan.
+  const kaart = ster.closest(".ruiler-kaart, .landkaart");
   if (kaart) kaart.scrollIntoView({ block: "nearest" });
 }
 
@@ -403,9 +425,69 @@ function favorietKnop(rij) {
 
 // ---------- tekenen ----------
 
+// Wijst elke ALGEMENE favoriet (ander_kind_id = null, sql/020) toe aan een
+// concrete ruiler, en geeft favorieten aangevuld met die toewijzingen terug —
+// de rest van het bestand kijkt enkel nog naar dit resultaat, niet naar
+// favorieten zelf.
+//
+// "Toewijzen" gebeurt hier bij elke tekenbeurt opnieuw, niet één keer in de
+// databank: wélke ruiler het best past, verandert (iemand ruilt de sticker
+// weg, een nieuwe verzamelaar biedt hem aan), en zonder vaste toewijzing
+// verschuift de ster daar gewoon in mee in plaats van ergens verouderd te
+// blijven hangen.
+//
+// "Best passend" is dezelfde rangschikking als de ruilerkaarten zelf
+// (groepeerEnRangschikRuilers), maar bewust op basis van enkel de CONCRETE
+// favorieten: die rangschikking bepaalt net aan wie de algemene favorieten
+// toegewezen worden, dus die mogen zelf niet meetellen — dat zou circulair
+// zijn.
+function berekenFavorietenWeergave() {
+  const concreet = favorieten.filter((f) => f.ander_kind_id);
+  const algemeen = favorieten.filter((f) => !f.ander_kind_id);
+  if (algemeen.length === 0) return concreet;
+
+  const matches = actieveMatches();
+  const rangorde = groepeerEnRangschikRuilers(matches, concreet).map((g) => g.info.ander_kind_id);
+
+  const bezet = new Set(concreet.map((f) => `${f.code} ${f.richting} ${f.ander_kind_id}`));
+  const resultaat = [...concreet];
+
+  // Groepeer de algemene favorieten per (code, richting): meerdere ervan voor
+  // dezelfde sticker (kan bij dubbels, budget > 1) gaan zo naar verschillende
+  // ruilers, in dalende rangorde — niet allemaal naar dezelfde.
+  const perSleutel = new Map();
+  algemeen.forEach((f) => {
+    const sleutel = `${f.code} ${f.richting}`;
+    if (!perSleutel.has(sleutel)) perSleutel.set(sleutel, []);
+    perSleutel.get(sleutel).push(f);
+  });
+
+  perSleutel.forEach((rijenAlgemeen, sleutel) => {
+    const [code, richting] = sleutel.split(" ");
+    const kandidaten = rangorde.filter((anderId) =>
+      matches.some((m) => m.ander_kind_id === anderId && m.code === code && m.richting === richting)
+    );
+    let i = 0;
+    rijenAlgemeen.forEach((f) => {
+      while (i < kandidaten.length && bezet.has(`${code} ${richting} ${kandidaten[i]}`)) i++;
+      if (i < kandidaten.length) {
+        resultaat.push({ ...f, ander_kind_id: kandidaten[i] });
+        bezet.add(`${code} ${richting} ${kandidaten[i]}`);
+        i++;
+      }
+      // Geen kandidaat meer over: deze algemene favoriet blijft onopgelost —
+      // hij toont nergens een ster tot er een ruiler met deze sticker bijkomt.
+    });
+  });
+
+  return resultaat;
+}
+
 function teken() {
   const inhoud = document.getElementById("ruil-inhoud");
   inhoud.textContent = "";
+
+  favorietenWeergave = berekenFavorietenWeergave();
 
   const alles = actieveMatches();
   const rijen = alles.filter(rijMatcht);
@@ -442,6 +524,35 @@ function tekenTeller(totaal, getoond) {
 // ---------- weergave: per ruiler ----------
 
 function tekenPerRuiler(doel, rijen) {
+  const gesorteerd = groepeerEnRangschikRuilers(rijen, favorietenWeergave);
+  gesorteerd.forEach((groep) => doel.appendChild(ruilerKaart(groep)));
+}
+
+// Groepeert ruilkansen per ruiler en rangschikt ze — de volgorde waarin je ze
+// het best afgaat. favorietenBron bepaalt welke favorieten meetellen: de
+// kaarten zelf gebruiken favorietenWeergave (met algemene favorieten al
+// toegewezen), berekenFavorietenWeergave() gebruikt bewust enkel de concrete
+// rijen om diezelfde toewijzing zonder circulaire afhankelijkheid te maken.
+//
+// Bewust een keten van vergelijkingen en geen puntenformule met verzonnen
+// gewichten: zo is er altijd één zin te geven waarom deze ruiler boven die
+// andere staat, en dat is precies wat ruilerRedenen() ook toont.
+//
+//   1. FAVORIETEN — jouw eigen keuze overheerst de rest, anders is het geen
+//      keuze meer.
+//   2. TWEERICHTING — wil die persoon ook iets van jou? Dit weegt zwaar, want
+//      sql/016 laat een ruil pas registreren als het langs twee kanten klopt.
+//      Eenrichting is geen ruil.
+//   3. BUNDELGROOTTE — zes stickers bij één iemand verslaat zes keer één,
+//      want je gaat fysiek naar een persoon toe.
+//   4. NAAM — zodat de volgorde niet blijft verspringen bij gelijke stand.
+//
+// Zeldzaamheid en versheid horen hier ook thuis, maar pas later (Todo.md,
+// stap 4): die brengen een valkuil mee — als iedereen dezelfde ranking volgt,
+// stormt de hele wijk op dezelfde zeldzame sticker af — en die los je op door
+// zeldzaamheid persoonlijk te maken in plaats van globaal. Zolang ze hier
+// niet in zit, bestaat dat probleem niet.
+function groepeerEnRangschikRuilers(rijen, favorietenBron) {
   const perRuiler = new Map();
   rijen.forEach((rij) => {
     if (!perRuiler.has(rij.ander_kind_id)) {
@@ -449,29 +560,13 @@ function tekenPerRuiler(doel, rijen) {
     }
     const groep = perRuiler.get(rij.ander_kind_id);
     (rij.richting === "jij_zoekt" ? groep.heeft : groep.wil).push(rij);
-    if (reserveringBij(rij)) groep.favorieten += 1;
+    const gereserveerd = favorietenBron.some(
+      (f) => f.code === rij.code && f.richting === rij.richting && f.ander_kind_id === rij.ander_kind_id
+    );
+    if (gereserveerd) groep.favorieten += 1;
   });
 
-  // De volgorde waarin je ze het best afgaat. Bewust een keten van
-  // vergelijkingen en geen puntenformule met verzonnen gewichten: zo is er
-  // altijd één zin te geven waarom deze ruiler boven die andere staat, en dat
-  // is precies wat de kaart eronder ook toont.
-  //
-  //   1. FAVORIETEN — jouw eigen keuze overheerst de rest, anders is het geen
-  //      keuze meer.
-  //   2. TWEERICHTING — wil die persoon ook iets van jou? Dit weegt zwaar,
-  //      want sql/016 laat een ruil pas registreren als het langs twee kanten
-  //      klopt. Eenrichting is geen ruil.
-  //   3. BUNDELGROOTTE — zes stickers bij één iemand verslaat zes keer één,
-  //      want je gaat fysiek naar een persoon toe.
-  //   4. NAAM — zodat de volgorde niet blijft verspringen bij gelijke stand.
-  //
-  // Zeldzaamheid en versheid horen hier ook thuis, maar pas later (Todo.md,
-  // stap 4): die brengen een valkuil mee — als iedereen dezelfde ranking
-  // volgt, stormt de hele wijk op dezelfde zeldzame sticker af — en die los je
-  // op door zeldzaamheid persoonlijk te maken in plaats van globaal. Zolang
-  // ze hier niet in zit, bestaat dat probleem niet.
-  const gesorteerd = [...perRuiler.values()].sort((a, b) => {
+  return [...perRuiler.values()].sort((a, b) => {
     if (a.favorieten !== b.favorieten) return b.favorieten - a.favorieten;
     const tweeA = a.heeft.length && a.wil.length ? 1 : 0;
     const tweeB = b.heeft.length && b.wil.length ? 1 : 0;
@@ -481,8 +576,6 @@ function tekenPerRuiler(doel, rijen) {
     if (somA !== somB) return somB - somA;
     return String(a.info.ander_kind).localeCompare(String(b.info.ander_kind), "nl");
   });
-
-  gesorteerd.forEach((groep) => doel.appendChild(ruilerKaart(groep)));
 }
 
 // Waarom staat deze ruiler waar hij staat? In dezelfde volgorde als de
@@ -551,7 +644,7 @@ function ruilerKaart(groep) {
   reden.textContent = ruilerRedenen(groep).join(" · ");
   sectie.appendChild(reden);
 
-  // ----- twee kolommen -----
+  // ----- selectie: welke sticker staat er links en rechts gekozen -----
   const sleutel = `${actiefKindId}|${info.ander_kind_id}`;
   const keuze = keuzePerRuiler.get(sleutel) || {};
   // Een selectie die door filteren of door een aangepaste lijst verdwenen is,
@@ -560,23 +653,9 @@ function ruilerKaart(groep) {
   if (!groep.wil.some((r) => r.code === keuze.ander)) keuze.ander = groep.wil[0]?.code;
   keuzePerRuiler.set(sleutel, keuze);
 
-  const kolommen = document.createElement("div");
-  kolommen.className = "ruiler-kaart__kolommen";
-  kolommen.appendChild(
-    ruilKolom("Deze ruiler heeft wat jij zoekt", groep.heeft, keuze.ik, (code) => {
-      keuze.ik = code;
-      teken();
-    })
-  );
-  kolommen.appendChild(
-    ruilKolom("Deze ruiler wil jouw dubbels", groep.wil, keuze.ander, (code) => {
-      keuze.ander = code;
-      teken();
-    })
-  );
-  sectie.appendChild(kolommen);
-
-  // ----- mogelijke ruil -----
+  // ----- mogelijke ruil: BOVENAAN, vóór de kolommen — dat is waar je hier
+  // eigenlijk voor komt, en scrollen om de knop "Ruil registreren" te vinden
+  // was overbodig zodra er meer dan een paar stickers stonden. -----
   if (groep.heeft.length && groep.wil.length && keuze.ik && keuze.ander) {
     sectie.appendChild(ruilVoorstel(info, keuze.ik, keuze.ander));
   } else {
@@ -587,6 +666,30 @@ function ruilerKaart(groep) {
       : "Jij hebt iets dat deze ruiler zoekt, maar hij heeft (nog) niets dat jij zoekt.";
     sectie.appendChild(eenzijdig);
   }
+
+  // ----- drie kolommen -----
+  const kolommen = document.createElement("div");
+  kolommen.className = "ruiler-kaart__kolommen";
+  kolommen.appendChild(
+    ruilKolom("Deze ruiler heeft wat jij zoekt", groep.heeft, keuze.ik, (code) => {
+      keuze.ik = code;
+      teken();
+    })
+  );
+  kolommen.appendChild(
+    ruilKolom("Deze ruiler wilt jouw dubbels", groep.wil, keuze.ander, (code) => {
+      keuze.ander = code;
+      teken();
+    })
+  );
+  kolommen.appendChild(
+    ruilVoorstellenKolom(groep, info, keuze, (ik, ander) => {
+      keuze.ik = ik;
+      keuze.ander = ander;
+      teken();
+    })
+  );
+  sectie.appendChild(kolommen);
 
   return sectie;
 }
@@ -668,6 +771,85 @@ function ruilKolom(kopTekst, rijen, gekozen, opKlik) {
   return kolom;
 }
 
+// Derde kolom: élke combinatie van "heeft" × "wil" als één klikbare rij, in
+// plaats van eerst links en dan rechts apart een sticker te moeten kiezen.
+// Eén klik hier zet allebei tegelijk. Voorstellen met een favoriet aan een van
+// beide kanten staan vooraan (met een ster) — dat is precies waar de
+// sterretjes van sql/018 voor dienen: laten zien welke ruil je zelf al wou.
+//
+// Bewust GEEN aparte kolom per land: het gaat hier om paren, en een paar
+// bestaat uit twee verschillende landen (jouw land, zijn land). Ze onder een
+// gedeelde landnaam zetten zou een van beide moeten weglaten.
+function ruilVoorstellenKolom(groep, info, keuze, opKies) {
+  const kolom = document.createElement("section");
+  kolom.className = "ruilkolom ruilkolom--voorstellen";
+
+  const kop = document.createElement("h3");
+  kop.className = "ruilkolom__kop";
+  kop.textContent = "Ruilvoorstellen";
+  kolom.appendChild(kop);
+
+  if (groep.heeft.length === 0 || groep.wil.length === 0) {
+    const leeg = document.createElement("p");
+    leeg.className = "ruilkolom__leeg";
+    leeg.textContent = "Nog geen combinatie mogelijk";
+    kolom.appendChild(leeg);
+    return kolom;
+  }
+
+  // Alle combinaties, met favorieten als gewicht. Array.prototype.sort is
+  // sinds ES2019 stabiel, dus binnen hetzelfde gewicht blijft de volgorde van
+  // de twee kolommen hiernaast (en dus de albumvolgorde) behouden.
+  const voorstellen = [];
+  groep.heeft.forEach((h) => {
+    groep.wil.forEach((w) => {
+      const gewicht =
+        (favorietenBeschikbaar && favorietStand(h) === "gekozen" ? 1 : 0) +
+        (favorietenBeschikbaar && favorietStand(w) === "gekozen" ? 1 : 0);
+      voorstellen.push({ h, w, gewicht });
+    });
+  });
+  voorstellen.sort((a, b) => b.gewicht - a.gewicht);
+
+  const lijst = document.createElement("ul");
+  lijst.className = "ruilkolom__stickers";
+  voorstellen.forEach(({ h, w, gewicht }) => {
+    const li = document.createElement("li");
+    const knop = document.createElement("button");
+    knop.type = "button";
+    knop.className = "ruilvoorstel-item";
+    const gekozen = h.code === keuze.ik && w.code === keuze.ander;
+    knop.classList.toggle("ruilvoorstel-item--gekozen", gekozen);
+    knop.setAttribute("aria-pressed", String(gekozen));
+
+    if (gewicht > 0) {
+      const ster = document.createElement("span");
+      ster.className = "ruilvoorstel-item__ster";
+      ster.textContent = "★".repeat(gewicht);
+      ster.setAttribute("aria-hidden", "true");
+      knop.appendChild(ster);
+    }
+
+    const paar = document.createElement("span");
+    paar.className = "ruilvoorstel-item__paar";
+    paar.textContent = `${h.code} ⇄ ${w.code}`;
+    knop.appendChild(paar);
+
+    const spelers = [h.sticker_naam, w.sticker_naam].filter(Boolean).join(" ⇄ ");
+    knop.title = spelers ? `${h.code} ⇄ ${w.code} — ${spelers}` : `${h.code} ⇄ ${w.code}`;
+    if (zoekAfspraak(info.ander_kind_id, h.code, w.code)) {
+      knop.title += " (al geregistreerd)";
+      knop.classList.add("ruilvoorstel-item--geregistreerd");
+    }
+
+    knop.addEventListener("click", () => opKies(h.code, w.code));
+    li.appendChild(knop);
+    lijst.appendChild(li);
+  });
+  kolom.appendChild(lijst);
+  return kolom;
+}
+
 function ruilVoorstel(info, ikKrijg, anderKrijgt) {
   const vak = document.createElement("div");
   vak.className = "ruilvoorstel";
@@ -722,7 +904,9 @@ function tekenPerLand(doel, rijen) {
     land.rijen.forEach((rij) => {
       if (!perCode.has(rij.code)) perCode.set(rij.code, { rij, heeft: [], zoekt: [] });
       const groep = perCode.get(rij.code);
-      (rij.richting === "jij_zoekt" ? groep.heeft : groep.zoekt).push(rij.ander_kind);
+      // De volledige rij, niet enkel de naam: namenLijst() heeft ander_kind_id
+      // en richting nodig om er een favorietKnop() bij te zetten.
+      (rij.richting === "jij_zoekt" ? groep.heeft : groep.zoekt).push(rij);
     });
 
     const gemarkeerd = doorMijBevestigd();
@@ -757,7 +941,10 @@ function tekenPerLand(doel, rijen) {
   });
 }
 
-function namenLijst(kopTekst, namen) {
+// rijen: volledige get_matches()-rijen (niet enkel namen), zodat elke ruiler
+// hier dezelfde favorietKnop() kan krijgen als op de kaarten in "Per ruiler"
+// — dezelfde sterretjes, ongeacht welke weergave je gebruikt.
+function namenLijst(kopTekst, rijen) {
   const vak = document.createElement("div");
   vak.className = "stickerblok__kolom";
 
@@ -768,19 +955,26 @@ function namenLijst(kopTekst, namen) {
 
   const ul = document.createElement("ul");
   ul.className = "stickerblok__namen";
-  if (namen.length === 0) {
+  if (rijen.length === 0) {
     const li = document.createElement("li");
     li.className = "stickerblok__leeg";
     li.textContent = "Niemand";
     ul.appendChild(li);
   } else {
     // Dezelfde ruiler kan er meermaals in zitten (twee kinderen, of dezelfde
-    // sticker langs twee kanten); één keer tonen volstaat.
-    [...new Set(namen)].sort((a, b) => String(a).localeCompare(String(b), "nl")).forEach((naam) => {
-      const li = document.createElement("li");
-      li.textContent = naam;
-      ul.appendChild(li);
-    });
+    // sticker langs twee kanten); één keer tonen volstaat — op ander_kind_id,
+    // niet op naam, want twee verzamelaars kunnen dezelfde voornaam hebben.
+    [...new Map(rijen.map((r) => [r.ander_kind_id, r])).values()]
+      .sort((a, b) => String(a.ander_kind).localeCompare(String(b.ander_kind), "nl"))
+      .forEach((rij) => {
+        const li = document.createElement("li");
+        li.className = "stickerblok__naam-rij";
+        if (favorietenBeschikbaar) li.appendChild(favorietKnop(rij));
+        const naam = document.createElement("span");
+        naam.textContent = rij.ander_kind;
+        li.appendChild(naam);
+        ul.appendChild(li);
+      });
   }
   vak.appendChild(ul);
   return vak;

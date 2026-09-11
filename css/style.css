@@ -188,6 +188,9 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .sticker-lists .card h2 { margin-bottom: 1rem; font-size: 1.05rem; }
 .sticker-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
 .sticker-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; gap: 0.5rem; flex-wrap: wrap; }
+/* Ster + code samen als één blok: anders duwt justify-content hierboven de
+   ster ver van de tekst waar hij bij hoort. */
+.sticker-item__titel { display: flex; align-items: center; gap: 0.15rem; }
 .sticker-item__nummer { font-weight: 600; }
 .sticker-item__actions { display: flex; gap: 0.4rem; }
 .sticker-item--empty { color: var(--text-muted); justify-content: center; border-style: dashed; }
@@ -277,6 +280,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .zoekresultaat:hover, .zoekresultaat--actief { background: var(--cf-blue-light); color: var(--cf-blue-dark); }
 .zoekresultaten__meer { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; }
 
+/* Code (+ naam eronder) links, de favorietster rechts ervan — align-items:
+   flex-start, want de ster hoort bij de code, niet gecentreerd tegenover een
+   eventuele tweede regel spelersnaam eronder. */
+.sticker-chip__kop { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.4rem; }
+/* flex-column met dezelfde gap als .sticker-chip vroeger tussen code en naam
+   gaf (toen nog rechtstreekse flex-children): code en naam zijn losse
+   <span>'s en stapelen anders niet vanzelf. */
+.sticker-chip__titel { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.sticker-chip__ster:empty { display: none; }
 /* De code draagt de herkenning ("BEL7"), dus die staat bovenaan en vet; de
    spelersnaam eronder mag over twee regels lopen in plaats van afgekapt te
    worden. */
@@ -851,7 +863,9 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 /* De contactknoppen naar rechts, los van de naam: ze horen bij de ruiler maar
    zijn geen deel van zijn naam. */
 .ruiler-kaart__contact { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-left: auto; }
-.ruiler-kaart__eenzijdig { margin-top: 1rem; font-style: italic; }
+/* Staat nu vóór de kolommen (js/ruilen.js), dus ruimte eronder in plaats van
+   erboven — de regel "waarom deze ruiler" erboven heeft zelf al een marge. */
+.ruiler-kaart__eenzijdig { margin: 0 0 1.25rem; font-style: italic; }
 /* Waarom deze ruiler bovenaan staat. Klein en grijs: het is een verantwoording
    van de volgorde, geen kop — maar het moet er wél staan, want een lijst die
    zichzelf rangschikt zonder reden is een orakel. */
@@ -870,9 +884,10 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .favoriet--gekozen { color: #d99400; }
 .favoriet--elders { color: #e8b923; }
 
-/* Twee kolommen naast elkaar, met een scheidingslijn ertussen — links wat de
-   ander voor jou heeft, rechts wat hij van jou wil. */
-.ruiler-kaart__kolommen { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+/* Drie kolommen naast elkaar, met een scheidingslijn ertussen: links wat de
+   ander voor jou heeft, in het midden wat hij van jou wil, rechts elke
+   combinatie van die twee als kant-en-klaar voorstel. */
+.ruiler-kaart__kolommen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
 .ruilkolom { min-width: 0; }
 .ruiler-kaart__kolommen > .ruilkolom + .ruilkolom { border-left: 1px solid var(--border); padding-left: 1.25rem; }
 .ruilkolom__kop { font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.3; margin-bottom: 0.75rem; }
@@ -900,10 +915,25 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .ruilsticker--geruild:hover { background: #fbe0e1; border-color: var(--danger); }
 .ruilsticker--geruild.ruilsticker--gekozen { border-width: 2px; }
 
-/* De voorgestelde ruil onderaan de kaart. */
-.ruilvoorstel { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.25rem; padding: 0.75rem 1rem; border: 1.5px solid var(--cf-blue-primary); border-radius: var(--radius); background: var(--cf-blue-light); }
+/* De voorgestelde ruil, bovenaan de kaart — vóór de kolommen, want dat is
+   waar je hier eigenlijk voor komt: zien wat er mogelijk is en registreren. */
+.ruilvoorstel { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin: 0 0 1.25rem; padding: 0.75rem 1rem; border: 1.5px solid var(--cf-blue-primary); border-radius: var(--radius); background: var(--cf-blue-light); }
 .ruilvoorstel__titel { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--cf-blue-dark); }
 .ruilvoorstel__paar { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-right: auto; }
+
+/* ----- derde kolom: alle combinaties als klikbaar voorstel ----- */
+/* Eén klik zet meteen de sticker links én rechts, in plaats van dat apart in
+   de twee kolommen hiernaast te moeten doen. De ster ervoor komt van de
+   favorieten (sql/018) — een voorstel met een gereserveerde sticker aan een
+   van beide kanten staat vooraan. Gecentreerde tekst, want het is een paar
+   ("CODE ⇄ CODE"), geen naam met bijschrift zoals in de andere twee kolommen. */
+.ruilvoorstel-item { display: flex; align-items: center; justify-content: center; gap: 0.35rem; width: 100%; padding: 0.4rem 0.6rem; border: 1.5px solid var(--border); border-radius: 8px; background: var(--surface); font-family: var(--font); font-size: 0.85rem; font-weight: 700; color: var(--text); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.ruilvoorstel-item:hover { border-color: var(--cf-blue-primary); background: var(--cf-blue-light); }
+.ruilvoorstel-item:focus-visible { outline: 3px solid var(--cf-blue-dark); outline-offset: 1px; }
+.ruilvoorstel-item--gekozen { border-color: var(--cf-blue-primary); border-width: 2px; background: var(--cf-blue-light); }
+.ruilvoorstel-item--geregistreerd { border-style: dashed; }
+.ruilvoorstel-item__ster { color: #d99400; flex: none; }
+.ruilvoorstel-item__paar { overflow-wrap: anywhere; }
 
 /* ----- kaart per land ----- */
 .landkaart__titel { font-size: 1.15rem; color: var(--cf-blue-dark); margin-bottom: 1rem; }
@@ -916,6 +946,9 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .stickerblok__kolomkop { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 0.2rem; }
 .stickerblok__namen { list-style: none; font-size: 0.85rem; }
 .stickerblok__leeg { color: var(--text-muted); font-style: italic; }
+/* Zelfde ster als op de kaarten in "Per ruiler" (.favoriet, elders in dit
+   bestand) — hier gewoon vóór de naam in plaats van vóór een stickerknop. */
+.stickerblok__naam-rij { display: flex; align-items: center; gap: 0.15rem; }
 
 /* ----- geregistreerde ruilen ----- */
 .afspraak { border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; }
