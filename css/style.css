@@ -852,6 +852,23 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
    zijn geen deel van zijn naam. */
 .ruiler-kaart__contact { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-left: auto; }
 .ruiler-kaart__eenzijdig { margin-top: 1rem; font-style: italic; }
+/* Waarom deze ruiler bovenaan staat. Klein en grijs: het is een verantwoording
+   van de volgorde, geen kop — maar het moet er wél staan, want een lijst die
+   zichzelf rangschikt zonder reden is een orakel. */
+.ruiler-kaart__reden { margin: -0.5rem 0 1rem; font-size: 0.8rem; color: var(--text-muted); }
+
+/* ----- favorieten: de ster naast een sticker ----- */
+/* Drie standen, en ze volgen alle drie uit hetzelfde budget (js/ruilen.js):
+   grijze contour = nog vrij, geel gevuld = hier gereserveerd, gele contour =
+   budget op, dus elders gereserveerd. Die laatste is bewust geen "verboden"-
+   opmaak: klikken mag, het verhuist gewoon je reservering hierheen. */
+.favoriet { flex: none; padding: 0 0.15rem; border: none; background: none; font-size: 1.05rem; line-height: 1.4; cursor: pointer; color: #c3cad6; transition: transform 0.1s, color 0.15s; }
+.favoriet:hover { transform: scale(1.2); }
+.favoriet:focus-visible { outline: 2px solid var(--cf-blue-primary); outline-offset: 2px; border-radius: 4px; }
+/* Goud in plaats van geel: puur geel haalt op wit geen 3:1 contrast, en deze
+   ster draagt betekenis — dan geldt de WCAG-eis voor niet-tekstuele inhoud. */
+.favoriet--gekozen { color: #d99400; }
+.favoriet--elders { color: #e8b923; }
 
 /* Twee kolommen naast elkaar, met een scheidingslijn ertussen — links wat de
    ander voor jou heeft, rechts wat hij van jou wil. */
@@ -863,6 +880,10 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .ruilkolom__land + .ruilkolom__land { margin-top: 0.75rem; }
 .ruilkolom__landnaam { font-size: 0.775rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; overflow-wrap: anywhere; }
 .ruilkolom__stickers { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+/* De ster staat naast de stickerknop, niet erin: een knop in een knop mag niet,
+   en het zijn ook twee losse beslissingen — een sticker kiezen voor een ruil is
+   iets anders dan hem reserveren. */
+.ruilkolom__rij { display: flex; align-items: center; gap: 0.15rem; }
 
 /* Elke sticker is een knop: aanklikken kiest hem als jouw kant van de ruil. */
 .ruilsticker { display: flex; align-items: baseline; gap: 0.45rem; width: 100%; text-align: left; padding: 0.35rem 0.6rem; border: 1.5px solid var(--border); border-radius: 8px; background: var(--surface); font-family: var(--font); font-size: 0.85rem; color: var(--text); cursor: pointer; transition: border-color 0.15s, background 0.15s; }

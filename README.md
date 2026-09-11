@@ -30,8 +30,9 @@ gebruiker die dat kind beheert.
    `011_wereldreis_fotos.sql` → `012_stickers_aantal.sql` →
    `013_landen_engels_en_pagina.sql` → `014_na_beurs_contact.sql` →
    `015_wijk_en_altijd_naam.sql` → `016_ruilen_registreren.sql` →
-   `017_statistieken.sql`. Enkel `002` en de blokken die het zelf aankondigen
-   zijn destructief; `009` en later zijn dat niet.
+   `017_statistieken.sql` → `018_favorieten.sql` →
+   `019_stickers_updated_at.sql`. Enkel `002` en de blokken die het zelf
+   aankondigen zijn destructief; `009` en later zijn dat niet.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
    Wachtwoord-authenticatie is niet nodig: deze app gebruikt Magic Links en
    (optioneel) Google — zie §5.
@@ -631,6 +632,53 @@ De samenvattingslijst "Heb ik dubbel" op diezelfde pagina heeft een eigen
 checklist van dat land te moeten gaan; elke klik daar is meteen een eigen
 databankaanroep.
 
+## Favorieten op de ruilpagina
+
+Sinds `018_favorieten.sql` kan je per ruilkans een **sterretje** zetten. Eén regel
+verklaart het hele systeem:
+
+> Een favoriet is een **reservering van één exemplaar**.
+
+Daaruit volgt hoeveel je er mag zetten, en dat verschilt per kolom:
+
+| Kolom | Budget | Waarom |
+|---|---|---|
+| Deze ruiler heeft wat jij zoekt | **1** per sticker | je hebt er maar één nodig |
+| Deze ruiler wil jouw dubbels | **`aantal`** per sticker | je kan er zoveel weggeven als je er hebt |
+
+En de drie sterstanden zijn gewoon de drie toestanden van dat budget:
+
+| Ster | Betekenis | Klikken doet |
+|---|---|---|
+| ☆ grijze contour | niet gereserveerd, er is nog budget | hier reserveren |
+| ★ goud gevuld | hier gereserveerd | vrijgeven |
+| ☆ gele contour | budget op — je reserveerde deze sticker elders | hierheen verplaatsen |
+
+Zoek je FRA12 en hebben Jules én Sara hem dubbel, dan reserveer je er één; bij de
+andere staat een gele contour die zegt: kan hier ook, maar dan verhuist je keuze.
+Heb je GER15 driemaal dubbel, dan mag je hem bij drie ruilers tegelijk reserveren.
+
+**De databank bewaakt dat budget, niet de pagina** — een partiële unieke index voor
+"zoek ik" en een trigger voor de dubbels. Twee tabbladen open of dubbelklikken op een
+trage lijn levert dus geen vierde reservering op drie exemplaren op.
+
+Een favoriet is **jouw eigen kladblad**: de tegenpartij ziet er niets van, en er
+verandert niets aan `public.stickers`. De echte afspraak blijft `public.ruilen`, met
+bevestiging langs twee kanten.
+
+**De volgorde van de ruilers** volgt daaruit: favorieten eerst, dan wie langs twee
+kanten kan ruilen (want alleen dan is een ruil registreerbaar), dan wie de grootste
+bundel heeft (zes stickers bij één iemand verslaat zes keer één), en bij gelijke stand
+de naam. Elke kaart toont in één regel wáárom hij daar staat — "★ 2 favorieten · ruil
+kan meteen rond · 3 stickers samen". Een lijst die zichzelf rangschikt zonder reden is
+een orakel; zie [../Todo.md](../Todo.md) voor de verdere stappen en de afwegingen.
+
+Sinds `019_stickers_updated_at.sql` houdt `public.stickers` ook bij **wanneer** een
+regel laatst geschreven werd. Niets gebruikt die kolom nog — ze staat er alvast omdat
+je zulke geschiedenis niet met terugwerkende kracht kan verzamelen, en omdat de
+rangschikking later gaat wegen hoe *vers* iemands lijst is (niet hoe "goed" die
+persoon is; zie Todo.md voor dat onderscheid).
+
 Het aantal dubbels is ook zichtbaar bij een ruilkans (`js/ruilen.js`, het
 "Iemand heeft het dubbel"-paneel in `js/stickers.js`, en het WhatsApp-bericht):
 `get_matches()` geeft sinds `012` een `aantal`-kolom mee, getoond als `×N`
@@ -698,8 +746,9 @@ voor wie met het toetsenbord werkt.
 - `js/ruilen.js` — ruilkansen per verzamelaar, te bekijken *per ruiler* (twee
   kolommen: wat hij voor jou heeft, wat hij van jou wil) of *per land* (wie
   heeft en wie zoekt deze sticker), met live zoeken op ruiler, land en
-  stickercode. Registreert ruilen, toont de bevestiging per kant en — voor
-  beheerders — het opvolgingsoverzicht.
+  stickercode. Sterretjes om favorieten te reserveren, ruilers gerangschikt op
+  favoriet → tweerichting → bundelgrootte. Registreert ruilen, toont de
+  bevestiging per kant en — voor beheerders — het opvolgingsoverzicht.
 - `js/gezin.js` — tweede volwassene toevoegen, gsm-nummer van het gezin.
 - `js/whatsapp.js` — nummers normaliseren naar E.164 en wa.me-links bouwen.
 - `js/instellingen.js` — beheerpagina: beursvenster, glans, organisatornummer,

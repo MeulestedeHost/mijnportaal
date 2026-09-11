@@ -44,6 +44,21 @@ let actiefKindId = "";
 const matchesPerKind = new Map(); // kind_id -> rijen uit get_matches
 let afspraken = []; // rijen uit mijn_ruilen()
 
+// FAVORIETEN (sql/018). Eén regel, en al de rest volgt eruit: een favoriet is
+// een RESERVERING van één exemplaar — "deze sticker wil ik bij DEZE ruiler
+// halen of aan DEZE ruiler geven". Daarmee ligt het budget meteen vast:
+//   jij_zoekt        — 1 per sticker, want je hebt er maar één nodig.
+//   jij_hebt_dubbel  — zoveel als je er dubbel hebt.
+// Is het budget op, dan tonen de andere ruilers met diezelfde sticker een lege
+// ster met gele contour: daar kán het ook, maar dan verhuist je reservering.
+//
+// De databank bewaakt dat budget (partiële unieke index + trigger), niet deze
+// pagina. Wat hier staat is de weergave ervan.
+let favorieten = []; // rijen uit public.favorieten voor de actieve verzamelaar
+// Staat op false zolang sql/018 niet gedraaid is. Dan verdwijnen enkel de
+// sterretjes; de rest van de ruilpagina werkt onveranderd door.
+let favorietenBeschikbaar = true;
+
 let zoekterm = "";
 let weergave = "ruiler";
 let landsortering = "pagina";
@@ -109,7 +124,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 // ---------- gegevens ----------
 
 async function laadGegevens() {
-  await Promise.all([haalMatches(actiefKindId), haalAfspraken()]);
+  await Promise.all([haalMatches(actiefKindId), haalAfspraken(), haalFavorieten(actiefKindId)]);
 }
 
 // Per verzamelaar één aanroep, en het resultaat blijft bewaard: van
@@ -128,6 +143,24 @@ async function haalAfspraken() {
   if (error) throw error;
   afspraken = data || [];
   return afspraken;
+}
+
+// Anders dan de matches worden favorieten NIET per verzamelaar bewaard: ze
+// veranderen terwijl je op de pagina staat, en een verouderde lijst zou een
+// ster tonen die er niet meer is. Het is één kleine tabel met een index op
+// kind_id, dus opnieuw ophalen kost niets.
+//
+// Een fout blijft hier bewust binnen: draaide sql/018 nog niet, dan hoort de
+// ruilpagina gewoon te blijven werken zoals ze was — alleen zonder sterretjes.
+// Een nieuwe functie mag geen bestaande pagina platleggen.
+async function haalFavorieten(kindId) {
+  const { data, error } = await supabase
+    .from("favorieten")
+    .select("id,ander_kind_id,code,richting")
+    .eq("kind_id", kindId);
+  favorietenBeschikbaar = !error;
+  favorieten = error ? [] : data || [];
+  return favorieten;
 }
 
 // Na een registratie of een bevestiging: de afspraken opnieuw ophalen, de
@@ -172,7 +205,9 @@ function koppelFilters() {
     const inhoud = document.getElementById("ruil-inhoud");
     inhoud.textContent = "";
     try {
-      await haalMatches(actiefKindId);
+      // Favorieten horen bij één verzamelaar, dus die moeten mee: anders
+      // staan de sterretjes van het vorige kind op de lijst van dit kind.
+      await Promise.all([haalMatches(actiefKindId), haalFavorieten(actiefKindId)]);
     } catch (err) {
       inhoud.appendChild(melding("Ruilkansen konden niet geladen worden: " + err.message));
       return;
@@ -249,6 +284,123 @@ async function toonVenster() {
   }
 }
 
+// ---------- favorieten ----------
+
+// Hoeveel exemplaren van deze sticker mag je reserveren? Zie de uitleg bij de
+// variabele bovenaan: zoeken is er één, dubbels zijn er zoveel als je er hebt.
+// rij.aantal betekent per richting iets anders (get_matches, sql/016): bij
+// jij_zoekt is het wat de ÁNDER dubbel heeft, bij jij_hebt_dubbel wat JIJ er
+// van hebt. Enkel dat tweede is hier een budget.
+function budgetVoor(rij) {
+  return rij.richting === "jij_zoekt" ? 1 : Math.max(Number(rij.aantal) || 1, 1);
+}
+
+// Alle reserveringen die je van deze sticker in deze richting al gezet hebt —
+// bij deze ruiler of bij eender welke andere.
+function reserveringenVoor(rij) {
+  return favorieten.filter((f) => f.code === rij.code && f.richting === rij.richting);
+}
+
+function reserveringBij(rij) {
+  return reserveringenVoor(rij).find((f) => f.ander_kind_id === rij.ander_kind_id) || null;
+}
+
+// De drie standen waarin een ster kan staan. Ze volgen alle drie uit het
+// budget, dus er is hier niets aparts te onthouden:
+//   gekozen — hier gereserveerd
+//   elders  — budget op, dus je legde deze sticker ergens anders vast
+//   geen    — er is nog budget vrij
+function favorietStand(rij) {
+  if (reserveringBij(rij)) return "gekozen";
+  return reserveringenVoor(rij).length >= budgetVoor(rij) ? "elders" : "geen";
+}
+
+const STER_UITLEG = {
+  gekozen: "Gereserveerd bij deze ruiler — klik om vrij te geven",
+  elders: "Je reserveerde deze sticker al bij iemand anders — klik om ze hierheen te verplaatsen",
+  geen: "Reserveer deze sticker bij deze ruiler",
+};
+
+// Klikken op een ster. Drie standen, maar maar twee handelingen: vrijgeven of
+// reserveren. "Elders" is een reservering die verhuist — eerst de oude weg,
+// dan de nieuwe erbij, want de databank laat er maar zoveel toe als je budget.
+async function wisselFavoriet(rij) {
+  const bestaand = reserveringBij(rij);
+  try {
+    if (bestaand) {
+      const { error } = await supabase.from("favorieten").delete().eq("id", bestaand.id);
+      if (error) throw error;
+    } else {
+      // Bij "elders" moet er plaats gemaakt worden. Voor zoeken is dat altijd
+      // die ene; voor dubbels de oudste, zodat een pas gezette reservering
+      // niet meteen weer sneuvelt.
+      if (favorietStand(rij) === "elders") {
+        const teVerhuizen = reserveringenVoor(rij)[0];
+        const { error } = await supabase.from("favorieten").delete().eq("id", teVerhuizen.id);
+        if (error) throw error;
+      }
+      const { error } = await supabase.from("favorieten").insert({
+        kind_id: actiefKindId,
+        ander_kind_id: rij.ander_kind_id,
+        code: rij.code,
+        richting: rij.richting,
+      });
+      if (error) throw error;
+    }
+    await haalFavorieten(actiefKindId);
+    teken();
+    herstelNaSterklik(rij);
+  } catch (err) {
+    toonFavorietFout(
+      err.message.includes("favorieten")
+        ? "Draai eerst sql/018_favorieten.sql in Supabase — de favorietentabel bestaat nog niet."
+        : "Favoriet kon niet bewaard worden: " + err.message
+    );
+  }
+}
+
+function toonFavorietFout(tekst) {
+  const el = document.getElementById("ruil-afspraken-melding");
+  if (!el) return;
+  el.textContent = tekst;
+  el.className = "message message--show message--error";
+}
+
+// De ster staat NAAST de stickerknop en niet erin: een knop in een knop mag
+// niet, en je moet een sticker kunnen kiezen voor een ruil zonder hem meteen
+// te reserveren. Het zijn twee verschillende beslissingen.
+// Een sterklik hertekent de hele lijst, en die lijst kan van volgorde wisselen
+// — dat is de bedoeling, want favorieten wegen mee. Maar dan springt de kaart
+// weg onder je muis en is de focus van wie met het toetsenbord werkt verdwenen.
+// Daarom zoeken we ná het hertekenen dezelfde ster terug: focus erop, en de
+// kaart zachtjes in beeld ("nearest" scrollt niet als ze al zichtbaar is).
+function herstelNaSterklik(rij) {
+  const ster = document.querySelector(
+    `.favoriet[data-code="${rij.code}"][data-ruiler="${rij.ander_kind_id}"][data-richting="${rij.richting}"]`
+  );
+  if (!ster) return;
+  ster.focus({ preventScroll: true });
+  const kaart = ster.closest(".ruiler-kaart");
+  if (kaart) kaart.scrollIntoView({ block: "nearest" });
+}
+
+function favorietKnop(rij) {
+  const stand = favorietStand(rij);
+  const knop = document.createElement("button");
+  knop.type = "button";
+  knop.className = "favoriet favoriet--" + stand;
+  knop.dataset.code = rij.code;
+  knop.dataset.ruiler = rij.ander_kind_id;
+  knop.dataset.richting = rij.richting;
+  knop.textContent = stand === "gekozen" ? "★" : "☆";
+  knop.setAttribute("aria-pressed", String(stand === "gekozen"));
+  const wat = rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code;
+  knop.setAttribute("aria-label", `${STER_UITLEG[stand]} (${wat})`);
+  knop.title = STER_UITLEG[stand];
+  knop.addEventListener("click", () => void wisselFavoriet(rij));
+  return knop;
+}
+
 // ---------- tekenen ----------
 
 function teken() {
@@ -293,16 +445,34 @@ function tekenPerRuiler(doel, rijen) {
   const perRuiler = new Map();
   rijen.forEach((rij) => {
     if (!perRuiler.has(rij.ander_kind_id)) {
-      perRuiler.set(rij.ander_kind_id, { info: rij, heeft: [], wil: [] });
+      perRuiler.set(rij.ander_kind_id, { info: rij, heeft: [], wil: [], favorieten: 0 });
     }
     const groep = perRuiler.get(rij.ander_kind_id);
     (rij.richting === "jij_zoekt" ? groep.heeft : groep.wil).push(rij);
+    if (reserveringBij(rij)) groep.favorieten += 1;
   });
 
-  // Ruilers waar het langs twee kanten klikt eerst: dat zijn de enige waar een
-  // ruil in één beweging rond is. Daarna de grootste lijsten, en bij gelijke
-  // stand op naam zodat de volgorde niet blijft verspringen.
+  // De volgorde waarin je ze het best afgaat. Bewust een keten van
+  // vergelijkingen en geen puntenformule met verzonnen gewichten: zo is er
+  // altijd één zin te geven waarom deze ruiler boven die andere staat, en dat
+  // is precies wat de kaart eronder ook toont.
+  //
+  //   1. FAVORIETEN — jouw eigen keuze overheerst de rest, anders is het geen
+  //      keuze meer.
+  //   2. TWEERICHTING — wil die persoon ook iets van jou? Dit weegt zwaar,
+  //      want sql/016 laat een ruil pas registreren als het langs twee kanten
+  //      klopt. Eenrichting is geen ruil.
+  //   3. BUNDELGROOTTE — zes stickers bij één iemand verslaat zes keer één,
+  //      want je gaat fysiek naar een persoon toe.
+  //   4. NAAM — zodat de volgorde niet blijft verspringen bij gelijke stand.
+  //
+  // Zeldzaamheid en versheid horen hier ook thuis, maar pas later (Todo.md,
+  // stap 4): die brengen een valkuil mee — als iedereen dezelfde ranking
+  // volgt, stormt de hele wijk op dezelfde zeldzame sticker af — en die los je
+  // op door zeldzaamheid persoonlijk te maken in plaats van globaal. Zolang
+  // ze hier niet in zit, bestaat dat probleem niet.
   const gesorteerd = [...perRuiler.values()].sort((a, b) => {
+    if (a.favorieten !== b.favorieten) return b.favorieten - a.favorieten;
     const tweeA = a.heeft.length && a.wil.length ? 1 : 0;
     const tweeB = b.heeft.length && b.wil.length ? 1 : 0;
     if (tweeA !== tweeB) return tweeB - tweeA;
@@ -313,6 +483,23 @@ function tekenPerRuiler(doel, rijen) {
   });
 
   gesorteerd.forEach((groep) => doel.appendChild(ruilerKaart(groep)));
+}
+
+// Waarom staat deze ruiler waar hij staat? In dezelfde volgorde als de
+// sortering hierboven, zodat de uitleg en de rangschikking niet uit elkaar
+// kunnen lopen. Een kind moet kunnen zien waarom het portaal zegt "ga eerst
+// naar Jules" — een lijst zonder reden is een orakel.
+function ruilerRedenen(groep) {
+  const redenen = [];
+  if (groep.favorieten) {
+    redenen.push(`★ ${groep.favorieten} favoriet${groep.favorieten === 1 ? "" : "en"}`);
+  }
+  if (groep.heeft.length && groep.wil.length) {
+    redenen.push("ruil kan meteen rond");
+  }
+  const som = groep.heeft.length + groep.wil.length;
+  redenen.push(`${som} sticker${som === 1 ? "" : "s"} samen`);
+  return redenen;
 }
 
 function ruilerKaart(groep) {
@@ -356,6 +543,13 @@ function ruilerKaart(groep) {
   if (contact.childElementCount) kop.appendChild(contact);
 
   sectie.appendChild(kop);
+
+  // Waarom deze ruiler hier staat. Enkel in de weergave per ruiler, want daar
+  // is de volgorde een advies; per land is ze gewoon albumvolgorde.
+  const reden = document.createElement("p");
+  reden.className = "ruiler-kaart__reden";
+  reden.textContent = ruilerRedenen(groep).join(" · ");
+  sectie.appendChild(reden);
 
   // ----- twee kolommen -----
   const sleutel = `${actiefKindId}|${info.ander_kind_id}`;
@@ -435,6 +629,8 @@ function ruilKolom(kopTekst, rijen, gekozen, opKlik) {
     lijst.className = "ruilkolom__stickers";
     land.rijen.forEach((rij) => {
       const li = document.createElement("li");
+      li.className = "ruilkolom__rij";
+      if (favorietenBeschikbaar) li.appendChild(favorietKnop(rij));
       const knop = document.createElement("button");
       knop.type = "button";
       knop.className = "ruilsticker";
