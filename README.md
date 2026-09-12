@@ -101,12 +101,46 @@ pagina met enkel een foutcode in de URL.
 
 1. Push code naar GitHub (`MeulestedeHost/mijnportaal`).
 2. Cloudflare → Workers & Pages → Create → Pages → Connect to Git.
-3. Framework preset: `None`. Build command: leeg. Output directory: `/`
+3. Framework preset: `None`. Build command: zie hieronder. Output directory: `/`
    (repo-root — er is geen `public`-submap).
 4. Deploy. Live URL: `https://panini-4mf.pages.dev`.
 
 Statische HTML/CSS/JS zonder build-stap; Supabase JS wordt via een ESM-CDN
 (jsdelivr) geladen — volledig compatibel met Cloudflare Pages.
+
+### Build command: welke versie staat er live?
+
+`ruilbeurs.meulestede.gent` is een vaste naam die intern naar de laatste
+Cloudflare Pages-deployment wijst. Dat adres zelf verandert nooit, maar wat
+erachter zit wel, bij elke push — en dat is dan weer een eigen, unieke
+`https://<hash>.panini-4mf.pages.dev`-URL. Om op **Instellingen** te kunnen
+tonen welke commit en welke deployment-URL er op dit moment achter die naam
+zitten, staat er een build command:
+
+```
+printf '{"commit":"%s","branch":"%s","deployUrl":"%s","gebouwdOp":"%s"}' "$CF_PAGES_COMMIT_SHA" "$CF_PAGES_BRANCH" "$CF_PAGES_URL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > version.json
+```
+
+Zet dat bij **Settings → Builds & deployments → Build command** in het
+Cloudflare Pages-project. `CF_PAGES_COMMIT_SHA`, `CF_PAGES_BRANCH` en
+`CF_PAGES_URL` zijn omgevingsvariabelen die Cloudflare zelf tijdens elke build
+meegeeft (dus niets om zelf in te stellen) — ze bestaan enkel op dat moment,
+niet meer zodra de site draait, vandaar dat het commando ze wegschrijft naar
+een gewoon statisch bestand. Output directory blijft `/`: Cloudflare kopieert
+de hele checkout, `version.json` erbij, dus is er geen aparte publicatiemap
+nodig. Het bestand komt nooit in git terecht (`.gitignore`) — elke build
+overschrijft het met de eigen, actuele gegevens.
+
+`instellingen.html` haalt dit bestand op en toont commit (met link naar
+GitHub), branch, deployment-URL en bouwtijdstip. Zolang het buildcommando nog
+niet ingesteld staat — of lokaal, waar er geen Cloudflare-build is — meldt de
+pagina gewoon dat er nog geen deploymentgegevens zijn; niets breekt erdoor.
+
+Let op: `version.json` is een gewoon statisch bestand, dus **publiek
+leesbaar** voor wie het adres kent, los van de beheerder-only weergave op
+Instellingen. Dat is geen probleem voor een commit-sha en een deployment-URL
+— beide zijn sowieso op te vragen via het Cloudflare-dashboard of de
+GitHub-geschiedenis — maar zet er nooit iets gevoeligers in.
 
 ## 5. Aanmelden met Google
 

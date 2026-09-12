@@ -66,6 +66,36 @@
       <div id="message" class="message" role="alert" aria-live="polite"></div>
     </div>
 
+    <!-- Stond vroeger als korte teaser op de startpagina (index.html). Hoort
+         beter hier: wie hier is, ziet meteen dat er geen wachtwoordveld staat
+         en heeft de uitleg nu nodig — een bezoeker van de startpagina nog
+         niet. Meteen ook de plek om uit te leggen wáárop we draaien, voor
+         ouders die zich afvragen of dit wel veilig genoeg is voor gegevens
+         van hun kind. -->
+    <div class="card login-card login-uitleg">
+      <h2>Waarom geen wachtwoord?</h2>
+      <p class="login-card__hint">
+        Een <strong>magic link</strong> is een inlogknop die je via e-mail krijgt in
+        plaats van een wachtwoord dat je moet bedenken, onthouden en ergens veilig
+        bewaren — vaak het zwakste punt van een account. Klik je op de link, dan ben
+        je binnen. Elke link werkt maar <strong>één keer</strong> en verloopt snel, dus
+        heeft een onderschepte mail na een paar minuten geen waarde meer. Aanmelden
+        met Google werkt volgens hetzelfde principe: Google bevestigt wie je bent, en
+        wij bewaren zelf geen enkel wachtwoord.
+      </p>
+      <h2>Hoe veilig is dit?</h2>
+      <p class="login-card__hint">
+        Het portaal draait op twee professioneel onderhouden platformen:
+        <strong>Cloudflare</strong> voor de hosting en bescherming tegen misbruik, en
+        <strong>Supabase</strong> voor de databank en het inlogsysteem zelf. Allebei
+        krijgen ze voortdurend beveiligingsupdates van een team dat daar fulltime mee
+        bezig is — dat is een bewuste keuze tegenover een zelfgebouwde server, die een
+        vrijwilligersinitiatief zoals dit er zelf naast zou moeten onderhouden. Welke
+        gegevens we precies bijhouden, waarom, en hoe lang, staat op de
+        <a href="/privacy.html">privacypagina</a>.
+      </p>
+    </div>
+
     <!-- Stap 2: bevestiging, vervangt het formulier volledig -->
     <div class="card login-card hidden" id="verstuurd-card">
       <div class="verstuurd__icoon" aria-hidden="true">📬</div>
@@ -121,7 +151,7 @@
 
   <footer class="footer">
     <div class="container">
-      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a></p>
+      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a> — <a href="/privacy.html">Privacy</a></p>
     </div>
   </footer>
 

@@ -174,6 +174,12 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 
 .inst-status { font-size: 0.85rem; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.75rem; }
 .inst-status--open { color: var(--success); background: #eaf7ee; border-color: #cbe8d4; font-weight: 600; }
+
+/* Label/waarde-paren voor "welke versie staat live" — een <dl> en geen
+   form-grid, want dit is uitleeswerk, geen invoerveld. */
+.inst-versie { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; font-size: 0.9rem; }
+.inst-versie dt { color: var(--text-muted); font-weight: 600; }
+.inst-versie dd { margin: 0; overflow-wrap: anywhere; }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.05em 0.35em; }
 
 .checkbox-rij { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.25rem; font-size: 0.9rem; cursor: pointer; }
@@ -345,6 +351,16 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   .dashboard-header h1 { font-size: 1.4rem; }
   .data-table { font-size: 0.85rem; }
   .data-table th, .data-table td { padding: 0.5rem; }
+
+  /* Elke rij wordt een eigen kaartje in plaats van drie piepsmalle kolommen
+     — bedoeld voor tabellen met lange zinnen in een cel (privacy.html), niet
+     voor de korte naam/datum-cellen van .data-table elders, vandaar de eigen
+     modifier in plaats van dit voor elke tabel te doen. */
+  .data-table--stapelen thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .data-table--stapelen, .data-table--stapelen tbody, .data-table--stapelen tr, .data-table--stapelen td { display: block; width: auto; }
+  .data-table--stapelen tr { border: 1.5px solid var(--border); border-radius: var(--radius); padding: 0.75rem 0.875rem; margin-bottom: 0.75rem; }
+  .data-table--stapelen td { border-bottom: none; padding: 0.35rem 0; }
+  .data-table--stapelen td::before { content: attr(data-label); display: block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 0.1rem; }
 }
 /* ============================================================
    FIFA Wereldreis (fase 1)
@@ -934,6 +950,9 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .ruiler-kaart__kolommen > .ruilkolom + .ruilkolom { border-left: 1px solid var(--border); padding-left: 1.25rem; }
 .ruilkolom__kop { font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.3; margin-bottom: 0.75rem; }
 .ruilkolom__leeg { font-size: 0.85rem; color: var(--text-muted); font-style: italic; }
+/* Legt uit waarom "Ruilvoorstellen" korter is dan heeft × wil (js/ruilen.js,
+   berekenRuilparen) — anders oogt de grens als een fout. */
+.ruilkolom__uitleg { font-size: 0.775rem; color: var(--text-muted); margin: -0.4rem 0 0.6rem; }
 .ruilkolom__land + .ruilkolom__land { margin-top: 0.75rem; }
 .ruilkolom__landnaam { font-size: 0.775rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; overflow-wrap: anywhere; }
 .ruilkolom__stickers { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }

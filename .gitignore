@@ -1,0 +1,4 @@
+# version.json wordt door het Cloudflare Pages-buildcommando geschreven
+# (README.md, sectie "Cloudflare Pages") en bestaat dus enkel in de
+# build-omgeving daar, nooit in git.
+version.json

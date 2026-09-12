@@ -137,12 +137,38 @@
         </div>
         <div id="inst-message" class="message" role="alert" aria-live="polite"></div>
       </form>
+
+      <!-- Geen instelling om op te slaan, dus bewust BUITEN het formulier: dit
+           toont enkel welke Cloudflare Pages-deployment er op dit moment achter
+           ruilbeurs.meulestede.gent zit. Dat adres zelf verandert nooit, maar wat
+           erachter zit wel, bij elke push — dit is hoe je dat nagaat zonder in het
+           Cloudflare-dashboard te moeten kijken. -->
+      <section class="card">
+        <h2>Welke versie staat live?</h2>
+        <p class="form-meta">
+          <code>version.json</code> wordt bij elke Cloudflare Pages-build automatisch
+          aangemaakt (zie <code>README.md</code>, sectie "Cloudflare Pages") en bevat de
+          commit en de unieke deployment-URL van wat er op dit moment achter
+          <code>ruilbeurs.meulestede.gent</code> zit.
+        </p>
+        <dl class="inst-versie hidden" id="inst-versie">
+          <dt>Commit</dt>
+          <dd id="inst-versie-commit">—</dd>
+          <dt>Branch</dt>
+          <dd id="inst-versie-branch">—</dd>
+          <dt>Deployment-URL</dt>
+          <dd id="inst-versie-url">—</dd>
+          <dt>Gebouwd op</dt>
+          <dd id="inst-versie-tijd">—</dd>
+        </dl>
+        <p class="form-meta form-meta--plat" id="inst-versie-fout"></p>
+      </section>
     </div>
   </main>
 
   <footer class="footer">
     <div class="container">
-      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a></p>
+      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a> — <a href="/privacy.html">Privacy</a></p>
     </div>
   </footer>
 

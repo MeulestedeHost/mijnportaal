@@ -1044,6 +1044,43 @@ function ruilerEtiket(groep) {
   return etiketten.get(groep.info.ander_kind_id) || null;
 }
 
+// Welke ruilen stel je deze ruiler concreet voor? Bewust NIET de volledige
+// kruistabel (elke "heeft" gepaard met elke "wil"): fysiek kan je met deze
+// persoon hoogstens min(heeft, wil) ruilen — elke ruil verbruikt één code aan
+// elke kant, je hebt maar één FRA12 nodig en geeft een BEL3 maar één keer weg.
+// Heeft hij vijf stickers voor jou maar wil hij er maar twee van jou, dan
+// lukken er hoogstens twee ruilen, hoe je ook combineert. Een volledige
+// kruistabel toonde die vijf stickers dus tot tien keer — telkens gekoppeld
+// aan een andere "wil", terwijl het er in werkelijkheid maar twee worden. Dat
+// is precies de herhaling die hier weggenomen wordt.
+//
+// Favorieten bepalen WELKE k van elke kant meedoen, niet enkel de volgorde:
+// Array.sort is stabiel sinds ES2019, dus binnen "favoriet"/"niet favoriet"
+// blijft de bestaande volgorde behouden, en slice(k) laat gewoon de eerste k
+// erdoor. Dat maximaliseert het totaal aantal favorieten in de voorgestelde
+// ruilen — met een volledige kruistabel tussen beide geselecteerde groepjes
+// kan elke gekozen "heeft" met elke gekozen "wil" gepaard worden, dus telt
+// enkel hoeveel favorieten er per kant meedoen, niet welke met welke. Twee
+// favorieten die toevallig allebei meedoen, komen zo ook als paar naast
+// elkaar (★★) in plaats van toevallig te versnipperen over twee aparte paren
+// van elk één ster.
+function berekenRuilparen(groep) {
+  const k = Math.min(groep.heeft.length, groep.wil.length);
+  if (k === 0) return [];
+
+  const isFavoriet = (rij) => favorietenBeschikbaar && favorietStand(rij) === "gekozen";
+  const kiesK = (rijen) =>
+    [...rijen].sort((a, b) => Number(isFavoriet(b)) - Number(isFavoriet(a))).slice(0, k);
+
+  const hs = kiesK(groep.heeft);
+  const ws = kiesK(groep.wil);
+  return hs.map((h, i) => ({
+    h,
+    w: ws[i],
+    gewicht: (isFavoriet(h) ? 1 : 0) + (isFavoriet(ws[i]) ? 1 : 0),
+  }));
+}
+
 function ruilerKaart(groep) {
   const kind = actiefKind();
   const info = groep.info;
@@ -1110,12 +1147,17 @@ function ruilerKaart(groep) {
   sectie.appendChild(reden);
 
   // ----- selectie: welke sticker staat er links en rechts gekozen -----
+  const paren = berekenRuilparen(groep);
   const sleutel = `${actiefKindId}|${info.ander_kind_id}`;
   const keuze = keuzePerRuiler.get(sleutel) || {};
   // Een selectie die door filteren of door een aangepaste lijst verdwenen is,
   // laten staan zou een ruil voorstellen die niet meer op het scherm staat.
-  if (!groep.heeft.some((r) => r.code === keuze.ik)) keuze.ik = groep.heeft[0]?.code;
-  if (!groep.wil.some((r) => r.code === keuze.ander)) keuze.ander = groep.wil[0]?.code;
+  // De standaardkeuze komt uit paren[0] — het best gerangschikte voorstel —
+  // in plaats van gewoon de eerste rij van elke kolom, zodat de vooraf
+  // gekozen ruil bovenaan hier overeenkomt met de bovenste rij hiernaast in
+  // "Ruilvoorstellen".
+  if (!groep.heeft.some((r) => r.code === keuze.ik)) keuze.ik = paren[0]?.h.code;
+  if (!groep.wil.some((r) => r.code === keuze.ander)) keuze.ander = paren[0]?.w.code;
   keuzePerRuiler.set(sleutel, keuze);
 
   // ----- mogelijke ruil: BOVENAAN, vóór de kolommen — dat is waar je hier
@@ -1148,7 +1190,7 @@ function ruilerKaart(groep) {
     })
   );
   kolommen.appendChild(
-    ruilVoorstellenKolom(groep, info, keuze, (ik, ander) => {
+    ruilVoorstellenKolom(groep, info, keuze, paren, (ik, ander) => {
       keuze.ik = ik;
       keuze.ander = ander;
       teken();
@@ -1236,16 +1278,17 @@ function ruilKolom(kopTekst, rijen, gekozen, opKlik) {
   return kolom;
 }
 
-// Derde kolom: élke combinatie van "heeft" × "wil" als één klikbare rij, in
-// plaats van eerst links en dan rechts apart een sticker te moeten kiezen.
-// Eén klik hier zet allebei tegelijk. Voorstellen met een favoriet aan een van
-// beide kanten staan vooraan (met een ster) — dat is precies waar de
-// sterretjes van sql/018 voor dienen: laten zien welke ruil je zelf al wou.
+// Derde kolom: een gerichte lijst ruilparen (berekenRuilparen), niet de
+// volledige kruistabel — één klikbare rij per paar in plaats van eerst links
+// en dan rechts apart een sticker te moeten kiezen. Eén klik zet allebei
+// tegelijk. Voorstellen met een favoriet aan een van beide kanten staan
+// vooraan (met een ster) — dat is precies waar de sterretjes van sql/018 voor
+// dienen: laten zien welke ruil je zelf al wou.
 //
 // Bewust GEEN aparte kolom per land: het gaat hier om paren, en een paar
 // bestaat uit twee verschillende landen (jouw land, zijn land). Ze onder een
 // gedeelde landnaam zetten zou een van beide moeten weglaten.
-function ruilVoorstellenKolom(groep, info, keuze, opKies) {
+function ruilVoorstellenKolom(groep, info, keuze, paren, opKies) {
   const kolom = document.createElement("section");
   kolom.className = "ruilkolom ruilkolom--voorstellen";
 
@@ -1254,7 +1297,7 @@ function ruilVoorstellenKolom(groep, info, keuze, opKies) {
   kop.textContent = "Ruilvoorstellen";
   kolom.appendChild(kop);
 
-  if (groep.heeft.length === 0 || groep.wil.length === 0) {
+  if (paren.length === 0) {
     const leeg = document.createElement("p");
     leeg.className = "ruilkolom__leeg";
     leeg.textContent = "Nog geen combinatie mogelijk";
@@ -1262,23 +1305,20 @@ function ruilVoorstellenKolom(groep, info, keuze, opKies) {
     return kolom;
   }
 
-  // Alle combinaties, met favorieten als gewicht. Array.prototype.sort is
-  // sinds ES2019 stabiel, dus binnen hetzelfde gewicht blijft de volgorde van
-  // de twee kolommen hiernaast (en dus de albumvolgorde) behouden.
-  const voorstellen = [];
-  groep.heeft.forEach((h) => {
-    groep.wil.forEach((w) => {
-      const gewicht =
-        (favorietenBeschikbaar && favorietStand(h) === "gekozen" ? 1 : 0) +
-        (favorietenBeschikbaar && favorietStand(w) === "gekozen" ? 1 : 0);
-      voorstellen.push({ h, w, gewicht });
-    });
-  });
-  voorstellen.sort((a, b) => b.gewicht - a.gewicht);
+  // Zegt meteen waarom dit er minder zijn dan heeft.length × wil.length —
+  // zonder deze regel oogt een kortere lijst als een fout in plaats van een
+  // bewuste grens (zie berekenRuilparen()).
+  const uitleg = document.createElement("p");
+  uitleg.className = "ruilkolom__uitleg";
+  uitleg.textContent =
+    paren.length === 1
+      ? `Met ${info.ander_kind} kan je hoogstens 1 ruil doen.`
+      : `Met ${info.ander_kind} kan je hoogstens ${paren.length} ruilen doen — dit zijn ze.`;
+  kolom.appendChild(uitleg);
 
   const lijst = document.createElement("ul");
   lijst.className = "ruilkolom__stickers";
-  voorstellen.forEach(({ h, w, gewicht }) => {
+  paren.forEach(({ h, w, gewicht }) => {
     const li = document.createElement("li");
     const knop = document.createElement("button");
     knop.type = "button";

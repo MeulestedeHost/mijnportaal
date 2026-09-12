@@ -60,7 +60,60 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("inst-form").addEventListener("submit", bewaar);
   document.getElementById("inst-reset-btn").addEventListener("click", vulFormulier);
+
+  // Los van de rest van de pagina: version.json bestaat pas na de eerste
+  // Cloudflare-build met het aangepaste buildcommando (zie README.md), en
+  // ontbreekt altijd lokaal/in de proefopstelling. Een fout hier mag het
+  // instellingenformulier nooit blokkeren.
+  void toonVersie();
 });
+
+// Welke Cloudflare Pages-deployment staat er nu achter
+// ruilbeurs.meulestede.gent? version.json wordt tijdens de build geschreven
+// (CF_PAGES_* omgevingsvariabelen bestaan enkel op dat moment, niet meer
+// zodra de site draait) en hier gewoon als statisch bestand opgehaald — geen
+// databank, geen RLS, dus ook geen aparte foutafhandeling voor "tabel
+// ontbreekt nog" zoals elders op deze pagina.
+async function toonVersie() {
+  const blok = document.getElementById("inst-versie");
+  const fout = document.getElementById("inst-versie-fout");
+  try {
+    const resp = await fetch("/version.json", { cache: "no-store" });
+    if (!resp.ok) throw new Error("nog niet aangemaakt");
+    const info = await resp.json();
+
+    document.getElementById("inst-versie-commit").innerHTML = info.commit
+      ? `<a href="https://github.com/MeulestedeHost/mijnportaal/commit/${encodeURIComponent(info.commit)}">${escapeHtml((info.commit || "").slice(0, 8))}</a>`
+      : "onbekend";
+    document.getElementById("inst-versie-branch").textContent = info.branch || "onbekend";
+    document.getElementById("inst-versie-url").innerHTML = info.deployUrl
+      ? `<a href="${escapeHtml(info.deployUrl)}">${escapeHtml(info.deployUrl)}</a>`
+      : "onbekend";
+    document.getElementById("inst-versie-tijd").textContent = info.gebouwdOp
+      ? new Intl.DateTimeFormat("nl-BE", { dateStyle: "full", timeStyle: "short" }).format(
+          new Date(info.gebouwdOp)
+        )
+      : "onbekend";
+
+    blok.classList.remove("hidden");
+    fout.textContent = "";
+  } catch {
+    fout.textContent =
+      "Geen deploymentgegevens gevonden — normaal bij lokaal draaien, of zolang het " +
+      "buildcommando uit README.md nog niet in Cloudflare Pages ingesteld staat.";
+  }
+}
+
+// Enkel voor de twee velden hierboven die uit version.json komen: dat bestand
+// wordt door Cloudflare's build zelf geschreven (zie README.md) en niet door
+// een gebruiker ingevuld, maar het staat als gewoon statisch bestand naast de
+// rest van de site — dus geen enkele reden om innerHTML zonder escapen te
+// vertrouwen.
+function escapeHtml(tekst) {
+  const div = document.createElement("div");
+  div.textContent = tekst;
+  return div.innerHTML;
+}
 
 async function laadInstellingen() {
   const { data, error } = await supabase
