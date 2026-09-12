@@ -876,13 +876,55 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
    grijze contour = nog vrij, geel gevuld = hier gereserveerd, gele contour =
    budget op, dus elders gereserveerd. Die laatste is bewust geen "verboden"-
    opmaak: klikken mag, het verhuist gewoon je reservering hierheen. */
-.favoriet { flex: none; padding: 0 0.15rem; border: none; background: none; font-size: 1.05rem; line-height: 1.4; cursor: pointer; color: #c3cad6; transition: transform 0.1s, color 0.15s; }
+.favoriet { flex: none; display: inline-flex; align-items: center; gap: 0.1rem; padding: 0 0.15rem; border: none; background: none; font-size: 1.05rem; line-height: 1.4; cursor: pointer; color: #c3cad6; transition: transform 0.1s, color 0.15s; }
 .favoriet:hover { transform: scale(1.2); }
 .favoriet:focus-visible { outline: 2px solid var(--cf-blue-primary); outline-offset: 2px; border-radius: 4px; }
 /* Goud in plaats van geel: puur geel haalt op wit geen 3:1 contrast, en deze
    ster draagt betekenis — dan geldt de WCAG-eis voor niet-tekstuele inhoud. */
 .favoriet--gekozen { color: #d99400; }
 .favoriet--elders { color: #e8b923; }
+
+/* Het volgnummer van je ruilronde, naast de ster (js/ruilen.js, stap 3).
+   Naast en niet in de ster: op 1.05rem past er binnenin geen leesbaar cijfer,
+   en vanaf tien ruilen zijn het er twee. Vaste minimumbreedte zodat 1 en 10
+   de rij even breed maken en de stickerknoppen eronder niet verspringen. */
+.favoriet__ster { line-height: 1; }
+.favoriet__nr { min-width: 0.95em; font-size: 0.65rem; font-weight: 700; font-family: var(--font); color: #8a5d00; background: #fdf0d0; border-radius: 999px; padding: 0.05rem 0.25rem; line-height: 1.3; text-align: center; }
+
+/* De kaart waar de planner net naartoe gesprongen is. Zelfde markering als een
+   gevonden sticker op de stickerpagina, zodat "hier ben je" er overal
+   hetzelfde uitziet. */
+.ruiler-kaart--gevonden { outline: 3px solid var(--cf-blue-primary); outline-offset: 3px; }
+
+/* ----- de ruilplanner: met wie ga je eerst praten? ----- */
+/* Dezelfde volgorde en dezelfde redenen als de kaarten eronder — het is een
+   inhoudsopgave van het advies, geen tweede mening. Bewust geen scorebalkjes
+   of percentages: er is geen puntentotaal (zie js/ruilen.js), en een balkje
+   zou er wel een suggereren. */
+.planner__filternota { margin-top: -0.5rem; font-style: italic; }
+.planner__lijst { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+.planner__rij { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; }
+.planner__rij:first-child { border-color: var(--cf-blue-primary); background: var(--cf-blue-light); }
+.planner__plaats { flex: none; min-width: 2rem; font-weight: 700; font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; }
+.planner__rij:first-child .planner__plaats { color: var(--cf-blue-dark); }
+.planner__kern { min-width: 0; }
+.planner__kop { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+/* Een knop die eruitziet als een link: hij navigeert binnen de pagina, maar
+   kan de weergave of het zoekveld eerst moeten omzetten — dat is gedrag, geen
+   adres, dus geen <a>. */
+.planner__naam { padding: 0; border: none; background: none; font-family: var(--font); font-size: 1rem; font-weight: 700; color: var(--cf-blue-primary); cursor: pointer; text-align: left; }
+.planner__naam:hover { text-decoration: underline; }
+.planner__naam:focus-visible { outline: 2px solid var(--cf-blue-dark); outline-offset: 2px; border-radius: 4px; }
+.planner__reden { margin-top: 0.15rem; font-size: 0.8rem; color: var(--text-muted); }
+/* Twee etiketten met tegengestelde betekenis, dus ook tegengestelde kleur:
+   warm = nu iets doen, koel = gerust laten liggen. Allebei met tekst erbij en
+   niet enkel een pictogram, want kleur alleen is geen boodschap. */
+.planner__etiket { flex: none; font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 0.15rem 0.5rem; white-space: nowrap; cursor: help; }
+.planner__etiket--nu { color: #8a3a00; background: #ffe9d6; }
+.planner__etiket--later { color: var(--cf-blue-dark); background: var(--cf-blue-light); }
+/* In de kaart zelf staat het etiket in de redenregel; daar mag het niet mee
+   de grijze kleur van die regel overnemen. */
+.ruiler-kaart__reden .planner__etiket { margin-right: 0.15rem; }
 
 /* Drie kolommen naast elkaar, met een scheidingslijn ertussen: links wat de
    ander voor jou heeft, in het midden wat hij van jou wil, rechts elke
@@ -983,6 +1025,10 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
   .ruiler-kaart__kolommen { grid-template-columns: 1fr; gap: 1rem; }
   .ruiler-kaart__kolommen > .ruilkolom + .ruilkolom { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 1rem; }
   .ruiler-kaart__contact { margin-left: 0; width: 100%; }
+  /* Op een telefoon is de plaatsaanduiding naast de naam zonde van de
+     breedte: de volgorde lees je al aan de volgorde. */
+  .planner__rij { gap: 0.5rem; padding: 0.6rem; }
+  .planner__plaats { min-width: 1.6rem; font-size: 0.8rem; }
   .stickerblok { grid-template-columns: 1fr; }
   .ruilvoorstel__paar { margin-right: 0; width: 100%; }
   .ruilvoorstel .btn { width: 100%; justify-content: center; }

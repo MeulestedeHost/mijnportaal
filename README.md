@@ -667,18 +667,77 @@ Een favoriet is **jouw eigen kladblad**: de tegenpartij ziet er niets van, en er
 verandert niets aan `public.stickers`. De echte afspraak blijft `public.ruilen`, met
 bevestiging langs twee kanten.
 
-**De volgorde van de ruilers** volgt daaruit: favorieten eerst, dan wie langs twee
-kanten kan ruilen (want alleen dan is een ruil registreerbaar), dan wie de grootste
-bundel heeft (zes stickers bij één iemand verslaat zes keer één), en bij gelijke stand
-de naam. Elke kaart toont in één regel wáárom hij daar staat — "★ 2 favorieten · ruil
-kan meteen rond · 3 stickers samen". Een lijst die zichzelf rangschikt zonder reden is
-een orakel; zie [../Todo.md](../Todo.md) voor de verdere stappen en de afwegingen.
-
 Sinds `019_stickers_updated_at.sql` houdt `public.stickers` ook bij **wanneer** een
 regel laatst geschreven werd. Niets gebruikt die kolom nog — ze staat er alvast omdat
 je zulke geschiedenis niet met terugwerkende kracht kan verzamelen, en omdat de
-rangschikking later gaat wegen hoe *vers* iemands lijst is (niet hoe "goed" die
-persoon is; zie Todo.md voor dat onderscheid).
+rangschikking later kan gaan wegen hoe *vers* iemands lijst is (niet hoe "goed" die
+persoon is; zie [../Todo.md](../Todo.md) voor dat onderscheid).
+
+## De ruilplanner: met wie ga je eerst praten?
+
+Bovenaan de ruilpagina staat **🎯 Beste ruilkansen**, een top tien van ruilers in de
+volgorde waarin je ze het best afgaat. Dezelfde volgorde en dezelfde redenen als de
+kaarten eronder — het is een inhoudsopgave van het advies, geen tweede mening.
+
+### Geen puntentotaal, wel echte cijfers
+
+De voor de hand liggende aanpak is een score (favoriet +100, zeldzaam +50, …). Die is
+bewust **niet** gebouwd, om vier redenen:
+
+- **Optellen kantelt alles naar bundelgrootte.** Twaalf gewone stickers verslaan dan
+  één favoriet. Middelen of het maximum nemen draait dat om en is even willekeurig; er
+  is geen aggregatie die klopt.
+- **Een getal als "96" leest als een percentage** terwijl het een som van verzonnen
+  gewichten is zonder bovengrens.
+- **Tweerichting is geen bonuspunt maar een poort.** `sql/016` laat een ruil niet
+  registreren als het maar langs één kant klopt, dus mag "+50" nooit iemand bovenaan
+  brengen met wie je niets kan afspreken.
+- **Een som valt niet uit te leggen.** Een keten van vergelijkingen wél: elke stap ís
+  één zin in de redenregel, in dezelfde volgorde.
+
+De volgorde is dus: **favorieten → tweerichting → wat je nergens anders krijgt →
+bundelgrootte → naam**. De cijfers die je te zien krijgt zijn cijfers die je kan
+natellen: "★ 2 favorieten · ruil kan meteen rond · 1 sticker krijg je enkel hier ·
+4 stickers samen · plaats voor 1 ruil".
+
+### Schaarste is persoonlijk, niet globaal
+
+Niet "hoeveel kinderen in het hele portaal bieden FRA12 aan", maar **hoeveel exemplaren
+liggen er bij de ruilers waar jíj effectief mee kan ruilen**. Dat getal komt gratis uit
+`get_matches()` — geen extra RPC — en het lost meteen de valkuil op: bij een globale
+telling krijgt iedereen dezelfde nummer één en stormt de hele wijk op dezelfde sticker
+af, waardoor het advies zichzelf onderuit haalt. Persoonlijk verschilt het per kind.
+
+Eén getal vat twee dingen samen die los geteld tegengesteld wezen: zeldzaamheid
+("hoeveel mensen hebben hem") en zekerheid ("hoeveel hebben ze er"). Bij je dubbels is
+het spiegelbeeld van toepassing: hoeveel ruilers willen hem? Jouw dubbel loopt niet
+weg, maar de enige persoon die hem wil, kan dat wel. Het staat in de tooltip van elke
+ster: "Er ligt er maar één van bij al je ruilers."
+
+### 🔥 Eerst langsgaan / ⭐ Kan wachten
+
+Twee etiketten, en ze zijn **vergelijkend**: alleen wie er van alle ruilers het meeste
+heeft dat nergens anders ligt, krijgt het vuurtje, en niemand zodra iedereen gelijk
+staat. Dat is geen randgeval — met 1034 stickers en enkele tientallen deelnemers ligt
+bijna élke sticker bij maar één of twee mensen, dus een absolute drempel zou zowat
+iedereen "dringend" maken. "Eerst langsgaan" verschijnt bovendien enkel bij wie je
+effectief kan ruilen, om dezelfde reden als hierboven.
+
+### De genummerde ruilronde
+
+Elke gereserveerde sticker krijgt een cijfer naast zijn ster: de volgorde van je ronde,
+van 1 tot N. **Genummerd per ruiler** (je gaat naar een pérsoon, dus blijft alles van
+dezelfde ruiler bij elkaar) en **binnen een ruiler op albumpagina**, over beide kolommen
+heen — dan blader je je boek bij elke persoon één keer van voor naar achter door in
+plaats van heen en weer. Altijd albumvolgorde, ook als je de landen alfabetisch
+sorteert: die keuze gaat over de weergave, deze over het doorbladeren van een papieren
+album.
+
+Het plan wordt berekend op **alle** ruilkansen, niet op de gefilterde: typen in het
+zoekveld filtert de lijst eronder maar hernummert je ronde niet en herrangschikt je
+advies niet. Klik je in de planner op iemand die net weggefilterd is, dan wist de
+pagina de zoekterm (en schakelt zo nodig terug naar "Per ruiler") in plaats van niets
+te doen.
 
 ### Ook favorieten op de stickerpagina (algemene favorieten)
 
@@ -693,12 +752,30 @@ prioriteit, wijs zelf de beste ruiler toe". Geen "elders"-stand hier; die gaat o
 BIJ WIE je reserveert, en die vraag hoort pas op de ruilpagina thuis.
 
 `js/ruilen.js` lost zo'n algemene favoriet bij elke tekenbeurt op (niet één keer,
-vastgeklikt in de databank): van alle ruilers die de sticker hebben of willen, krijgt
-de **hoogst gerangschikte** (dezelfde volgorde als de ruilerkaarten zelf — favoriet →
-tweerichting → bundelgrootte → naam) de volle gouden ster, en de rest de gele contour
-— zowel in "Per ruiler" als in "Per land". Ruilt iemand de sticker intussen weg, of
-biedt een nieuwe verzamelaar hem aan, dan verschuift de ster gewoon mee de volgende
-keer dat de pagina tekent; er ligt geen verouderde toewijzing vast.
+vastgeklikt in de databank): van alle ruilers die de sticker hebben of willen krijgt er
+één de volle gouden ster, en de rest de gele contour — zowel in "Per ruiler" als in
+"Per land". Ruilt iemand de sticker intussen weg, of biedt een nieuwe verzamelaar hem
+aan, dan verschuift de ster gewoon mee de volgende keer dat de pagina tekent; er ligt
+geen verouderde toewijzing vast.
+
+**Bij wie hij terechtkomt is een strategische keuze.** Stel: je zoekt FRA12, BEL3 en
+GER7. Ivo heeft enkel FRA12. Emma heeft alle drie, maar wil maar één van jouw dubbels —
+Emma kan je dus maar één sticker geven. Haal je FRA12 bij haar, dan zijn BEL3 en GER7
+verloren. Haal je FRA12 bij Ivo, die niets anders heeft, dan hou je Emma over voor iets
+wat alleen zij heeft. Twee stickers in plaats van één, zonder dat er iets zeldzaams aan
+te pas komt.
+
+Dat zit in één verhouding: **druk** = wat die ruiler in deze richting voor je heeft,
+gedeeld door hoeveel ruilen er met hem in passen (het kleinste van zijn twee kolommen,
+want `sql/016` registreert per paar). Ivo 1/1 = 1, Emma 3/1 = 3; de laagste druk wint.
+Tweerichting staat ervóór — een ruiler waar de ruil niet kan doorgaan is geen kandidaat
+maar een doodlopend spoor — en de gewone rangorde beslist bij gelijke druk, zodat de
+uitkomst niet verspringt.
+
+Let op het verschil met het etiket **🔥 Eerst langsgaan** hierboven: dat antwoordt op
+"bij wie ligt iets onvervangbaars" (Emma), de toewijzing op "waar haal ik déze sticker"
+(Ivo). Die twee spreken elkaar niet tegen — samen zeggen ze: ga bij Emma langs voor wat
+alleen zij heeft, en verspil haar niet aan iets wat Ivo ook kan geven.
 
 **Kies je op de ruilpagina zelf expliciet een ándere ruiler** dan waar de algemene
 favoriet naartoe wees, dan verhuist diezelfde reservering daarheen en wordt hij

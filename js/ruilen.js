@@ -64,6 +64,10 @@ let favorietenBeschikbaar = true;
 // echte tabel. Herberekend bij elke teken(), zie berekenFavorietenWeergave().
 let favorietenWeergave = [];
 
+// De genummerde ruilronde (stap 3): "code|richting|ruiler" -> volgnummer.
+// Herberekend bij elke teken(), zie berekenRuilroute().
+let ruilroute = new Map();
+
 let zoekterm = "";
 let weergave = "ruiler";
 let landsortering = "pagina";
@@ -184,6 +188,69 @@ function actieveMatches() {
 
 function actiefKind() {
   return kinderen.find((k) => k.id === actiefKindId) || kinderen[0];
+}
+
+// ---------- kansen: hoe kwetsbaar is een ruilkans? ----------
+
+// PERSOONLIJKE schaarste, niet globale (Todo.md, stap 4). De vraag is niet
+// "hoeveel kinderen in het hele portaal bieden FRA12 aan", maar "hoeveel
+// exemplaren liggen er bij de mensen waar ÍK effectief mee kan ruilen" — en
+// dat is precies wat get_matches() teruggeeft, dus er is geen extra RPC nodig.
+//
+// Waarom persoonlijk: bij een globale telling krijgt iedereen dezelfde nummer
+// één en stormt de hele wijk op dezelfde sticker af, waardoor het advies
+// zichzelf onderuit haalt. Bieden twintig kinderen FRA12 aan maar willen er
+// maar twee iets wat jij hebt, dan is jouw echte aanbod twee. Dat getal
+// verschilt per kind, dus verdwijnt de stormloop grotendeels vanzelf.
+//
+// Eén getal voor twee dingen die in de oorspronkelijke opzet apart stonden —
+// zeldzaamheid ("hoeveel mensen hebben hem") en zekerheid ("hoeveel hebben ze
+// er"). Die twee los tellen ging mis: meer exemplaren is tegelijk een reden om
+// je géén zorgen te maken en, in de oorspronkelijke puntentelling, een reden
+// om punten te geven. Samengeteld tot "hoeveel exemplaren kan ik bereiken" is
+// het ondubbelzinnig, en in één zin uit te leggen aan een kind: "er ligt er
+// maar één van bij al je ruilers".
+//
+// De twee richtingen betekenen niet hetzelfde:
+//   jij_zoekt       — som van rij.aantal: alle exemplaren bij alle ruilers die
+//                     hem aanbieden. Jouw voorraad bestaat niet, je zoekt hem.
+//   jij_hebt_dubbel — aantal ruilers dat hem wil. rij.aantal is hier JOUW
+//                     voorraad (sql/016) en zegt niets over dringendheid: jouw
+//                     dubbel loopt niet weg. Wat wel kan verdwijnen is de enige
+//                     persoon die hem wil.
+let kansen = new Map(); // "code|richting" -> bereikbare exemplaren / vragers
+
+function kansSleutel(rij) {
+  return `${rij.code}|${rij.richting}`;
+}
+
+function berekenKansen(matches) {
+  const telling = new Map();
+  matches.forEach((rij) => {
+    const sleutel = kansSleutel(rij);
+    const erbij = rij.richting === "jij_zoekt" ? Math.max(Number(rij.aantal) || 1, 1) : 1;
+    telling.set(sleutel, (telling.get(sleutel) || 0) + erbij);
+  });
+  return telling;
+}
+
+function kansenVoor(rij) {
+  return kansen.get(kansSleutel(rij)) || 0;
+}
+
+// Nergens anders te halen (of, bij een dubbel, nergens anders kwijt te raken).
+// Dit is de dringendste stand die er is, en meteen degene die in het
+// oorspronkelijke puntenvoorstel ontbrak: dat begon bij "2 aanbieders" en liet
+// het geval "maar één" door de mazen vallen — terwijl dat in een wijk met
+// enkele tientallen deelnemers net het meest voorkomende geval is.
+function enigeKans(rij) {
+  return kansenVoor(rij) <= 1;
+}
+
+// Ruim voorradig: er liggen er genoeg bij genoeg mensen, dus deze kans loopt
+// niet weg terwijl jij eerst iets dringenders doet.
+function ruimeKans(rij) {
+  return kansenVoor(rij) >= 3;
 }
 
 // ---------- filters ----------
@@ -414,13 +481,47 @@ function favorietKnop(rij) {
   knop.dataset.code = rij.code;
   knop.dataset.ruiler = rij.ander_kind_id;
   knop.dataset.richting = rij.richting;
-  knop.textContent = stand === "gekozen" ? "★" : "☆";
   knop.setAttribute("aria-pressed", String(stand === "gekozen"));
+
+  const symbool = document.createElement("span");
+  symbool.className = "favoriet__ster";
+  symbool.textContent = stand === "gekozen" ? "★" : "☆";
+  knop.appendChild(symbool);
+
+  // Het volgnummer van je ruilronde (stap 3). Bewust NAAST de ster en niet
+  // erin: in de ster zelf past op deze lettergrootte geen leesbaar cijfer, en
+  // vanaf tien ruilen zijn het er twee. Het plaatje blijft hetzelfde — een
+  // gouden ster met zijn nummer eraan.
+  const nummer = ruilroute.get(routeSleutel(rij));
+  let volgorde = "";
+  if (stand === "gekozen" && nummer) {
+    const cijfer = document.createElement("span");
+    cijfer.className = "favoriet__nr";
+    cijfer.textContent = String(nummer);
+    knop.appendChild(cijfer);
+    volgorde = ` — nummer ${nummer} in je ruilronde`;
+  }
+
   const wat = rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code;
-  knop.setAttribute("aria-label", `${STER_UITLEG[stand]} (${wat})`);
-  knop.title = STER_UITLEG[stand];
+  knop.setAttribute("aria-label", `${STER_UITLEG[stand]} (${wat})${volgorde}`);
+  knop.title = STER_UITLEG[stand] + volgorde + kansUitleg(rij);
   knop.addEventListener("click", () => void wisselFavoriet(rij));
   return knop;
+}
+
+// Wat de schaarste van deze ruilkans in gewone taal betekent. Staat in de
+// tooltip en niet als extra pictogram in de lijst: met tientallen stickers per
+// kaart zou een merkje per rij de lijst onleesbaar maken, terwijl de
+// samenvatting per ruiler (ruilerRedenen) hetzelfde al vertelt.
+function kansUitleg(rij) {
+  const aantal = kansenVoor(rij);
+  if (rij.richting === "jij_zoekt") {
+    if (aantal <= 1) return "\nEr ligt er maar één van bij al je ruilers.";
+    if (aantal === 2) return "\nEr liggen er maar twee van bij al je ruilers.";
+    return `\nEr liggen er ${aantal} van bij je ruilers — deze loopt niet weg.`;
+  }
+  if (aantal <= 1) return "\nDit is de enige ruiler die deze dubbel wil.";
+  return `\n${aantal} ruilers willen deze dubbel.`;
 }
 
 // ---------- tekenen ----------
@@ -436,25 +537,46 @@ function favorietKnop(rij) {
 // verschuift de ster daar gewoon in mee in plaats van ergens verouderd te
 // blijven hangen.
 //
-// "Best passend" is dezelfde rangschikking als de ruilerkaarten zelf
-// (groepeerEnRangschikRuilers), maar bewust op basis van enkel de CONCRETE
+// BIJ WIE LEG JE HEM? Dit is de strategische vraag uit het ontwerpgesprek:
+//
+//   Ik zoek FRA12, BEL3 en GER7. Ivo heeft enkel FRA12.
+//   Emma heeft FRA12, BEL3 en GER7, maar wil maar een van mijn dubbels.
+//
+// Emma kan me dus maar EEN sticker geven. Haal ik FRA12 bij haar, dan zijn
+// BEL3 en GER7 verloren. Haal ik FRA12 bij Ivo — die niets anders heeft — dan
+// houd ik Emma over voor iets wat alleen zij heeft. Twee stickers in plaats
+// van een, zonder dat er iets zeldzaams aan te pas komt.
+//
+// Dat vat je in een verhouding: DRUK = wat hij in deze richting voor je heeft,
+// gedeeld door hoeveel ruilen er met hem mogelijk zijn (groep.capaciteit).
+// Ivo 1/1 = 1, Emma 3/1 = 3. De laagste druk wint: spaar de ruiler bij wie
+// veel op tafel ligt maar weinig in past. In een zin aan een kind uit te
+// leggen: "Emma heeft drie dingen voor jou maar je kan maar een keer met haar
+// ruilen — haal deze dus bij Ivo, die enkel dit heeft."
+//
+// Tweerichting staat ervoor, want een ruiler waar de ruil niet kan doorgaan is
+// geen kandidaat maar een doodlopend spoor (sql/016 registreert enkel paren).
+// De gewone rangorde blijft als laatste scheidsrechter, zodat de uitkomst niet
+// verspringt bij gelijke druk.
+//
+// De rangorde zelf komt uit groepeerEnRangschikRuilers() op enkel de CONCRETE
 // favorieten: die rangschikking bepaalt net aan wie de algemene favorieten
 // toegewezen worden, dus die mogen zelf niet meetellen — dat zou circulair
 // zijn.
-function berekenFavorietenWeergave() {
+function berekenFavorietenWeergave(matches) {
   const concreet = favorieten.filter((f) => f.ander_kind_id);
   const algemeen = favorieten.filter((f) => !f.ander_kind_id);
   if (algemeen.length === 0) return concreet;
 
-  const matches = actieveMatches();
-  const rangorde = groepeerEnRangschikRuilers(matches, concreet).map((g) => g.info.ander_kind_id);
+  const groepen = groepeerEnRangschikRuilers(matches, concreet);
+  const rang = new Map(groepen.map((g, i) => [g.info.ander_kind_id, i]));
 
   const bezet = new Set(concreet.map((f) => `${f.code} ${f.richting} ${f.ander_kind_id}`));
   const resultaat = [...concreet];
 
   // Groepeer de algemene favorieten per (code, richting): meerdere ervan voor
   // dezelfde sticker (kan bij dubbels, budget > 1) gaan zo naar verschillende
-  // ruilers, in dalende rangorde — niet allemaal naar dezelfde.
+  // ruilers, in dalende voorkeur — niet allemaal naar dezelfde.
   const perSleutel = new Map();
   algemeen.forEach((f) => {
     const sleutel = `${f.code} ${f.richting}`;
@@ -464,9 +586,29 @@ function berekenFavorietenWeergave() {
 
   perSleutel.forEach((rijenAlgemeen, sleutel) => {
     const [code, richting] = sleutel.split(" ");
-    const kandidaten = rangorde.filter((anderId) =>
-      matches.some((m) => m.ander_kind_id === anderId && m.code === code && m.richting === richting)
-    );
+    const kandidaten = groepen
+      .filter((g) =>
+        matches.some(
+          (m) => m.ander_kind_id === g.info.ander_kind_id && m.code === code && m.richting === richting
+        )
+      )
+      .sort((a, b) => {
+        const tweeA = a.heeft.length && a.wil.length ? 1 : 0;
+        const tweeB = b.heeft.length && b.wil.length ? 1 : 0;
+        if (tweeA !== tweeB) return tweeB - tweeA;
+        // Druk vergelijken zonder te delen: aanbodA/capA < aanbodB/capB wordt
+        // aanbodA*capB < aanbodB*capA. Scheelt afrondingsgedoe en houdt de
+        // vergelijking exact, wat bij een sortering telt.
+        const aanbodA = (richting === "jij_zoekt" ? a.heeft : a.wil).length;
+        const aanbodB = (richting === "jij_zoekt" ? b.heeft : b.wil).length;
+        const capA = Math.max(a.capaciteit, 1);
+        const capB = Math.max(b.capaciteit, 1);
+        const drukVerschil = aanbodA * capB - aanbodB * capA;
+        if (drukVerschil !== 0) return drukVerschil;
+        return rang.get(a.info.ander_kind_id) - rang.get(b.info.ander_kind_id);
+      })
+      .map((g) => g.info.ander_kind_id);
+
     let i = 0;
     rijenAlgemeen.forEach((f) => {
       while (i < kandidaten.length && bezet.has(`${code} ${richting} ${kandidaten[i]}`)) i++;
@@ -483,13 +625,62 @@ function berekenFavorietenWeergave() {
   return resultaat;
 }
 
+// ---------- de genummerde ruilronde ----------
+
+// Jouw ruilronde, van 1 tot N: in welke volgorde loop je je favorieten af?
+// Het cijfer komt in de ster te staan.
+//
+// TWEE KEUZES, ALLEBEI OM EEN REDEN — je loopt fysiek rond met een album:
+//   GENUMMERD PER RUILER, niet per sticker. Je gaat naar een persoon, dus
+//   blijven alle stickers van dezelfde ruiler bij elkaar; de volgorde van de
+//   ruilers is die van de rangschikking hierboven.
+//   BINNEN EEN RUILER OP ALBUMPAGINA, over de twee kolommen heen. Dan blader
+//   je je boek bij elke persoon een keer van voor naar achter door, in plaats
+//   van heen en weer tussen "wat hij heeft" en "wat hij wil".
+//
+// Bewust altijd albumvolgorde, ook als de gebruiker de landen alfabetisch
+// sorteert: die keuze gaat over de weergave, deze volgorde over het
+// doorbladeren van een papieren album.
+//
+// Alleen gereserveerde stickers krijgen een nummer. De ronde is jouw plan, en
+// je plan zijn je favorieten — elke sticker nummeren maakt er weer een lijst
+// van waar je zelf doorheen moet.
+function berekenRuilroute(groepen) {
+  const route = new Map();
+  let nummer = 0;
+  groepen.forEach((groep) => {
+    [...groep.heeft, ...groep.wil]
+      .filter((rij) => favorietStand(rij) === "gekozen")
+      .sort((a, b) => {
+        const verschil = vergelijkLanden(a, b, "pagina");
+        if (verschil !== 0) return verschil;
+        return (Number(a.nummer) || 0) - (Number(b.nummer) || 0);
+      })
+      .forEach((rij) => route.set(routeSleutel(rij), ++nummer));
+  });
+  return route;
+}
+
+function routeSleutel(rij) {
+  return `${rij.code}|${rij.richting}|${rij.ander_kind_id}`;
+}
+
 function teken() {
   const inhoud = document.getElementById("ruil-inhoud");
   inhoud.textContent = "";
 
-  favorietenWeergave = berekenFavorietenWeergave();
-
   const alles = actieveMatches();
+  // Volgorde van belang: kansen voedt de rangschikking, de rangschikking voedt
+  // de toewijzing van algemene favorieten, en die weer de route.
+  kansen = berekenKansen(alles);
+  favorietenWeergave = berekenFavorietenWeergave(alles);
+  // Op ALLE ruilkansen, niet op de gefilterde: je ruilronde is een plan, en een
+  // zoekterm is om iets op te zoeken. Anders hernummert typen in het zoekveld
+  // je hele ronde en herrangschikt het je advies.
+  const alleGroepen = groepeerEnRangschikRuilers(alles, favorietenWeergave);
+  etiketten = bepaalEtiketten(alleGroepen);
+  ruilroute = berekenRuilroute(alleGroepen);
+
   const rijen = alles.filter(rijMatcht);
   tekenTeller(alles.length, rijen.length);
 
@@ -499,7 +690,13 @@ function teken() {
         "Nog geen ruilkansen voor deze verzamelaar. Die verschijnen zodra iemand anders een sticker dubbel heeft die jij zoekt, of omgekeerd."
       )
     );
-  } else if (rijen.length === 0) {
+    tekenAfspraken();
+    return;
+  }
+
+  if (alleGroepen.length >= 2) inhoud.appendChild(ruilplanner(alleGroepen));
+
+  if (rijen.length === 0) {
     inhoud.appendChild(melding("Geen ruilkansen die passen bij je zoekterm."));
   } else if (weergave === "land") {
     tekenPerLand(inhoud, rijen);
@@ -521,6 +718,144 @@ function tekenTeller(totaal, getoond) {
     : `${totaal} ruilkans${totaal === 1 ? "" : "en"}`;
 }
 
+// ---------- de ruilplanner ----------
+
+// "Beste ruilkansen": de kop van de pagina beantwoordt de vraag waarvoor je
+// hier komt — met wie ga ik eerst praten? Dezelfde rangschikking en dezelfde
+// redenen als de kaarten eronder (groepeerEnRangschikRuilers en
+// ruilerRedenen), want twee lijstjes die elk hun eigen volgorde verzinnen zijn
+// erger dan geen lijstje.
+//
+// BEWUST GEEN SCORE. Een getal als "96" leest als een percentage, terwijl het
+// een som van verzonnen gewichten is; en hoe je die som ook aggregeert, ze
+// klopt niet (zie de uitleg bij groepeerEnRangschikRuilers). Wat hier staat
+// zijn wel cijfers, maar cijfers die je kan natellen: hoeveel stickers, hoeveel
+// favorieten, hoeveel je nergens anders krijgt, hoeveel ruilen erin passen.
+const PLANNER_MAX = 10;
+
+function ruilplanner(groepen) {
+  const sectie = document.createElement("section");
+  sectie.className = "card planner";
+
+  const titel = document.createElement("h2");
+  titel.textContent = "🎯 Beste ruilkansen";
+  sectie.appendChild(titel);
+
+  const uitleg = document.createElement("p");
+  uitleg.className = "form-meta";
+  uitleg.textContent =
+    "Met wie ga je best eerst praten? De volgorde is die van de kaarten hieronder: eerst je eigen favorieten, dan de ruilers waar het langs twee kanten klopt, dan wat je nergens anders krijgt, en pas daarna wie er het meeste heeft. Er staat geen puntentotaal bij — enkel cijfers die je kan natellen.";
+  sectie.appendChild(uitleg);
+
+  if (zoekterm) {
+    const filternota = document.createElement("p");
+    filternota.className = "form-meta form-meta--plat planner__filternota";
+    filternota.textContent =
+      "Je zoekterm filtert de lijst hieronder, niet dit advies — een ruilronde plan je op alles wat er ligt.";
+    sectie.appendChild(filternota);
+  }
+
+  const lijst = document.createElement("ol");
+  lijst.className = "planner__lijst";
+  groepen.slice(0, PLANNER_MAX).forEach((groep, index) => {
+    lijst.appendChild(plannerRij(groep, index + 1));
+  });
+  sectie.appendChild(lijst);
+
+  if (groepen.length > PLANNER_MAX) {
+    const rest = document.createElement("p");
+    rest.className = "form-meta form-meta--plat";
+    rest.textContent = `Nog ${groepen.length - PLANNER_MAX} andere ruiler${
+      groepen.length - PLANNER_MAX === 1 ? "" : "s"
+    } hieronder.`;
+    sectie.appendChild(rest);
+  }
+
+  return sectie;
+}
+
+function plannerRij(groep, plaats) {
+  const info = groep.info;
+  const li = document.createElement("li");
+  li.className = "planner__rij";
+
+  const nummer = document.createElement("span");
+  nummer.className = "planner__plaats";
+  nummer.textContent = `#${plaats}`;
+  nummer.setAttribute("aria-hidden", "true");
+  li.appendChild(nummer);
+
+  const kern = document.createElement("div");
+  kern.className = "planner__kern";
+
+  const kop = document.createElement("div");
+  kop.className = "planner__kop";
+
+  // Een knop en geen anker: het doel kan op dit moment weggefilterd zijn, en
+  // dan schakelt springNaarRuiler() eerst de weergave of het zoekveld om.
+  const naam = document.createElement("button");
+  naam.type = "button";
+  naam.className = "planner__naam";
+  naam.textContent = info.ander_kind;
+  naam.setAttribute("aria-label", `Plaats ${plaats}: ga naar ${info.ander_kind}`);
+  naam.addEventListener("click", () => springNaarRuiler(info.ander_kind_id));
+  kop.appendChild(naam);
+
+  if (info.ander_wijk) {
+    const wijk = document.createElement("span");
+    wijk.className = "chip ruiler-kaart__wijk";
+    wijk.textContent = info.ander_wijk;
+    kop.appendChild(wijk);
+  }
+
+  const etiket = ruilerEtiket(groep);
+  if (etiket) {
+    const badge = document.createElement("span");
+    badge.className = "planner__etiket planner__etiket--" + etiket.soort;
+    badge.textContent = etiket.tekst;
+    badge.title = etiket.uitleg;
+    kop.appendChild(badge);
+  }
+
+  kern.appendChild(kop);
+
+  const reden = document.createElement("p");
+  reden.className = "planner__reden";
+  reden.textContent = ruilerRedenen(groep).join(" · ");
+  kern.appendChild(reden);
+
+  li.appendChild(kern);
+  return li;
+}
+
+// Vanuit de planner naar de kaart zelf. Drie dingen kunnen in de weg staan, en
+// alle drie worden ze weggenomen in plaats van dat de klik niets doet: de
+// weergave staat op "Per land" (er zijn dan geen ruilerkaarten), de zoekterm
+// filtert deze ruiler weg, of de kaart staat gewoon buiten beeld.
+function springNaarRuiler(anderId) {
+  if (weergave !== "ruiler") {
+    weergave = "ruiler";
+    const keuze = document.getElementById("ruil-weergave");
+    if (keuze) keuze.value = "ruiler";
+    teken();
+  }
+  if (!kaartVanRuiler(anderId) && zoekterm) {
+    zoekterm = "";
+    const veld = document.getElementById("ruil-zoek");
+    if (veld) veld.value = "";
+    teken();
+  }
+  const kaart = kaartVanRuiler(anderId);
+  if (!kaart) return;
+  kaart.scrollIntoView({ behavior: "smooth", block: "start" });
+  kaart.classList.add("ruiler-kaart--gevonden");
+  setTimeout(() => kaart.classList.remove("ruiler-kaart--gevonden"), 2500);
+}
+
+function kaartVanRuiler(anderId) {
+  return document.querySelector(`.ruiler-kaart[data-ruiler="${anderId}"]`);
+}
+
 // ---------- weergave: per ruiler ----------
 
 function tekenPerRuiler(doel, rijen) {
@@ -534,29 +869,42 @@ function tekenPerRuiler(doel, rijen) {
 // toegewezen), berekenFavorietenWeergave() gebruikt bewust enkel de concrete
 // rijen om diezelfde toewijzing zonder circulaire afhankelijkheid te maken.
 //
-// Bewust een keten van vergelijkingen en geen puntenformule met verzonnen
-// gewichten: zo is er altijd één zin te geven waarom deze ruiler boven die
-// andere staat, en dat is precies wat ruilerRedenen() ook toont.
+// BEWUST EEN KETEN VAN VERGELIJKINGEN EN GEEN PUNTENTOTAAL. Een puntensom
+// (favoriet +100, zeldzaam +50, …) lijkt preciezer maar is het niet:
+//   - Optellen over de stickers heen laat bundelgrootte alles overheersen —
+//     twaalf gewone stickers verslaan dan een favoriet. Middelen of het
+//     maximum nemen draait dat om en is even willekeurig.
+//   - Een totaal als "96" leest als een percentage terwijl het dat niet is.
+//   - Tweerichting is geen bonuspunt maar een POORT: sql/016 laat een ruil
+//     niet registreren als het maar langs één kant klopt. Optellen laat iemand
+//     bovenaan komen met wie je niets kan afspreken.
+//   - En een som valt niet uit te leggen. Deze keten wél: elke stap hieronder
+//     is één zin in ruilerRedenen(), in dezelfde volgorde.
 //
 //   1. FAVORIETEN — jouw eigen keuze overheerst de rest, anders is het geen
 //      keuze meer.
 //   2. TWEERICHTING — wil die persoon ook iets van jou? Dit weegt zwaar, want
 //      sql/016 laat een ruil pas registreren als het langs twee kanten klopt.
 //      Eenrichting is geen ruil.
-//   3. BUNDELGROOTTE — zes stickers bij één iemand verslaat zes keer één,
+//   3. ENIGE KANS — ligt hier iets dat bij niemand anders van jouw ruilers
+//      ligt? Dat kan morgen weg zijn; een extra sticker in de bundel niet.
+//      Persoonlijke schaarste, zie berekenKansen() voor waarom niet globaal.
+//   4. BUNDELGROOTTE — zes stickers bij één iemand verslaat zes keer één,
 //      want je gaat fysiek naar een persoon toe.
-//   4. NAAM — zodat de volgorde niet blijft verspringen bij gelijke stand.
-//
-// Zeldzaamheid en versheid horen hier ook thuis, maar pas later (Todo.md,
-// stap 4): die brengen een valkuil mee — als iedereen dezelfde ranking volgt,
-// stormt de hele wijk op dezelfde zeldzame sticker af — en die los je op door
-// zeldzaamheid persoonlijk te maken in plaats van globaal. Zolang ze hier
-// niet in zit, bestaat dat probleem niet.
+//   5. NAAM — zodat de volgorde niet blijft verspringen bij gelijke stand.
 function groepeerEnRangschikRuilers(rijen, favorietenBron) {
   const perRuiler = new Map();
   rijen.forEach((rij) => {
     if (!perRuiler.has(rij.ander_kind_id)) {
-      perRuiler.set(rij.ander_kind_id, { info: rij, heeft: [], wil: [], favorieten: 0 });
+      perRuiler.set(rij.ander_kind_id, {
+        info: rij,
+        heeft: [],
+        wil: [],
+        favorieten: 0,
+        enigeHeeft: 0, // krijg je enkel hier
+        enigeWil: 0, // raak je enkel hier kwijt
+        ruim: true, // alles wat hier ligt, ligt ook ruim elders
+      });
     }
     const groep = perRuiler.get(rij.ander_kind_id);
     (rij.richting === "jij_zoekt" ? groep.heeft : groep.wil).push(rij);
@@ -564,6 +912,22 @@ function groepeerEnRangschikRuilers(rijen, favorietenBron) {
       (f) => f.code === rij.code && f.richting === rij.richting && f.ander_kind_id === rij.ander_kind_id
     );
     if (gereserveerd) groep.favorieten += 1;
+    if (enigeKans(rij)) {
+      if (rij.richting === "jij_zoekt") groep.enigeHeeft += 1;
+      else groep.enigeWil += 1;
+    }
+    if (!ruimeKans(rij)) groep.ruim = false;
+  });
+
+  perRuiler.forEach((groep) => {
+    groep.enige = groep.enigeHeeft + groep.enigeWil;
+    // Hoeveel ruilen kan je met deze persoon effectief doen? Elke ruil is één
+    // sticker van hem tegen één van jou (sql/016 registreert per paar), dus
+    // meer dan het kleinste van de twee kolommen gaat niet. Dit is het getal
+    // waarmee "hij heeft veel voor jou" een keuze wordt in plaats van een
+    // buit — en het is wat berekenFavorietenWeergave() gebruikt om een
+    // favoriet bij de juiste ruiler te leggen.
+    groep.capaciteit = Math.min(groep.heeft.length, groep.wil.length);
   });
 
   return [...perRuiler.values()].sort((a, b) => {
@@ -571,6 +935,7 @@ function groepeerEnRangschikRuilers(rijen, favorietenBron) {
     const tweeA = a.heeft.length && a.wil.length ? 1 : 0;
     const tweeB = b.heeft.length && b.wil.length ? 1 : 0;
     if (tweeA !== tweeB) return tweeB - tweeA;
+    if (a.enige !== b.enige) return b.enige - a.enige;
     const somA = a.heeft.length + a.wil.length;
     const somB = b.heeft.length + b.wil.length;
     if (somA !== somB) return somB - somA;
@@ -582,6 +947,10 @@ function groepeerEnRangschikRuilers(rijen, favorietenBron) {
 // sortering hierboven, zodat de uitleg en de rangschikking niet uit elkaar
 // kunnen lopen. Een kind moet kunnen zien waarom het portaal zegt "ga eerst
 // naar Jules" — een lijst zonder reden is een orakel.
+//
+// Alle getallen hier zijn ECHTE getallen — aantallen stickers, aantallen
+// ruilen — en geen punten. "3 stickers samen · plaats voor 1 ruil" zegt iets
+// dat je kan natellen; "score 96" niet.
 function ruilerRedenen(groep) {
   const redenen = [];
   if (groep.favorieten) {
@@ -590,9 +959,89 @@ function ruilerRedenen(groep) {
   if (groep.heeft.length && groep.wil.length) {
     redenen.push("ruil kan meteen rond");
   }
+  if (groep.enigeHeeft) {
+    redenen.push(
+      `${groep.enigeHeeft} sticker${groep.enigeHeeft === 1 ? "" : "s"} krijg je enkel hier`
+    );
+  }
+  if (groep.enigeWil) {
+    redenen.push(
+      `${groep.enigeWil} dubbel${groep.enigeWil === 1 ? "" : "s"} raak je enkel hier kwijt`
+    );
+  }
   const som = groep.heeft.length + groep.wil.length;
   redenen.push(`${som} sticker${som === 1 ? "" : "s"} samen`);
+  // Meer op tafel dan er ruilen in passen: dan is dit geen "alles meenemen"
+  // maar een "kies goed", en dat is precies de situatie waarin het uitmaakt
+  // bij wie je welke sticker haalt.
+  if (groep.capaciteit && som > groep.capaciteit * 2) {
+    redenen.push(`plaats voor ${groep.capaciteit} ruil${groep.capaciteit === 1 ? "" : "en"}`);
+  }
   return redenen;
+}
+
+// Het strategische etiket: nu langsgaan of gerust laten liggen?
+//
+// De oorspronkelijke opzet redeneerde omgekeerd ("ga eerst bij Ivo, dan houdt
+// Emma haar opties"), maar Emma's stickers lopen geen gevaar door JOU — wel
+// door andere verzamelaars. Wat je zelf in de hand hebt is de volgorde waarin
+// je onvervangbare dingen veiligstelt. Dus: waar iets ligt dat nergens anders
+// ligt, ga je eerst langs. Dat "haal FRA12 bij Ivo en niet bij Emma" hoort
+// niet hier maar bij de toewijzing van de favoriet zelf — zie
+// berekenFavorietenWeergave(), die daar de capaciteit voor gebruikt.
+//
+// VERGELIJKEND EN NIET ABSOLUUT, en dat is het hele punt. "Deze ruiler heeft
+// iets dat nergens anders ligt" klinkt als een zeldzame gebeurtenis, maar in
+// een wijk met enkele tientallen deelnemers en 1034 stickers is het eerder
+// regel dan uitzondering: de meeste stickers liggen nu eenmaal bij één of twee
+// mensen. Een vlag die iedereen krijgt, zegt niets — dus krijgt alleen wie er
+// het MEEST van heeft er een, en niemand zodra iedereen gelijk staat.
+//
+// Etiketten worden daarom één keer per tekenbeurt bepaald over ALLE ruilers en
+// niet per kaart: een vergelijking heeft de anderen nodig, en zo tonen de
+// planner bovenaan en de kaart eronder gegarandeerd hetzelfde.
+let etiketten = new Map(); // ander_kind_id -> etiket of niets
+
+const ETIKET_NU = {
+  tekst: "🔥 Eerst langsgaan",
+  soort: "nu",
+  uitleg:
+    "Hier ligt het meeste dat bij geen enkele andere ruiler van jou ligt. Is dit weg, dan is de kans weg.",
+};
+const ETIKET_LATER = {
+  tekst: "⭐ Kan wachten",
+  soort: "later",
+  uitleg:
+    "Alles wat hier ligt, ligt ook ruim bij anderen. Deze ruiler loopt niet weg — doe eerst het dringende.",
+};
+
+function bepaalEtiketten(groepen) {
+  const kaart = new Map();
+  // "Eerst langsgaan" alleen bij wie je effectief kan ruilen. Tweerichting is
+  // overal in dit bestand een poort en niet een pluspunt (sql/016 registreert
+  // enkel paren), en een vuurtje op de onderste kaart zou de rangschikking
+  // tegenspreken. Ook de lat zelf ligt bij die groep: een eenrichtingscontact
+  // met veel unieke stickers mag het etiket niet bij iedereen wegdrukken.
+  const tweerichting = groepen.filter((g) => g.heeft.length && g.wil.length);
+  const meeste = tweerichting.reduce((max, g) => Math.max(max, g.enige), 0);
+  // Staat iedereen gelijk, dan onderscheidt het etiket niets en blijft het weg.
+  // Dat is geen randgeval: met 1034 stickers en enkele tientallen deelnemers
+  // ligt bijna élke sticker bij maar één of twee mensen, dus zonder deze
+  // voorwaarde zou zowat iedereen "dringend" zijn.
+  const iedereenGelijk = tweerichting.every((g) => g.enige === meeste);
+  groepen.forEach((groep) => {
+    const kanRuilen = groep.heeft.length && groep.wil.length;
+    if (kanRuilen && meeste > 0 && !iedereenGelijk && groep.enige === meeste) {
+      kaart.set(groep.info.ander_kind_id, ETIKET_NU);
+    } else if (groep.enige === 0 && groep.ruim) {
+      kaart.set(groep.info.ander_kind_id, ETIKET_LATER);
+    }
+  });
+  return kaart;
+}
+
+function ruilerEtiket(groep) {
+  return etiketten.get(groep.info.ander_kind_id) || null;
 }
 
 function ruilerKaart(groep) {
@@ -600,6 +1049,10 @@ function ruilerKaart(groep) {
   const info = groep.info;
   const sectie = document.createElement("section");
   sectie.className = "card ruiler-kaart";
+  // Zodat de planner bovenaan naar deze kaart kan springen. Een data-attribuut
+  // en geen id: ander_kind_id is een uuid en kan met een cijfer beginnen, wat
+  // in een #id-selector niet werkt.
+  sectie.dataset.ruiler = info.ander_kind_id;
 
   // ----- kop: naam, wijk, contact -----
   const kop = document.createElement("header");
@@ -641,7 +1094,19 @@ function ruilerKaart(groep) {
   // is de volgorde een advies; per land is ze gewoon albumvolgorde.
   const reden = document.createElement("p");
   reden.className = "ruiler-kaart__reden";
-  reden.textContent = ruilerRedenen(groep).join(" · ");
+  // "Eerst langsgaan" of "kan wachten" staat vóór de redenen: het is het
+  // antwoord, de redenen erna zijn de onderbouwing. Dezelfde tekst als in de
+  // planner bovenaan, want het is dezelfde beoordeling.
+  const etiket = ruilerEtiket(groep);
+  if (etiket) {
+    const badge = document.createElement("span");
+    badge.className = "planner__etiket planner__etiket--" + etiket.soort;
+    badge.textContent = etiket.tekst;
+    badge.title = etiket.uitleg;
+    reden.appendChild(badge);
+    reden.appendChild(document.createTextNode(" "));
+  }
+  reden.appendChild(document.createTextNode(ruilerRedenen(groep).join(" · ")));
   sectie.appendChild(reden);
 
   // ----- selectie: welke sticker staat er links en rechts gekozen -----
