@@ -13,6 +13,14 @@
         <span class="brand__logo">◆</span>
         <span class="brand__name">Panini Ruilportaal Meulestede</span>
       </a>
+      <!-- "/" en niet "/dashboard.html": deze pagina is er zowel voor wie al
+           aangemeld is als voor wie nog moet aanmelden (footer op elke
+           pagina, plus login.html). index.html regelt zelf al de juiste
+           bestemming voor allebei — ingelogd stuurt het meteen door naar het
+           dashboard, niet ingelogd blijft het gewoon de startpagina. -->
+      <div class="navbar__actions">
+        <a href="/" class="btn btn--outline btn--sm">← Terug</a>
+      </div>
     </div>
   </header>
 
@@ -246,7 +254,7 @@
 
   <footer class="footer">
     <div class="container">
-      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a> — <a href="/privacy.html">Privacy</a></p>
+      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a> — <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>
     </div>
   </footer>
 </body>

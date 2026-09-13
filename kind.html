@@ -15,6 +15,7 @@
       </a>
       <div class="navbar__actions">
         <a href="/dashboard.html" class="btn btn--outline btn--sm">← Dashboard</a>
+        <button type="button" class="btn btn--outline btn--sm" data-snelruilen aria-label="Snelruilen"><span aria-hidden="true">⚡</span><span class="snelruil-knop__tekst">Snelruilen</span></button>
         <!-- De href krijgt er in js/stickers.js het ?kind=<id> van deze pagina
              bij; zonder dat weet print/ruilfiche.html niet wiens fiche het moet
              tonen. Staat hier al als link (en niet als knop) zodat hij met
@@ -154,12 +155,13 @@
 
   <footer class="footer">
     <div class="container">
-      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a> — <a href="/privacy.html">Privacy</a></p>
+      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a> — <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>
     </div>
   </footer>
 
   <script type="module" src="/js/supabase.js"></script>
   <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/snelruilen.js"></script>
   <script type="module" src="/js/kinderen.js"></script>
   <script type="module" src="/js/stickers.js"></script>
 </body>

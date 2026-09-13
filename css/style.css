@@ -1038,6 +1038,42 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .ruil-dialoog__wie { font-size: 0.9rem; color: var(--text-muted); }
 .ruil-dialoog__wat { font-size: 1.05rem; }
 
+/* ----- ⚡ snelruilen (js/snelruilen.js) ----- */
+/* Eigen, donkerder groen en rood dan --success en --danger: die halen als
+   tekstkleur geen 4.5:1 op hun lichte achtergrond, en dit antwoord moet je
+   in een halve seconde kunnen lezen. */
+.snelruil { --snel-ja: #1e7a3c; --snel-ja-licht: #eaf7ee; --snel-nee: #b4232a; --snel-nee-licht: #fef0f0;
+  width: min(34rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); margin: 8vh auto auto; border: none; border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow-lg); color: var(--text); background: var(--surface); overflow-y: auto; }
+.snelruil::backdrop { background: rgba(26, 26, 46, 0.45); }
+.snelruil__kop { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.snelruil__titel { font-size: 1.25rem; color: var(--cf-blue-dark); }
+.snelruil__kind { margin-bottom: 0.75rem; }
+.snelruil__invoer { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.6rem 0.9rem; }
+.snelruil__invoer::placeholder { font-weight: 400; letter-spacing: normal; text-transform: none; }
+.snelruil__hint { min-height: 1.2em; margin: 0.35rem 0 0.5rem; }
+.snelruil__resultaat .message { margin-top: 0; }
+.snelruil__naam { font-size: 1.05rem; line-height: 1.3; }
+.snelruil__land { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.6rem; }
+.snelruil__antwoorden { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.snelruil__antwoord { display: flex; flex-direction: column; padding: 0.7rem 0.9rem; border: 2px solid; border-radius: 8px; min-width: 0; }
+.snelruil__vraag { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.snelruil__uitkomst { font-size: 1.2rem; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.snelruil--ja { color: var(--snel-ja); border-color: var(--snel-ja); background: var(--snel-ja-licht); }
+.snelruil--nee { color: var(--snel-nee); border-color: var(--snel-nee); background: var(--snel-nee-licht); }
+.snelruil__historiek-kop { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 1.25rem 0 0.4rem; }
+.snelruil__historiek { list-style: none; display: flex; flex-direction: column; gap: 0.25rem; }
+.snelruil__regel { display: flex; gap: 0.75rem; padding: 0.25rem 0.6rem; border: none; border-left: 4px solid; border-radius: 4px; font-size: 0.9rem; }
+.snelruil__regel .snelruil__code { min-width: 3.5rem; }
+
+@media (max-width: 640px) {
+  /* Bovenaan het scherm in plaats van gecentreerd: het toetsenbord neemt de
+     onderste helft in, en het antwoord moet net onder het veld zichtbaar
+     blijven. */
+  .snelruil { width: 100vw; max-width: 100vw; max-height: 100dvh; margin: 0 auto auto; border-radius: 0 0 var(--radius) var(--radius); padding: 1rem; }
+  /* In de navbalk enkel het bliksemicoon: die balk is op een gsm al te breed. */
+  .snelruil-knop__tekst { display: none; }
+}
+
 @media (max-width: 640px) {
   /* Twee kolommen naast elkaar worden op een telefoon twee kolommen van niks;
      onder elkaar met een lijn ertussen leest veel beter. */

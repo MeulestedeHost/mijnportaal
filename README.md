@@ -882,6 +882,45 @@ Blijkt de treffer al in de geopende checklist te staan (dus geen lijst om uit
 te kiezen) en druk je toch Enter, dan krijgt die chip gewoon de focus — handig
 voor wie met het toetsenbord werkt.
 
+## Snelruilen aan de ruiltafel
+
+Voor wie op de beurs staat met een stapel stickers in de hand en geen tijd
+heeft om een land te openen. De ⚡-knop in de navigatiebalk opent een venster
+(een echte `<dialog>`, dus Escape en focus regelt de browser) met **één**
+invoerveld. Eén code beantwoordt allebei de vragen tegelijk: *zoek ik hem?* en
+*heb ik hem dubbel?*
+
+**Waarom één veld en geen twee kolommen.** Een sticker heeft in de databank
+precies één status, dus één opzoeking geeft beide antwoorden. Twee velden
+betekenen kiezen, Tab drukken, en in het verkeerde veld kunnen typen — en op
+een gsm zakt het tweede veld onder het toetsenbord.
+
+**Wanneer er gecontroleerd wordt.** Zodra er geen langere code meer kan bedoeld
+zijn. `BEL12` en `BEL03` meteen; `BEL3` ook, want er bestaat geen `BEL30`.
+`BEL1` wacht op Enter, want het kan nog `BEL12` worden. Dat leest de catalogus,
+niet een vast getal. Een onbekend land met één cijfer (`BLE1`) wacht ook, zodat
+een tikfout geen melding geeft terwijl je nog typt. Hoofdletters, spaties en
+koppeltekens maken niet uit; de weergave is die van de rest van het portaal
+(`BEL3`, niet `BEL03`). Glansstickers (`BEL2s`) vallen erbuiten: `BEL12` zou al
+gecontroleerd zijn vóór de `s` getypt is.
+
+**"Bestaat niet" is geen "nee".** Een onbekende code toont niet "zoek ik niet"
+— een tikfout zou dan een ruil doen mislopen. Ze komt niet in de historiek en
+blijft geselecteerd staan, zodat je ze meteen overtypt.
+
+**Kleur is nooit het enige signaal.** Groen/rood, maar met ✓/✗ en tekst: een
+op twaalf jongens ziet rood en groen niet uit elkaar.
+
+**Gegevens.** De catalogus wordt één keer per pagina opgehaald, de lijst van de
+verzamelaar bij elke opening (wie net iets aanvinkte, ziet het meteen). Daarna
+gaat er per controle niets meer over het netwerk. De historiek (laatste 20)
+leeft enkel in het geheugen van de pagina en verdwijnt bij wisselen van
+verzamelaar. Welke verzamelaar gekozen is, onthoudt het toestel
+(`localStorage`); op `kind.html` is dat kind de standaard.
+
+`ontleedCode()` en `bekijkSticker()` staan los van het venster, zodat plakken of
+een bulkcontrole later geen herschrijving vraagt.
+
 ## Frontend
 
 - `js/supabase.js` — Supabase-client + `getCurrentUser()`/`requireAuth()`.
@@ -903,6 +942,9 @@ voor wie met het toetsenbord werkt.
   stickercode. Sterretjes om favorieten te reserveren, ruilers gerangschikt op
   favoriet → tweerichting → bundelgrootte. Registreert ruilen, toont de
   bevestiging per kant en — voor beheerders — het opvolgingsoverzicht.
+- `js/snelruilen.js` — ⚡ Snelruilen: een venster vanuit de navigatiebalk
+  om aan de ruiltafel een code te typen en meteen te zien of de verzamelaar
+  hem zoekt en/of dubbel heeft. Zie "Snelruilen aan de ruiltafel".
 - `js/gezin.js` — tweede volwassene toevoegen, gsm-nummer van het gezin.
 - `js/whatsapp.js` — nummers normaliseren naar E.164 en wa.me-links bouwen.
 - `js/instellingen.js` — beheerpagina: beursvenster, glans, organisatornummer,

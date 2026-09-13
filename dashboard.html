@@ -25,6 +25,7 @@
              uitzondering op). -->
         <a href="/#nieuws" class="btn btn--outline btn--sm">Nieuws</a>
         <a href="/statistieken.html" class="btn btn--outline btn--sm">📊 Statistieken</a>
+        <button type="button" class="btn btn--outline btn--sm" data-snelruilen aria-label="Snelruilen"><span aria-hidden="true">⚡</span><span class="snelruil-knop__tekst">Snelruilen</span></button>
         <a href="/instellingen.html" class="btn btn--outline btn--sm hidden" id="beheer-link">Instellingen</a>
         <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
       </div>
@@ -157,13 +158,14 @@
 
   <footer class="footer">
     <div class="container">
-      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a> — <a href="/privacy.html">Privacy</a></p>
+      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a> — <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>
     </div>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="/js/supabase.js"></script>
   <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/snelruilen.js"></script>
   <script type="module" src="/js/kinderen.js"></script>
   <script type="module" src="/js/dashboard.js"></script>
   <script type="module" src="/js/wereldreis-widget.js"></script>
