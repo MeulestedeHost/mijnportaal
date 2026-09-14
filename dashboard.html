@@ -36,6 +36,13 @@
     <div id="gezin-hint" class="message" role="status" aria-live="polite"></div>
     <div id="loading" class="loading">Laden…</div>
 
+    <!-- Wat er op jou wacht: dezelfde lijst als 🔔 in de navigatiebalk
+         (js/acties.js). Verborgen zolang er niets is. -->
+    <section class="card acties-blok hidden" id="acties-blok" aria-labelledby="acties-blok-titel">
+      <h2 id="acties-blok-titel">🔔 Openstaande acties</h2>
+      <div id="acties-blok-lijst"></div>
+    </section>
+
     <div id="onboarding" class="card hidden">
       <h1>Welkom!</h1>
       <p class="login-card__hint">
@@ -166,6 +173,7 @@
   <script type="module" src="/js/supabase.js"></script>
   <script type="module" src="/js/auth.js"></script>
   <script type="module" src="/js/snelruilen.js"></script>
+  <script type="module" src="/js/acties.js"></script>
   <script type="module" src="/js/kinderen.js"></script>
   <script type="module" src="/js/dashboard.js"></script>
   <script type="module" src="/js/wereldreis-widget.js"></script>

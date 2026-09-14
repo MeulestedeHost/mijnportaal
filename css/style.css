@@ -30,7 +30,14 @@ a { color: var(--cf-blue-primary); text-decoration: none; }
 
 .navbar { background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow); position: sticky; top: 0; z-index: 100; }
 .navbar__inner { display: flex; align-items: center; justify-content: space-between; height: 60px; }
-.navbar__actions { display: flex; align-items: center; gap: 1rem; }
+/* Krappe tussenruimte en, op een breed scherm, geen afbreken binnen een knop:
+   sinds de 🔔 erbij kwam brak de merknaam anders al op 1280px over twee regels.
+   Op een gsm mag een knop wél afbreken — anders wordt de (al te brede) balk
+   daar nog breder. */
+.navbar__actions { display: flex; align-items: center; gap: 0.5rem; }
+@media (min-width: 641px) {
+  .navbar__actions .btn { white-space: nowrap; }
+}
 .navbar__user { color: var(--text-muted); font-size: 0.875rem; }
 
 .brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.25rem; color: var(--text); }
@@ -872,20 +879,25 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 
 /* ----- kaart per ruiler ----- */
 .ruiler-kaart { padding: 1.5rem; }
-.ruiler-kaart__kop { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ruiler-kaart__kop { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
 .ruiler-kaart__kop h2 { font-size: 1.25rem; color: var(--cf-blue-dark); }
 .ruiler-kaart__wijk { text-transform: none; letter-spacing: 0; font-weight: 600; }
 .ruiler-kaart__eigen { text-transform: none; letter-spacing: 0; color: var(--success); background: #eaf7ee; border-color: #cbe8d4; }
 /* De contactknoppen naar rechts, los van de naam: ze horen bij de ruiler maar
    zijn geen deel van zijn naam. */
-.ruiler-kaart__contact { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-left: auto; }
+.ruiler-kaart__contact { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
 /* Staat nu vóór de kolommen (js/ruilen.js), dus ruimte eronder in plaats van
    erboven — de regel "waarom deze ruiler" erboven heeft zelf al een marge. */
 .ruiler-kaart__eenzijdig { margin: 0 0 1.25rem; font-style: italic; }
 /* Waarom deze ruiler bovenaan staat. Klein en grijs: het is een verantwoording
    van de volgorde, geen kop — maar het moet er wél staan, want een lijst die
    zichzelf rangschikt zonder reden is een orakel. */
-.ruiler-kaart__reden { margin: -0.5rem 0 1rem; font-size: 0.8rem; color: var(--text-muted); }
+/* Dichtgevouwen: naam, hoeveel ruilen er kunnen en wat er daarna overblijft.
+   De knop Openen rechts, zodat een lange lijst ruilers snel te overlopen is. */
+.ruiler-kaart__toggle { margin-left: auto; }
+.ruiler-kaart__ruilen { font-weight: 700; }
+.ruiler-kaart__inhoud { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+.ruiler-kaart--open { box-shadow: 0 0 0 2px var(--cf-blue-primary), var(--shadow); }
 
 /* ----- favorieten: de ster naast een sticker ----- */
 /* Drie standen, en ze volgen alle drie uit hetzelfde budget (js/ruilen.js):
@@ -938,9 +950,6 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .planner__etiket { flex: none; font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 0.15rem 0.5rem; white-space: nowrap; cursor: help; }
 .planner__etiket--nu { color: #8a3a00; background: #ffe9d6; }
 .planner__etiket--later { color: var(--cf-blue-dark); background: var(--cf-blue-light); }
-/* In de kaart zelf staat het etiket in de redenregel; daar mag het niet mee
-   de grijze kleur van die regel overnemen. */
-.ruiler-kaart__reden .planner__etiket { margin-right: 0.15rem; }
 
 /* Drie kolommen naast elkaar, met een scheidingslijn ertussen: links wat de
    ander voor jou heeft, in het midden wat hij van jou wil, rechts elke
@@ -948,6 +957,19 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .ruiler-kaart__kolommen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
 .ruilkolom { min-width: 0; }
 .ruiler-kaart__kolommen > .ruilkolom + .ruilkolom { border-left: 1px solid var(--border); padding-left: 1.25rem; }
+/* Lichtgroen = dit wil ik krijgen, lichtgeel = dit kan ik aanbieden: dezelfde
+   betekenis als groen (zoek ik) en geel (dubbel) op kind.html en in
+   Snelruilen. De stickerknoppen zelf blijven wit, zodat code en naam hun
+   gewone contrast houden. */
+.ruilkolom--ik, .ruilkolom--ander { padding: 0.75rem; border-radius: 8px; }
+.ruilkolom--ik { background: #eef8f1; }
+.ruilkolom--ander { background: #fdf6e3; }
+.ruiler-kaart__kolommen > .ruilkolom--ander { border-left: none; padding-left: 0.75rem; }
+
+/* "Ruil n" op beide stickers van dezelfde ruil, en in de lijst erboven. */
+.ruilbadge { flex: none; display: inline-block; padding: 0.05rem 0.45rem; border-radius: 999px; background: var(--cf-blue-primary); color: #fff; font-size: 0.7rem; font-weight: 700; line-height: 1.5; white-space: nowrap; }
+.ruilsticker .ruilbadge { margin-left: auto; align-self: center; }
+.ruilsticker__aantal + .ruilbadge { margin-left: 0.35rem; }
 .ruilkolom__kop { font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.3; margin-bottom: 0.75rem; }
 .ruilkolom__leeg { font-size: 0.85rem; color: var(--text-muted); font-style: italic; }
 /* Legt uit waarom "Ruilvoorstellen" korter is dan heeft × wil (js/ruilen.js,
@@ -981,6 +1003,15 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .ruilvoorstel { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin: 0 0 1.25rem; padding: 0.75rem 1rem; border: 1.5px solid var(--cf-blue-primary); border-radius: var(--radius); background: var(--cf-blue-light); }
 .ruilvoorstel__titel { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--cf-blue-dark); }
 .ruilvoorstel__paar { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-right: auto; }
+.ruilvoorstel__hulp { flex-basis: 100%; font-size: 0.8rem; color: var(--text-muted); }
+.ruilvoorstel--meerdere { flex-direction: column; align-items: stretch; }
+.ruilvoorstel__ruilen { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; }
+.ruilvoorstel__ruil { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.ruilvoorstel__ruilpaar { font-weight: 700; }
+.ruilvoorstel__open { font-size: 0.8rem; color: var(--text-muted); }
+.ruilvoorstel__weg { margin-left: auto; min-width: 2rem; min-height: 2rem; border: none; background: none; font: inherit; color: var(--text-muted); cursor: pointer; }
+.ruilvoorstel__weg:hover { color: var(--danger); }
+.ruilvoorstel__acties { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
 
 /* ----- derde kolom: alle combinaties als klikbaar voorstel ----- */
 /* Eén klik zet meteen de sticker links én rechts, in plaats van dat apart in
@@ -1027,10 +1058,25 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .afspraak__stap--gedaan { color: var(--success); font-weight: 600; }
 .afspraak__acties { margin-bottom: 0.5rem; }
 .afspraak__herinnering { color: var(--danger); }
+/* Een dossier: meerdere ruilen onder één kop, elk met zijn eigen stand. */
+.afspraak__ruilen { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.75rem; }
+.afspraak__ruil { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.afspraak__paar { font-weight: 700; }
+.afspraak__ruil--geweigerd { opacity: 0.65; }
+.afspraak__ruil--geweigerd .afspraak__paar { text-decoration: line-through; }
+.afspraak__ruil-acties { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-left: auto; }
+.afspraak__vraag { font-size: 1.05rem; margin-bottom: 0.25rem; }
+.te-bevestigen { border: 2px solid var(--cf-blue-primary); }
+/* Een link uit 🔔 springt hierheen; zonder marge verdwijnt de kop onder de
+   kleverige navigatiebalk. */
+#ruil-te-bevestigen, #ruil-afspraken { scroll-margin-top: 5rem; }
 
 /* ----- bevestigingsvenster ----- */
 .ruil-dialoog { width: min(28rem, calc(100vw - 2rem)); border: none; border-radius: var(--radius); padding: 0; box-shadow: var(--shadow-lg); color: var(--text); background: var(--surface); }
 .ruil-dialoog::backdrop { background: rgba(26, 26, 46, 0.45); }
+/* De reset zet elke margin op 0, en dan plakt een modale <dialog> linksboven
+   in plaats van in het midden. */
+.ruil-dialoog, .ruiler-kies { margin: auto; }
 .ruil-dialoog__form { padding: 1.75rem; }
 .ruil-dialoog__form h2 { font-size: 1.15rem; color: var(--cf-blue-dark); margin-bottom: 1rem; }
 .ruil-dialoog__inhoud { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; }
@@ -1049,6 +1095,11 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .ruiler-kies__zoek { margin-bottom: 0.6rem; }
 .ruiler-kies__leeg { color: var(--text-muted); }
 .ruiler-kies__lijst { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; overflow-y: auto; margin-bottom: 1rem; }
+.ruiler-kies__stap { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.ruiler-kies__stap .form-label { margin-top: 0.5rem; }
+.ruiler-kies__nieuw { align-self: flex-start; margin-bottom: 1rem; }
+.ruiler-kies__fout { color: var(--danger); min-height: 1.2em; }
+.ruil-dialoog__met { font-weight: 700; margin: -0.5rem 0 0.75rem; }
 
 /* ----- ⚡ snelruilen (js/snelruilen.js) ----- */
 /* Eigen, donkerder groen en rood dan --success en --danger: die halen als
@@ -1086,6 +1137,47 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .snelruil__ruil-knop { flex: none; margin-left: auto; }
 .snelruil__ruiler { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.75rem; }
 .snelruil__ruiler-wijzig { border: none; background: none; padding: 0; font: inherit; color: var(--cf-blue-primary); text-decoration: underline; cursor: pointer; }
+.snelruil__ruiler { gap: 0.6rem; flex-wrap: wrap; }
+.snelruil__ruiler-tekst strong { color: var(--text); }
+/* De ruilen die aan tafel samengesteld worden: dezelfde blauwe kader als
+   "Meerdere ruilen" op de ruilpagina, want het is dezelfde bundel. */
+.snelruil__bundel { margin-top: 1rem; padding: 0.75rem 0.9rem; border: 1.5px solid var(--cf-blue-primary); border-radius: 8px; background: var(--cf-blue-light); }
+.snelruil__bundel-kop { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--cf-blue-dark); }
+.snelruil__bundel-lijst { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; margin: 0.5rem 0 0.75rem; }
+.snelruil__bundel-ruil { display: flex; align-items: center; gap: 0.6rem; }
+.snelruil__bundel-paar { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; min-width: 0; }
+.snelruil__bundel-keuze { width: auto; padding: 0.2rem 0.4rem; font-size: 0.9rem; }
+.snelruil__bundel-open { color: var(--text-muted); }
+.snelruil__bundel-weg { margin-left: auto; min-width: 2.25rem; min-height: 2rem; border: none; background: none; font: inherit; color: var(--text-muted); cursor: pointer; }
+.snelruil__bundel-weg:hover { color: var(--danger); }
+.snelruil__bundelregel { margin-top: 0.5rem; font-size: 0.9rem; font-weight: 600; }
+.snelruil__regel-badge { margin-left: auto; }
+
+/* ----- bundel herstellen (js/ruilbundel.js) ----- */
+.bundel-herstel { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; padding: 0.75rem 1rem; border: 1.5px solid var(--cf-blue-primary); border-radius: 8px; background: var(--cf-blue-light); color: var(--text); }
+.bundel-herstel__acties { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.snelruil__bundel .bundel-herstel { margin-bottom: 0.5rem; padding: 0; border: none; background: none; }
+
+/* ----- 🔔 openstaande acties (js/acties.js) ----- */
+.acties-bel { position: relative; }
+.acties-bel__knop { display: inline-flex; align-items: center; gap: 0.3rem; padding-inline: 0.6rem; }
+/* Rood enkel voor wat jij moet doen; zonder open acties geen bolletje. */
+.acties-bel__aantal { min-width: 1.3em; padding: 0 0.35rem; border-radius: 999px; background: var(--danger); color: #fff; font-size: 0.7rem; font-weight: 700; line-height: 1.5; text-align: center; }
+.acties-paneel { position: absolute; right: 0; top: calc(100% + 0.5rem); width: min(22rem, calc(100vw - 2rem)); padding: 0.9rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-lg); z-index: 200; }
+.acties-paneel__kop { font-weight: 700; margin-bottom: 0.5rem; }
+.acties__lijst { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+.acties__lijst + .acties__lijst { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
+.acties__link { display: block; padding: 0.4rem 0.6rem; border-radius: 8px; color: var(--text); font-size: 0.9rem; text-decoration: none; }
+.acties__link:hover, .acties__link:focus-visible { background: var(--cf-blue-light); }
+.acties__lijst--te-doen .acties__link { font-weight: 700; border-left: 3px solid var(--cf-blue-primary); }
+.acties__lijst--info .acties__link { color: var(--text-muted); }
+.acties__leeg { color: var(--text-muted); font-size: 0.9rem; }
+@media (max-width: 640px) {
+  /* Onder de navigatiebalk over de volle breedte: rechts uitgelijnd aan een
+     knop in het midden van een smalle balk valt het paneel anders links van
+     het scherm. */
+  .acties-paneel { position: fixed; top: 64px; left: 1rem; right: 1rem; width: auto; }
+}
 
 /* Modusschakelaar. Inboeken wijzigt de lijst en krijgt daarom een eigen,
    opvallende kleur (het oranje dat de statistieken voor ruilen gebruiken) —
@@ -1115,6 +1207,7 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
   .snelruil { width: 100vw; max-width: 100vw; max-height: 100dvh; margin: 0 auto auto; border-radius: 0 0 var(--radius) var(--radius); padding: 1rem; }
   /* Elke regel boven het veld duwt het antwoord dichter bij het toetsenbord. */
   .snelruil__kop { margin-bottom: 0.6rem; }
+  .snelruil__ruiler { margin-bottom: 0.25rem; font-size: 0.8rem; }
   .snelruil__uitleg { font-size: 0.78rem; line-height: 1.4; margin-bottom: 0.4rem; }
   /* In de navbalk enkel het bliksemicoon: die balk is op een gsm al te breed. */
   .snelruil-knop__tekst { display: none; }
@@ -1125,6 +1218,7 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
      onder elkaar met een lijn ertussen leest veel beter. */
   .ruiler-kaart__kolommen { grid-template-columns: 1fr; gap: 1rem; }
   .ruiler-kaart__kolommen > .ruilkolom + .ruilkolom { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 1rem; }
+  .ruiler-kaart__kolommen > .ruilkolom--ander { border-top: none; padding: 0.75rem; }
   .ruiler-kaart__contact { margin-left: 0; width: 100%; }
   /* Op een telefoon is de plaatsaanduiding naast de naam zonde van de
      breedte: de volgorde lees je al aan de volgorde. */

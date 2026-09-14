@@ -26,6 +26,15 @@
       <h1>Ruilen</h1>
     </div>
 
+    <!-- Ruilen die een andere ruiler met jou registreerde en die op jouw
+         antwoord wachten. Bovenaan: dit is het enige op deze pagina dat iemand
+         anders van jou verwacht. -->
+    <section class="card te-bevestigen hidden" id="ruil-te-bevestigen">
+      <h2>Te bevestigen</h2>
+      <div id="ruil-te-bevestigen-lijst"></div>
+      <div id="ruil-te-bevestigen-melding" class="message" role="alert" aria-live="polite"></div>
+    </section>
+
     <div class="card">
       <h2>Wat kan je hier?</h2>
       <p>
@@ -136,6 +145,7 @@
   <script type="module" src="/js/supabase.js"></script>
   <script type="module" src="/js/auth.js"></script>
   <script type="module" src="/js/snelruilen.js"></script>
+  <script type="module" src="/js/acties.js"></script>
   <script type="module" src="/js/kinderen.js"></script>
   <script type="module" src="/js/ruilen.js"></script>
 </body>

@@ -31,7 +31,30 @@
 import { supabase, requireAuth } from "./supabase.js";
 import { loadKinderen } from "./kinderen.js";
 import { whatsappKnop, toonOrganisatorKnop } from "./whatsapp.js";
-import { openRuilBevestiging } from "./ruilregistratie.js";
+import {
+  openRuilBevestiging,
+  bevestigRuil,
+  weigerRuil,
+  haalEenzijdigeRuilen,
+  GEREGISTREERD_EVENT,
+} from "./ruilregistratie.js";
+import {
+  BUNDEL_EVENT,
+  huidigeBundel,
+  bundelKindId,
+  kiesRuiler as kiesBundelRuiler,
+  isRuiler,
+  wisselSticker,
+  wisselPaar,
+  verwijderRuil,
+  leegRuilen,
+  ruilNummer,
+  volledigeParen,
+  teHerstellen,
+  herstelMelding,
+} from "./ruilbundel.js";
+import { openSnelruilen } from "./snelruilen.js";
+import { ACTIES_EVENT, wachtOpMij } from "./acties.js";
 import {
   landLabel,
   accentVoor,
@@ -73,10 +96,16 @@ let zoekterm = "";
 let weergave = "ruiler";
 let landsortering = "pagina";
 
-// Welke sticker staat er links en welke rechts geselecteerd, per ruilerkaart.
-// Sleutel: "<eigen kind>|<ander kind>". Blijft bewaard over een hertekening
-// heen, zodat filteren of bevestigen je keuze niet wegneemt.
-const keuzePerRuiler = new Map();
+// Welke ruilerkaart open staat. Eén tegelijk: aan de ruiltafel zit je met één
+// persoon. Wat er in die kaart gekozen is, staat niet hier maar in
+// js/ruilbundel.js — Snelruilen moet dezelfde keuze zien.
+let openRuilerId = null;
+
+// Ruilen met iemand zonder account (sql/022), voor de actieve verzamelaar.
+let eenzijdige = [];
+
+// Pas na de eerste teken() mag een bundelwijziging de pagina hertekenen.
+let paginaKlaar = false;
 
 // null = nog niet nagevraagd. Het antwoord verandert niet tijdens een sessie,
 // dus het wordt één keer opgehaald; de lijst eronder wél elke keer opnieuw.
@@ -108,9 +137,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  actiefKindId = kinderen[0].id;
+  // Stond er aan tafel al een bundel open (bv. vanuit Snelruilen op een andere
+  // pagina), dan verder bij die verzamelaar en die ruiler.
+  // Een link uit 🔔 Openstaande acties (?kind=) wint; anders de verzamelaar
+  // waarvoor aan tafel een bundel openstaat; anders de eerste.
+  const bestaat = (id) => Boolean(id) && kinderen.some((k) => k.id === id);
+  const uitUrl = new URLSearchParams(location.search).get("kind");
+  const bundelKind = bundelKindId();
+  actiefKindId = bestaat(uitUrl) ? uitUrl : bestaat(bundelKind) ? bundelKind : kinderen[0].id;
+  openRuilerId = ruilerUitBundel();
   vulKindKeuze();
   koppelFilters();
+  document.addEventListener(BUNDEL_EVENT, () => {
+    if (paginaKlaar) teken();
+  });
+  document.addEventListener(GEREGISTREERD_EVENT, async () => {
+    if (!paginaKlaar) return;
+    await verversNaWijziging();
+    document.getElementById("ruil-afspraken").scrollIntoView({ block: "nearest" });
+  });
 
   try {
     await laadGegevens();
@@ -124,13 +169,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   loading.classList.add("hidden");
   teken();
+  paginaKlaar = true;
+  // De inhoud komt pas na het laden, dus springt de browser zelf niet naar
+  // het anker uit de link (#ruil-te-bevestigen).
+  if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: "start" });
   void toonBeheer();
 });
 
 // ---------- gegevens ----------
 
 async function laadGegevens() {
-  await Promise.all([haalMatches(actiefKindId), haalAfspraken(), haalFavorieten(actiefKindId)]);
+  await Promise.all([
+    haalMatches(actiefKindId),
+    haalAfspraken(),
+    haalFavorieten(actiefKindId),
+    haalEenzijdige(actiefKindId),
+  ]);
 }
 
 // Per verzamelaar één aanroep, en het resultaat blijft bewaard: van
@@ -149,6 +203,10 @@ async function haalAfspraken() {
   if (error) throw error;
   afspraken = data || [];
   return afspraken;
+}
+
+async function haalEenzijdige(kindId) {
+  eenzijdige = await haalEenzijdigeRuilen(kindId);
 }
 
 // Anders dan de matches worden favorieten NIET per verzamelaar bewaard: ze
@@ -174,8 +232,9 @@ async function haalFavorieten(kindId) {
 // bijwerken. Anders zou dat overzicht de ruil tonen zoals hij bij het laden
 // van de pagina was.
 async function verversNaWijziging() {
-  await haalAfspraken();
+  await Promise.all([haalAfspraken(), haalEenzijdige(actiefKindId)]);
   teken();
+  document.dispatchEvent(new CustomEvent(ACTIES_EVENT));
   await toonBeheer();
 }
 
@@ -271,12 +330,13 @@ function vulKindKeuze() {
 function koppelFilters() {
   document.getElementById("ruil-kind").addEventListener("change", async (e) => {
     actiefKindId = e.target.value;
+    openRuilerId = ruilerUitBundel();
     const inhoud = document.getElementById("ruil-inhoud");
     inhoud.textContent = "";
     try {
       // Favorieten horen bij één verzamelaar, dus die moeten mee: anders
       // staan de sterretjes van het vorige kind op de lijst van dit kind.
-      await Promise.all([haalMatches(actiefKindId), haalFavorieten(actiefKindId)]);
+      await Promise.all([haalMatches(actiefKindId), haalFavorieten(actiefKindId), haalEenzijdige(actiefKindId)]);
     } catch (err) {
       inhoud.appendChild(melding("Ruilkansen konden niet geladen worden: " + err.message));
       return;
@@ -491,7 +551,10 @@ function favorietKnop(rij) {
   // gouden ster met zijn nummer eraan.
   const nummer = ruilroute.get(routeSleutel(rij));
   let volgorde = "";
-  if (stand === "gekozen" && nummer) {
+  // Zolang er in deze kaart ruilen gekozen worden, draagt de sticker een badge
+  // "Ruil n" — een tweede nummer ernaast (de ruilronde) zou verwarren.
+  const inBundel = Boolean(bundelVoor(rij.ander_kind_id)?.ruilen.length);
+  if (stand === "gekozen" && nummer && !inBundel) {
     const cijfer = document.createElement("span");
     cijfer.className = "favoriet__nr";
     cijfer.textContent = String(nummer);
@@ -666,6 +729,9 @@ function teken() {
   const inhoud = document.getElementById("ruil-inhoud");
   inhoud.textContent = "";
 
+  const herstel = teHerstellen();
+  if (herstel) inhoud.appendChild(herstelMelding(herstel, { naHerstel: naBundelHerstel }));
+
   const alles = actieveMatches();
   // Volgorde van belang: kansen voedt de rangschikking, de rangschikking voedt
   // de toewijzing van algemene favorieten, en die weer de route.
@@ -702,6 +768,19 @@ function teken() {
   }
 
   tekenAfspraken();
+}
+
+// Een herstelde bundel kan van een andere verzamelaar zijn: dan eerst daarheen
+// wisselen (zoals de keuzelijst dat doet), en zijn kaart openen.
+function naBundelHerstel(bundel) {
+  if (bundel.eigenKindId !== actiefKindId && kinderen.some((k) => k.id === bundel.eigenKindId)) {
+    const keuze = document.getElementById("ruil-kind");
+    keuze.value = bundel.eigenKindId;
+    keuze.dispatchEvent(new Event("change"));
+    return;
+  }
+  openRuilerId = ruilerUitBundel();
+  teken();
 }
 
 function tekenTeller(totaal, getoond) {
@@ -819,6 +898,7 @@ function plannerRij(groep, plaats) {
   const reden = document.createElement("p");
   reden.className = "planner__reden";
   reden.textContent = ruilerRedenen(groep).join(" · ");
+  reden.title = ruilerRedenenUitgebreid(groep).join("\n");
   kern.appendChild(reden);
 
   li.appendChild(kern);
@@ -830,6 +910,12 @@ function plannerRij(groep, plaats) {
 // weergave staat op "Per land" (er zijn dan geen ruilerkaarten), de zoekterm
 // filtert deze ruiler weg, of de kaart staat gewoon buiten beeld.
 function springNaarRuiler(anderId) {
+  // Een naam aanklikken betekent "met die ga ik nu ruilen": die kaart open, de
+  // andere dicht, en onthouden voor Snelruilen.
+  openRuilerId = anderId;
+  const info = actieveMatches().find((r) => r.ander_kind_id === anderId);
+  if (info && !isRuiler(actiefKindId, anderId)) kiesRuilerVoor(info);
+  else teken();
   if (weergave !== "ruiler") {
     weergave = "ruiler";
     const keuze = document.getElementById("ruil-weergave");
@@ -940,15 +1026,34 @@ function groepeerEnRangschikRuilers(rijen, favorietenBron) {
   });
 }
 
-// Waarom staat deze ruiler waar hij staat? In dezelfde volgorde als de
-// sortering hierboven, zodat de uitleg en de rangschikking niet uit elkaar
-// kunnen lopen. Een kind moet kunnen zien waarom het portaal zegt "ga eerst
-// naar Jules" — een lijst zonder reden is een orakel.
+// Waarom staat deze ruiler waar hij staat? Hoogstens drie korte stukjes, in
+// dezelfde volgorde als de sortering hierboven: favorieten, hoeveel ruilen er
+// kunnen (tweerichting), zeldzaamheid. Bundelgrootte en naam beslissen enkel
+// nog bij gelijke stand en halen de uitleg niet — aan tafel leest niemand vijf
+// redenen. Een kind moet wel kunnen zien waarom het portaal zegt "ga eerst naar
+// Jules": een lijst zonder reden is een orakel.
 //
-// Alle getallen hier zijn ECHTE getallen — aantallen stickers, aantallen
-// ruilen — en geen punten. "3 stickers samen · plaats voor 1 ruil" zegt iets
-// dat je kan natellen; "score 96" niet.
+// Echte getallen die je kan natellen, geen score (Todo.md, "Waarom geen
+// puntentotaal"). "Zeldzaam" vat samen wat vroeger "krijg je enkel hier" en
+// "raak je enkel hier kwijt" heette; die uitgebreide versie staat in de
+// tooltip (ruilerRedenenUitgebreid).
 function ruilerRedenen(groep) {
+  const redenen = [];
+  if (groep.favorieten) {
+    redenen.push(`★ ${groep.favorieten} favoriet${groep.favorieten === 1 ? "" : "en"}`);
+  }
+  redenen.push(
+    groep.capaciteit
+      ? `${groep.capaciteit} ${groep.capaciteit === 1 ? "ruil" : "ruilen"} mogelijk`
+      : "geen ruil mogelijk"
+  );
+  if (groep.enige) {
+    redenen.push(`${groep.enige} zeldzame sticker${groep.enige === 1 ? "" : "s"}`);
+  }
+  return redenen;
+}
+
+function ruilerRedenenUitgebreid(groep) {
   const redenen = [];
   if (groep.favorieten) {
     redenen.push(`★ ${groep.favorieten} favoriet${groep.favorieten === 1 ? "" : "en"}`);
@@ -1081,14 +1186,17 @@ function berekenRuilparen(groep) {
 function ruilerKaart(groep) {
   const kind = actiefKind();
   const info = groep.info;
+  const open = openRuilerId === info.ander_kind_id;
+  const bundel = bundelVoor(info.ander_kind_id);
+
   const sectie = document.createElement("section");
-  sectie.className = "card ruiler-kaart";
+  sectie.className = "card ruiler-kaart" + (open ? " ruiler-kaart--open" : "");
   // Zodat de planner bovenaan naar deze kaart kan springen. Een data-attribuut
   // en geen id: ander_kind_id is een uuid en kan met een cijfer beginnen, wat
   // in een #id-selector niet werkt.
   sectie.dataset.ruiler = info.ander_kind_id;
 
-  // ----- kop: naam, wijk, contact -----
+  // ----- kop: naam, wijk, etiket, openen -----
   const kop = document.createElement("header");
   kop.className = "ruiler-kaart__kop";
 
@@ -1109,6 +1217,36 @@ function ruilerKaart(groep) {
     kop.appendChild(eigen);
   }
 
+  // Het etiket blijft: twee woorden die zeggen waarom deze kaart hier staat.
+  // De uitgeschreven redenen ("2 stickers krijg je enkel hier") staan enkel
+  // nog in Beste ruilkansen — aan tafel wil je weten hoeveel ruilen er kunnen.
+  const etiket = ruilerEtiket(groep);
+  if (etiket) {
+    const badge = document.createElement("span");
+    badge.className = "planner__etiket planner__etiket--" + etiket.soort;
+    badge.textContent = etiket.tekst;
+    badge.title = etiket.uitleg;
+    kop.appendChild(badge);
+  }
+
+  const inhoud = document.createElement("div");
+  inhoud.className = "ruiler-kaart__inhoud" + (open ? "" : " hidden");
+  inhoud.id = `ruiler-inhoud-${info.ander_kind_id}`;
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "btn btn--sm ruiler-kaart__toggle " + (open ? "btn--outline" : "btn--primary");
+  toggle.textContent = open ? "Sluiten" : "Openen";
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.setAttribute("aria-controls", inhoud.id);
+  toggle.addEventListener("click", () => openKaart(open ? null : info));
+  kop.appendChild(toggle);
+
+  sectie.appendChild(kop);
+  sectie.appendChild(ruilerSamenvatting(groep, bundel));
+
+  // Ook een dichte kaart bouwt haar inhoud op, verborgen: één tekenpad, en een
+  // ster die je in "Per land" zet, klopt meteen als je de kaart opent.
   const contact = document.createElement("div");
   contact.className = "ruiler-kaart__contact";
   if (info.ander_email) {
@@ -1120,89 +1258,114 @@ function ruilerKaart(groep) {
   }
   const wa = whatsappKnop(info.ander_whatsapp, ruilBericht(kind, info), "💬 WhatsApp");
   if (wa) contact.appendChild(wa);
-  if (contact.childElementCount) kop.appendChild(contact);
+  if (contact.childElementCount) inhoud.appendChild(contact);
 
-  sectie.appendChild(kop);
-
-  // Waarom deze ruiler hier staat. Enkel in de weergave per ruiler, want daar
-  // is de volgorde een advies; per land is ze gewoon albumvolgorde.
-  const reden = document.createElement("p");
-  reden.className = "ruiler-kaart__reden";
-  // "Eerst langsgaan" of "kan wachten" staat vóór de redenen: het is het
-  // antwoord, de redenen erna zijn de onderbouwing. Dezelfde tekst als in de
-  // planner bovenaan, want het is dezelfde beoordeling.
-  const etiket = ruilerEtiket(groep);
-  if (etiket) {
-    const badge = document.createElement("span");
-    badge.className = "planner__etiket planner__etiket--" + etiket.soort;
-    badge.textContent = etiket.tekst;
-    badge.title = etiket.uitleg;
-    reden.appendChild(badge);
-    reden.appendChild(document.createTextNode(" "));
-  }
-  reden.appendChild(document.createTextNode(ruilerRedenen(groep).join(" · ")));
-  sectie.appendChild(reden);
-
-  // ----- selectie: welke sticker staat er links en rechts gekozen -----
   const paren = berekenRuilparen(groep);
-  const sleutel = `${actiefKindId}|${info.ander_kind_id}`;
-  const keuze = keuzePerRuiler.get(sleutel) || {};
-  // Een selectie die door filteren of door een aangepaste lijst verdwenen is,
-  // laten staan zou een ruil voorstellen die niet meer op het scherm staat.
-  // De standaardkeuze komt uit paren[0] — het best gerangschikte voorstel —
-  // in plaats van gewoon de eerste rij van elke kolom, zodat de vooraf
-  // gekozen ruil bovenaan hier overeenkomt met de bovenste rij hiernaast in
-  // "Ruilvoorstellen".
-  if (!groep.heeft.some((r) => r.code === keuze.ik)) keuze.ik = paren[0]?.h.code;
-  if (!groep.wil.some((r) => r.code === keuze.ander)) keuze.ander = paren[0]?.w.code;
-  keuzePerRuiler.set(sleutel, keuze);
-
-  // ----- mogelijke ruil: BOVENAAN, vóór de kolommen — dat is waar je hier
-  // eigenlijk voor komt, en scrollen om de knop "Ruil registreren" te vinden
-  // was overbodig zodra er meer dan een paar stickers stonden. -----
-  if (groep.heeft.length && groep.wil.length && keuze.ik && keuze.ander) {
-    sectie.appendChild(ruilVoorstel(info, keuze.ik, keuze.ander));
-  } else {
-    const eenzijdig = document.createElement("p");
-    eenzijdig.className = "form-meta form-meta--plat ruiler-kaart__eenzijdig";
-    eenzijdig.textContent = groep.heeft.length
-      ? "Deze ruiler heeft iets voor jou, maar jij hebt (nog) niets dat hij zoekt — spreek gerust af, een ruil registreren kan pas als het langs twee kanten klopt."
-      : "Jij hebt iets dat deze ruiler zoekt, maar hij heeft (nog) niets dat jij zoekt.";
-    sectie.appendChild(eenzijdig);
-  }
+  inhoud.appendChild(bundelBlok(groep, paren, bundel));
 
   // ----- drie kolommen -----
   const kolommen = document.createElement("div");
   kolommen.className = "ruiler-kaart__kolommen";
   kolommen.appendChild(
-    ruilKolom("Deze ruiler heeft wat jij zoekt", groep.heeft, keuze.ik, (code) => {
-      keuze.ik = code;
-      teken();
-    })
+    ruilKolom("Deze ruiler heeft wat jij zoekt", groep.heeft, "ik", bundel, (code) => kiesSticker(info, "ik", code))
   );
   kolommen.appendChild(
-    ruilKolom("Deze ruiler wilt jouw dubbels", groep.wil, keuze.ander, (code) => {
-      keuze.ander = code;
-      teken();
-    })
+    ruilKolom("Deze ruiler wil jouw dubbels", groep.wil, "ander", bundel, (code) => kiesSticker(info, "ander", code))
   );
   kolommen.appendChild(
-    ruilVoorstellenKolom(groep, info, keuze, paren, (ik, ander) => {
-      keuze.ik = ik;
-      keuze.ander = ander;
-      teken();
-    })
+    ruilVoorstellenKolom(groep, info, bundel, paren, (ik, ander) => kiesPaar(info, ik, ander))
   );
-  sectie.appendChild(kolommen);
+  inhoud.appendChild(kolommen);
+  sectie.appendChild(inhoud);
 
   return sectie;
 }
 
+// Dichtgevouwen zie je enkel wat Guus aan tafel wil weten: hoeveel ruilen er
+// kunnen, en hoeveel interessants er daarna nog overblijft.
+function ruilerSamenvatting(groep, bundel) {
+  const naam = groep.info.ander_kind;
+  const vak = document.createElement("div");
+  vak.className = "ruiler-kaart__samenvatting";
+  const regel1 = document.createElement("p");
+  regel1.className = "ruiler-kaart__ruilen";
+  const regel2 = document.createElement("p");
+  regel2.className = "form-meta form-meta--plat ruiler-kaart__rest";
+  const heeft = groep.heeft.length;
+
+  if (groep.capaciteit > 0) {
+    regel1.textContent = `Je kan ${groep.capaciteit} ${groep.capaciteit === 1 ? "ruil" : "ruilen"} doen met ${naam}.`;
+    const gekozen = bundel ? bundel.ruilen.filter((r) => r.ik).length : 0;
+    regel2.textContent = gekozen
+      ? `Na de geselecteerde ${bundel.ruilen.length === 1 ? "ruil" : "ruilen"} heeft ${naam} nog ${telStickers(heeft - gekozen)} die jij zoekt.`
+      : `${naam} heeft ${telStickers(heeft)} die jij zoekt.`;
+  } else if (heeft) {
+    regel1.textContent = `Geen ruil mogelijk met ${naam}.`;
+    regel2.textContent = `${naam} heeft ${telStickers(heeft)} die jij zoekt, maar zoekt niets van jouw dubbels.`;
+  } else {
+    regel1.textContent = `Geen ruil mogelijk met ${naam}.`;
+    regel2.textContent = `${naam} zoekt ${groep.wil.length} van jouw dubbels, maar heeft niets dat jij zoekt.`;
+  }
+  vak.append(regel1, regel2);
+  return vak;
+}
+
+function telStickers(aantal) {
+  return `${aantal} sticker${aantal === 1 ? "" : "s"}`;
+}
+
+function bundelVoor(anderKindId) {
+  const bundel = huidigeBundel(actiefKindId);
+  return bundel && bundel.ruiler && bundel.ruiler.id === anderKindId ? bundel : null;
+}
+
+function ruilerUitBundel() {
+  const bundel = huidigeBundel(actiefKindId);
+  return bundel && bundel.ruiler && bundel.ruiler.id ? bundel.ruiler.id : null;
+}
+
+function kiesRuilerVoor(info) {
+  kiesBundelRuiler(actiefKindId, {
+    id: info.ander_kind_id,
+    naam: info.ander_kind,
+    letter: info.ander_kind_letter || "",
+  });
+}
+
+// Eén kaart tegelijk open. Een kaart openen is ook "met deze ga ik ruilen": de
+// ruiler wordt onthouden voor Snelruilen (js/ruilbundel.js).
+function openKaart(info) {
+  if (!info) {
+    openRuilerId = null;
+    teken();
+    return;
+  }
+  openRuilerId = info.ander_kind_id;
+  if (isRuiler(actiefKindId, info.ander_kind_id)) teken();
+  else kiesRuilerVoor(info); // hertekent via BUNDEL_EVENT
+  kaartVanRuiler(info.ander_kind_id)?.scrollIntoView({ block: "nearest" });
+}
+
+// Een sticker aantikken in een kaart kiest ook meteen die ruiler: een ruil kan
+// maar met één persoon tegelijk samengesteld worden.
+function kiesSticker(info, kant, code) {
+  openRuilerId = info.ander_kind_id;
+  if (!isRuiler(actiefKindId, info.ander_kind_id)) kiesRuilerVoor(info);
+  wisselSticker(actiefKindId, kant, code);
+}
+
+function kiesPaar(info, ik, ander) {
+  openRuilerId = info.ander_kind_id;
+  if (!isRuiler(actiefKindId, info.ander_kind_id)) kiesRuilerVoor(info);
+  wisselPaar(actiefKindId, ik, ander);
+}
+
 // Eén kolom met de stickers gegroepeerd per land, in de gekozen landvolgorde.
-// Elke sticker is een knop: aanklikken kiest hem als jouw kant van de ruil.
-function ruilKolom(kopTekst, rijen, gekozen, opKlik) {
+// Elke sticker is een knop: aantikken zet hem in de eerste ruil waar die kant
+// nog open is ("Ruil 1", "Ruil 2", …), nog eens aantikken haalt hem eruit.
+function ruilKolom(kopTekst, rijen, kant, bundel, opKlik) {
   const kolom = document.createElement("section");
-  kolom.className = "ruilkolom";
+  kolom.className = "ruilkolom ruilkolom--" + kant;
 
   const kop = document.createElement("h3");
   kop.className = "ruilkolom__kop";
@@ -1241,9 +1404,10 @@ function ruilKolom(kopTekst, rijen, gekozen, opKlik) {
       const knop = document.createElement("button");
       knop.type = "button";
       knop.className = "ruilsticker";
-      if (rij.code === gekozen) knop.classList.add("ruilsticker--gekozen");
+      const nummer = ruilNummer(bundel, kant, rij.code);
+      if (nummer) knop.classList.add("ruilsticker--gekozen");
       if (gemarkeerd.has(rij.code)) knop.classList.add("ruilsticker--geruild");
-      knop.setAttribute("aria-pressed", String(rij.code === gekozen));
+      knop.setAttribute("aria-pressed", String(nummer > 0));
       knop.title = rij.sticker_naam || rij.code;
 
       const code = document.createElement("span");
@@ -1262,6 +1426,12 @@ function ruilKolom(kopTekst, rijen, gekozen, opKlik) {
         aantal.className = "ruilsticker__aantal";
         aantal.textContent = `×${rij.aantal}`;
         knop.appendChild(aantal);
+      }
+      if (nummer) {
+        const badge = document.createElement("span");
+        badge.className = "ruilbadge";
+        badge.textContent = `Ruil ${nummer}`;
+        knop.appendChild(badge);
       }
 
       knop.addEventListener("click", () => opKlik(rij.code));
@@ -1285,7 +1455,7 @@ function ruilKolom(kopTekst, rijen, gekozen, opKlik) {
 // Bewust GEEN aparte kolom per land: het gaat hier om paren, en een paar
 // bestaat uit twee verschillende landen (jouw land, zijn land). Ze onder een
 // gedeelde landnaam zetten zou een van beide moeten weglaten.
-function ruilVoorstellenKolom(groep, info, keuze, paren, opKies) {
+function ruilVoorstellenKolom(groep, info, bundel, paren, opKies) {
   const kolom = document.createElement("section");
   kolom.className = "ruilkolom ruilkolom--voorstellen";
 
@@ -1320,7 +1490,7 @@ function ruilVoorstellenKolom(groep, info, keuze, paren, opKies) {
     const knop = document.createElement("button");
     knop.type = "button";
     knop.className = "ruilvoorstel-item";
-    const gekozen = h.code === keuze.ik && w.code === keuze.ander;
+    const gekozen = Boolean(bundel && bundel.ruilen.some((r) => r.ik === h.code && r.ander === w.code));
     knop.classList.toggle("ruilvoorstel-item--gekozen", gekozen);
     knop.setAttribute("aria-pressed", String(gekozen));
 
@@ -1352,39 +1522,130 @@ function ruilVoorstellenKolom(groep, info, keuze, paren, opKies) {
   return kolom;
 }
 
-function ruilVoorstel(info, ikKrijg, anderKrijgt) {
+// Bovenaan de open kaart: wat er geregistreerd zou worden. Zonder eigen keuze
+// het beste voorstel ("Mogelijke ruil", paren[0]); zodra je zelf minstens één
+// sticker kiest, jouw ruilen ("Meerdere ruilen"). Vóór de kolommen, want dat
+// is waar je voor komt.
+function bundelBlok(groep, paren, bundel) {
+  const info = groep.info;
+  if (!groep.heeft.length || !groep.wil.length) {
+    const eenzijdig = document.createElement("p");
+    eenzijdig.className = "form-meta form-meta--plat ruiler-kaart__eenzijdig";
+    eenzijdig.textContent = groep.heeft.length
+      ? "Deze ruiler heeft iets voor jou, maar jij hebt (nog) niets dat hij zoekt — spreek gerust af, een ruil registreren kan pas als het langs twee kanten klopt."
+      : "Jij hebt iets dat deze ruiler zoekt, maar hij heeft (nog) niets dat jij zoekt.";
+    return eenzijdig;
+  }
+
   const vak = document.createElement("div");
   vak.className = "ruilvoorstel";
-
   const titel = document.createElement("p");
   titel.className = "ruilvoorstel__titel";
-  titel.textContent = "Mogelijke ruil";
   vak.appendChild(titel);
 
-  const paar = document.createElement("p");
-  paar.className = "ruilvoorstel__paar";
-  paar.textContent = `${ikKrijg} ⇄ ${anderKrijgt}`;
-  vak.appendChild(paar);
+  const ruilen = bundel ? bundel.ruilen : [];
+  if (ruilen.length === 0) {
+    const { h, w } = paren[0];
+    titel.textContent = "Mogelijke ruil";
+    const paar = document.createElement("p");
+    paar.className = "ruilvoorstel__paar";
+    paar.textContent = `${h.code} ⇄ ${w.code}`;
+    vak.append(paar, registreerKnop(info, [{ ik: h.code, ander: w.code }]), snelruilKnop(info));
+    const hulp = document.createElement("p");
+    hulp.className = "ruilvoorstel__hulp";
+    hulp.textContent = "Meerdere ruilen tegelijk? Tik om beurt een sticker links en rechts aan: ze krijgen samen \"Ruil 1\", daarna \"Ruil 2\", …";
+    vak.appendChild(hulp);
+    return vak;
+  }
 
+  vak.classList.add("ruilvoorstel--meerdere");
+  titel.textContent = "Meerdere ruilen";
+  const lijst = document.createElement("ol");
+  lijst.className = "ruilvoorstel__ruilen";
+  ruilen.forEach((ruil, index) => {
+    const li = document.createElement("li");
+    li.className = "ruilvoorstel__ruil";
+
+    const badge = document.createElement("span");
+    badge.className = "ruilbadge";
+    badge.textContent = `Ruil ${index + 1}`;
+    const paar = document.createElement("span");
+    paar.className = "ruilvoorstel__ruilpaar";
+    paar.textContent = `${ruil.ik || "…"} ⇄ ${ruil.ander || "…"}`;
+    li.append(badge, paar);
+
+    const nota = document.createElement("span");
+    nota.className = "ruilvoorstel__open";
+    if (!ruil.ik) nota.textContent = "kies nog links wat jij krijgt";
+    else if (!ruil.ander) nota.textContent = "kies nog rechts wat je geeft";
+    else {
+      const bestaande = zoekAfspraak(info.ander_kind_id, ruil.ik, ruil.ander);
+      if (bestaande) {
+        nota.textContent =
+          bestaande.status === "VOLTOOID"
+            ? "al geruild"
+            : bestaande.eigen_bevestigd
+            ? "al door jou bevestigd"
+            : "al geregistreerd — registreren bevestigt jouw kant";
+      }
+    }
+    if (nota.textContent) li.appendChild(nota);
+
+    const weg = document.createElement("button");
+    weg.type = "button";
+    weg.className = "ruilvoorstel__weg";
+    weg.textContent = "✕";
+    weg.setAttribute("aria-label", `Ruil ${index + 1} verwijderen`);
+    weg.addEventListener("click", () => verwijderRuil(actiefKindId, index));
+    li.appendChild(weg);
+    lijst.appendChild(li);
+  });
+  vak.appendChild(lijst);
+
+  const acties = document.createElement("div");
+  acties.className = "ruilvoorstel__acties";
+  const wis = document.createElement("button");
+  wis.type = "button";
+  wis.className = "btn btn--outline btn--sm";
+  wis.textContent = "Alles wissen";
+  wis.addEventListener("click", () => leegRuilen(actiefKindId));
+  acties.append(registreerKnop(info, volledigeParen(bundel)), snelruilKnop(info), wis);
+  vak.appendChild(acties);
+  return vak;
+}
+
+function registreerKnop(info, paren) {
   const knop = document.createElement("button");
   knop.type = "button";
   knop.className = "btn btn--primary btn--sm";
-
-  // Is er al een afspraak en heb je zelf al bevestigd (of is ze voltooid),
-  // dan valt er met één klik niets meer te doen. Staat ze enkel nog
-  // geregistreerd, dan bevestigt deze knop nu in plaats van te registreren —
-  // zo hoef je er niet apart voor naar "Afspraken" te scrollen.
-  const bestaande = zoekAfspraak(info.ander_kind_id, ikKrijg, anderKrijgt);
-  const klaar = bestaande && (bestaande.status === "VOLTOOID" || bestaande.eigen_bevestigd);
-  if (klaar) {
+  knop.textContent = paren.length > 1 ? `${paren.length} ruilen registreren` : "Ruil registreren";
+  if (!paren.length) {
     knop.disabled = true;
-    knop.textContent = bestaande.status === "VOLTOOID" ? "✔ Al geruild" : "✔ Al bevestigd";
-  } else {
-    knop.textContent = "Ruil registreren";
-    knop.addEventListener("click", () => openRegistratie(info, ikKrijg, anderKrijgt, bestaande));
+    return knop;
   }
-  vak.appendChild(knop);
-  return vak;
+  // Eén ruil die er al staat en waar voor jou niets meer te doen valt.
+  if (paren.length === 1) {
+    const bestaande = zoekAfspraak(info.ander_kind_id, paren[0].ik, paren[0].ander);
+    if (bestaande && (bestaande.status === "VOLTOOID" || bestaande.eigen_bevestigd)) {
+      knop.disabled = true;
+      knop.textContent = bestaande.status === "VOLTOOID" ? "✔ Al geruild" : "✔ Al bevestigd";
+      return knop;
+    }
+  }
+  knop.addEventListener("click", () => openRegistratie(info, paren));
+  return knop;
+}
+
+function snelruilKnop(info) {
+  const knop = document.createElement("button");
+  knop.type = "button";
+  knop.className = "btn btn--outline btn--sm";
+  knop.textContent = `⚡ Snelruilen met ${info.ander_kind}`;
+  knop.addEventListener("click", () => {
+    if (!isRuiler(actiefKindId, info.ander_kind_id)) kiesRuilerVoor(info);
+    void openSnelruilen({ kindId: actiefKindId });
+  });
+  return knop;
 }
 
 // ---------- weergave: per land ----------
@@ -1519,6 +1780,7 @@ function groepeerPerLand(rijen) {
 function doorMijBevestigd() {
   const codes = new Set();
   afspraken.forEach((r) => {
+    if (r.status === "GEWEIGERD") return;
     const mijnKant =
       (r.eigen_kind_id === actiefKindId && r.eigen_bevestigd) ||
       (r.ander_kind_id === actiefKindId && r.ander_bevestigd);
@@ -1530,10 +1792,12 @@ function doorMijBevestigd() {
   return codes;
 }
 
-// Bestaat er al een afspraak met deze ruiler over precies deze twee stickers?
+// Bestaat er al een (niet geweigerde) afspraak met deze ruiler over precies
+// deze twee stickers?
 function zoekAfspraak(anderKindId, ikKrijg, anderKrijgt) {
   return afspraken.find(
     (r) =>
+      r.status !== "GEWEIGERD" &&
       r.eigen_kind_id === actiefKindId &&
       r.ander_kind_id === anderKindId &&
       r.eigen_krijgt === ikKrijg &&
@@ -1547,69 +1811,110 @@ function afsprakenVanKind() {
   );
 }
 
+// Een dossier: de ruilen die samen geregistreerd werden (sql/022). Ruilen van
+// vóór die migratie hebben geen dossier en vormen elk een dossier van één.
+function groepeerDossiers(rijen) {
+  const perDossier = new Map();
+  rijen.forEach((r) => {
+    const sleutel = r.dossier_id || r.id;
+    if (!perDossier.has(sleutel)) perDossier.set(sleutel, []);
+    perDossier.get(sleutel).push(r);
+  });
+  return [...perDossier.values()];
+}
+
 function tekenAfspraken() {
   const kaart = document.getElementById("ruil-afspraken");
   const lijst = document.getElementById("ruil-afspraken-lijst");
-  const rijen = afsprakenVanKind();
+  const dossiers = groepeerDossiers(afsprakenVanKind());
+  const losse = groepeerDossiers(eenzijdige);
 
   lijst.textContent = "";
-  kaart.classList.toggle("hidden", rijen.length === 0);
-  if (rijen.length === 0) return;
-
-  rijen.forEach((r) => lijst.appendChild(afspraakBlok(r)));
+  kaart.classList.toggle("hidden", dossiers.length === 0 && losse.length === 0);
+  dossiers.forEach((rijen) => lijst.appendChild(dossierBlok(rijen)));
+  losse.forEach((rijen) => lijst.appendChild(eenzijdigBlok(rijen)));
+  tekenTeBevestigen();
 }
 
-function afspraakBlok(r) {
-  // mijn_ruilen() draait elke rij naar het eigen gezin toe, maar bij een ruil
-  // tussen twee eigen verzamelaars zit de actieve verzamelaar soms aan de
-  // "andere" kant. Deze omdraaiing zet hem altijd links.
+// mijn_ruilen() draait elke rij naar het eigen gezin toe, maar bij een ruil
+// tussen twee eigen verzamelaars zit de actieve verzamelaar soms aan de
+// "andere" kant. Deze omdraaiing zet hem altijd links.
+function kantenVan(r) {
   const omgedraaid = r.ander_kind_id === actiefKindId && r.eigen_kind_id !== actiefKindId;
-  const ik = omgedraaid
-    ? { id: r.ander_kind_id, naam: r.ander_kind, krijgt: r.ander_krijgt, naamSticker: r.ander_krijgt_naam, bevestigd: r.ander_bevestigd }
-    : { id: r.eigen_kind_id, naam: r.eigen_kind, krijgt: r.eigen_krijgt, naamSticker: r.eigen_krijgt_naam, bevestigd: r.eigen_bevestigd };
-  const ander = omgedraaid
-    ? { id: r.eigen_kind_id, naam: r.eigen_kind, krijgt: r.eigen_krijgt, naamSticker: r.eigen_krijgt_naam, bevestigd: r.eigen_bevestigd }
-    : { id: r.ander_kind_id, naam: r.ander_kind, krijgt: r.ander_krijgt, naamSticker: r.ander_krijgt_naam, bevestigd: r.ander_bevestigd };
+  const eigen = { id: r.eigen_kind_id, naam: r.eigen_kind, krijgt: r.eigen_krijgt, naamSticker: r.eigen_krijgt_naam, bevestigd: r.eigen_bevestigd };
+  const ander = { id: r.ander_kind_id, naam: r.ander_kind, krijgt: r.ander_krijgt, naamSticker: r.ander_krijgt_naam, bevestigd: r.ander_bevestigd };
+  return omgedraaid ? { r, ik: ander, ander: eigen } : { r, ik: eigen, ander };
+}
+
+function dossierBlok(rijen) {
+  const kanten = rijen.map(kantenVan);
+  const { r: eerste, ik, ander } = kanten[0];
+  const lopend = kanten.filter((k) => k.r.status !== "GEWEIGERD");
+  const voltooid = lopend.length > 0 && lopend.every((k) => k.r.status === "VOLTOOID");
+  const geweigerd = lopend.length === 0;
 
   const blok = document.createElement("article");
   blok.className = "afspraak";
-  if (r.status === "VOLTOOID") blok.classList.add("afspraak--voltooid");
+  if (voltooid) blok.classList.add("afspraak--voltooid");
 
   const kop = document.createElement("header");
   kop.className = "afspraak__kop";
   const titel = document.createElement("h3");
-  titel.textContent = `${ik.krijgt} ⇄ ${ander.krijgt}`;
-  kop.appendChild(titel);
+  titel.textContent = `Ruil met ${ander.naam}`;
   const status = document.createElement("span");
-  status.className =
-    "chip afspraak__status-chip" + (r.status === "VOLTOOID" ? " afspraak__status-chip--klaar" : "");
-  status.textContent = r.status === "VOLTOOID" ? "Voltooid" : "Geregistreerd";
-  kop.appendChild(status);
+  status.className = "chip afspraak__status-chip" + (voltooid ? " afspraak__status-chip--klaar" : "");
+  status.textContent = voltooid ? "Voltooid" : geweigerd ? "Geweigerd" : "Geregistreerd";
+  const aantal = document.createElement("span");
+  aantal.className = "form-meta form-meta--plat";
+  aantal.textContent = `${rijen.length} ${rijen.length === 1 ? "ruil" : "ruilen"}`;
+  kop.append(titel, status, aantal);
   blok.appendChild(kop);
-
-  const wie = document.createElement("p");
-  wie.className = "afspraak__wie";
-  wie.textContent =
-    `${ik.naam} ontvangt ${stickerTekst(ik.krijgt, ik.naamSticker)} · ` +
-    `${ander.naam} ontvangt ${stickerTekst(ander.krijgt, ander.naamSticker)}`;
-  blok.appendChild(wie);
 
   const stappen = document.createElement("ul");
   stappen.className = "afspraak__stappen";
-  stappen.appendChild(stap(true, "Registratie aangemaakt"));
-  stappen.appendChild(stap(Boolean(ik.bevestigd), `Bevestigd door ${ik.naam}`));
-  stappen.appendChild(stap(Boolean(ander.bevestigd), `Bevestigd door ${ander.naam}`));
+  // Wie registreerde, weet de databank pas sinds sql/022.
+  if (typeof eerste.door_eigen_gezin === "boolean") {
+    stappen.appendChild(stap(true, `Geregistreerd door ${eerste.door_eigen_gezin ? ik.naam : ander.naam}`));
+  } else {
+    stappen.appendChild(stap(true, "Registratie aangemaakt"));
+  }
+  if (!geweigerd) {
+    const ikKlaar = lopend.every((k) => k.ik.bevestigd);
+    const anderKlaar = lopend.every((k) => k.ander.bevestigd);
+    stappen.appendChild(stap(ikKlaar, ikKlaar ? `Bevestigd door ${ik.naam}` : `Bevestiging door ${ik.naam} ontbreekt`));
+    stappen.appendChild(
+      stap(anderKlaar, anderKlaar ? `Bevestigd door ${ander.naam}` : `Bevestiging door ${ander.naam} ontbreekt`)
+    );
+  }
   blok.appendChild(stappen);
 
-  // Enkel voor je eigen kant een knop. Bij een ruil binnen het eigen gezin
-  // zijn beide kanten van jou en krijg je er dus twee.
-  const acties = document.createElement("div");
-  acties.className = "form-actions afspraak__acties";
-  acties.appendChild(bevestigKnop(r.id, ik));
-  if (r.eigen_gezin) acties.appendChild(bevestigKnop(r.id, ander));
-  blok.appendChild(acties);
+  const lijst = document.createElement("ul");
+  lijst.className = "afspraak__ruilen";
+  kanten.forEach((k) => {
+    const li = document.createElement("li");
+    li.className = "afspraak__ruil" + (k.r.status === "GEWEIGERD" ? " afspraak__ruil--geweigerd" : "");
+    const paar = document.createElement("span");
+    paar.className = "afspraak__paar";
+    paar.textContent = `${k.ik.krijgt} ⇄ ${k.ander.krijgt}`;
+    paar.title =
+      `${k.ik.naam} ontvangt ${stickerTekst(k.ik.krijgt, k.ik.naamSticker)} · ` +
+      `${k.ander.naam} ontvangt ${stickerTekst(k.ander.krijgt, k.ander.naamSticker)}`;
+    li.append(paar, ruilStatusChip(k));
 
-  if (ik.bevestigd) {
+    // Enkel voor je eigen kant een knop. Bij een ruil binnen het eigen gezin
+    // zijn beide kanten van jou en krijg je er dus twee.
+    if (k.r.status !== "GEWEIGERD") {
+      const acties = document.createElement("div");
+      acties.className = "afspraak__ruil-acties";
+      acties.appendChild(bevestigKnop(k.r.id, k.ik));
+      if (k.r.eigen_gezin) acties.appendChild(bevestigKnop(k.r.id, k.ander));
+      li.appendChild(acties);
+    }
+    lijst.appendChild(li);
+  });
+  blok.appendChild(lijst);
+
+  if (lopend.some((k) => k.ik.bevestigd)) {
     const uitleg = document.createElement("p");
     uitleg.className = "form-meta form-meta--plat afspraak__herinnering";
     uitleg.textContent =
@@ -1618,6 +1923,155 @@ function afspraakBlok(r) {
   }
 
   return blok;
+}
+
+function ruilStatusChip(k) {
+  const chip = document.createElement("span");
+  chip.className = "chip afspraak__status-chip";
+  if (k.r.status === "GEWEIGERD") chip.textContent = "Geweigerd";
+  else if (k.r.status === "VOLTOOID") {
+    chip.textContent = "Voltooid";
+    chip.classList.add("afspraak__status-chip--klaar");
+  } else chip.textContent = `Wacht op ${k.ander.bevestigd ? k.ik.naam : k.ander.naam}`;
+  return chip;
+}
+
+// Een ruil met iemand zonder account: enkel jouw kant, meteen afgerond.
+function eenzijdigBlok(rijen) {
+  const kind = actiefKind();
+  const blok = document.createElement("article");
+  blok.className = "afspraak afspraak--voltooid";
+
+  const kop = document.createElement("header");
+  kop.className = "afspraak__kop";
+  const titel = document.createElement("h3");
+  titel.textContent = `Ruil met ${rijen[0].tegenpartij}`;
+  const status = document.createElement("span");
+  status.className = "chip afspraak__status-chip afspraak__status-chip--klaar";
+  status.textContent = "Afgerond vanaf jouw kant";
+  const aantal = document.createElement("span");
+  aantal.className = "form-meta form-meta--plat";
+  aantal.textContent = `${rijen.length} ${rijen.length === 1 ? "ruil" : "ruilen"} · zonder account`;
+  kop.append(titel, status, aantal);
+  blok.appendChild(kop);
+
+  const lijst = document.createElement("ul");
+  lijst.className = "afspraak__ruilen";
+  rijen.forEach((r) => {
+    const li = document.createElement("li");
+    li.className = "afspraak__ruil";
+    const paar = document.createElement("span");
+    paar.className = "afspraak__paar";
+    paar.textContent = `${r.ik_krijg} ⇄ ${r.ik_geef}`;
+    paar.title = `${kind.voornaam} ontvangt ${r.ik_krijg} · ${r.tegenpartij} ontvangt ${r.ik_geef}`;
+    li.appendChild(paar);
+    lijst.appendChild(li);
+  });
+  blok.appendChild(lijst);
+
+  const uitleg = document.createElement("p");
+  uitleg.className = "form-meta form-meta--plat afspraak__herinnering";
+  uitleg.textContent = "Vergeet de betrokken stickers niet zelf aan te passen bij je verzamelaar.";
+  blok.appendChild(uitleg);
+  return blok;
+}
+
+// ---------- te bevestigen ----------
+
+// Eén blok per dossier, niet per ruil: vier ruilen met Guus zijn één vraag.
+// Bevestigen of weigeren kan wel per ruil — Sol mag akkoord gaan met drie van
+// de vier.
+function tekenTeBevestigen() {
+  const kaart = document.getElementById("ruil-te-bevestigen");
+  const lijst = document.getElementById("ruil-te-bevestigen-lijst");
+  if (!kaart || !lijst) return;
+  const dossiers = groepeerDossiers(afspraken.filter((r) => r.eigen_kind_id === actiefKindId && wachtOpMij(r)));
+  lijst.textContent = "";
+  kaart.classList.toggle("hidden", dossiers.length === 0);
+  dossiers.forEach((rijen) => lijst.appendChild(teBevestigenBlok(rijen)));
+}
+
+function teBevestigenBlok(rijen) {
+  const eerste = rijen[0];
+  const blok = document.createElement("article");
+  blok.className = "afspraak";
+
+  const titel = document.createElement("h3");
+  titel.className = "afspraak__vraag";
+  titel.textContent = `${eerste.ander_kind} wil volgende ruil registreren:`;
+  blok.appendChild(titel);
+
+  const uitleg = document.createElement("p");
+  uitleg.className = "form-meta form-meta--plat";
+  uitleg.textContent = `Links wat ${eerste.eigen_kind} krijgt, rechts wat ${eerste.ander_kind} krijgt.`;
+  blok.appendChild(uitleg);
+
+  const lijst = document.createElement("ul");
+  lijst.className = "afspraak__ruilen";
+  rijen.forEach((r) => {
+    const li = document.createElement("li");
+    li.className = "afspraak__ruil";
+    const paar = document.createElement("span");
+    paar.className = "afspraak__paar";
+    paar.textContent = `${r.eigen_krijgt} ⇄ ${r.ander_krijgt}`;
+    paar.title =
+      `${r.eigen_kind} ontvangt ${stickerTekst(r.eigen_krijgt, r.eigen_krijgt_naam)} · ` +
+      `${r.ander_kind} ontvangt ${stickerTekst(r.ander_krijgt, r.ander_krijgt_naam)}`;
+
+    const acties = document.createElement("div");
+    acties.className = "afspraak__ruil-acties";
+    const ja = document.createElement("button");
+    ja.type = "button";
+    ja.className = "btn btn--primary btn--sm";
+    ja.textContent = "Bevestigen";
+    ja.addEventListener("click", () => voerUit(ja, () => bevestigRuil(r.id, actiefKindId, true)));
+    const nee = document.createElement("button");
+    nee.type = "button";
+    nee.className = "btn btn--outline btn--sm";
+    nee.textContent = "Weigeren";
+    nee.addEventListener("click", () => voerUit(nee, () => weigerRuil(r.id, actiefKindId)));
+    acties.append(ja, nee);
+
+    li.append(paar, acties);
+    lijst.appendChild(li);
+  });
+  blok.appendChild(lijst);
+
+  if (rijen.length > 1) {
+    const alles = document.createElement("button");
+    alles.type = "button";
+    alles.className = "btn btn--primary btn--sm";
+    alles.textContent = `Alle ${rijen.length} bevestigen`;
+    alles.addEventListener("click", () =>
+      voerUit(alles, async () => {
+        for (const r of rijen) await bevestigRuil(r.id, actiefKindId, true);
+      })
+    );
+    const acties = document.createElement("div");
+    acties.className = "form-actions afspraak__acties";
+    acties.appendChild(alles);
+    blok.appendChild(acties);
+  }
+  return blok;
+}
+
+async function voerUit(knop, actie) {
+  knop.disabled = true;
+  toonTeBevestigenMelding("");
+  try {
+    await actie();
+    await verversNaWijziging();
+  } catch (err) {
+    knop.disabled = false;
+    toonTeBevestigenMelding(err.message);
+  }
+}
+
+function toonTeBevestigenMelding(tekst) {
+  const el = document.getElementById("ruil-te-bevestigen-melding");
+  if (!el) return;
+  el.textContent = tekst;
+  el.className = tekst ? "message message--show message--error" : "message";
 }
 
 function stap(gedaan, tekst) {
@@ -1638,12 +2092,7 @@ function bevestigKnop(ruilId, kant) {
     knop.disabled = true;
     toonAfspraakMelding("");
     try {
-      const { error } = await supabase.rpc("ruil_bevestigen", {
-        p_ruil_id: ruilId,
-        p_kind_id: kant.id,
-        p_bevestigd: !kant.bevestigd,
-      });
-      if (error) throw error;
+      await bevestigRuil(ruilId, kant.id, !kant.bevestigd);
       await verversNaWijziging();
     } catch (err) {
       knop.disabled = false;
@@ -1664,21 +2113,17 @@ function toonAfspraakMelding(tekst) {
 
 // ---------- registreren ----------
 
-// Gedeeld met Snelruilen (js/ruilregistratie.js): daar kent men de
-// tegenpartij pas na een eigen ruilerkeuze, hier staat die al vast via de
-// ruilerkaart. bestaandeAfspraak laat hetzelfde scherm ook bevestigen in
-// plaats van registreren (zie ruilVoorstel()).
-function openRegistratie(info, ikKrijg, anderKrijgt, bestaandeAfspraak) {
+// Hetzelfde venster als in Snelruilen (js/ruilregistratie.js). Verversen
+// gebeurt via GEREGISTREERD_EVENT, zodat een registratie vanuit Snelruilen
+// deze pagina net zo goed bijwerkt.
+function openRegistratie(info, paren) {
   const kind = actiefKind();
   openRuilBevestiging({
     eigenKind: { id: kind.id, naam: kind.voornaam },
-    ander: { id: info.ander_kind_id, naam: info.ander_kind },
-    ikKrijg,
-    anderKrijgt,
-    bestaandeAfspraak,
-    onGeregistreerd: async () => {
-      await verversNaWijziging();
-      document.getElementById("ruil-afspraken").scrollIntoView({ block: "nearest" });
+    ruiler: { id: info.ander_kind_id, naam: info.ander_kind, letter: info.ander_kind_letter || "" },
+    paren,
+    onGeregistreerd: () => {
+      if (isRuiler(actiefKindId, info.ander_kind_id)) leegRuilen(actiefKindId);
     },
   });
 }
@@ -1717,6 +2162,7 @@ async function toonBeheer() {
     ["🕓", tel("GEREGISTREERD"), "Nog niemand bevestigd"],
     ["⏳", tel("HALF"), "Half bevestigd"],
     ["✅", tel("VOLTOOID"), "Voltooid"],
+    ["🚫", tel("GEWEIGERD"), "Geweigerd"],
   ].forEach(([icoon, getal, label]) => cijfers.appendChild(beheerCijfer(icoon, getal, label)));
 
   const tabel = document.getElementById("ruil-beheer-tabel");
@@ -1766,6 +2212,7 @@ const BEHEER_STATUS = {
   GEREGISTREERD: { tekst: "Nog niemand bevestigd", klasse: "" },
   HALF: { tekst: "Half bevestigd", klasse: "richting--zoekt" },
   VOLTOOID: { tekst: "Voltooid", klasse: "richting--dubbel" },
+  GEWEIGERD: { tekst: "Geweigerd", klasse: "" },
 };
 
 function beheerRij(r) {
@@ -1794,7 +2241,11 @@ function beheerRij(r) {
 
   const dagen = document.createElement("td");
   dagen.textContent =
-    r.status === "VOLTOOID" ? "—" : r.dagen_open === 0 ? "vandaag" : `${r.dagen_open} dagen`;
+    r.status === "VOLTOOID" || r.status === "GEWEIGERD"
+      ? "—"
+      : r.dagen_open === 0
+      ? "vandaag"
+      : `${r.dagen_open} dagen`;
   tr.appendChild(dagen);
 
   return tr;

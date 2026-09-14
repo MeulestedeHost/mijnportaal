@@ -1,21 +1,23 @@
-// ruilregistratie.js — een ruil vastleggen (of bevestigen), los van welke
-// pagina daarom vraagt. De Ruilvoorstellen-pagina (ruilen.js) kent de
-// tegenpartij al; Snelruilen niet — vandaar kiesRuiler() en vindRuilpaar()
-// als eerste stappen die daar ontbreken. Het registreren/bevestigen zelf
-// (openRuilBevestiging) is voor allebei identiek: dezelfde databankregels
-// (ruil_registreren / ruil_bevestigen, sql/016) gelden overal.
+// ruilregistratie.js — een ruildossier vastleggen, los van welke pagina daarom
+// vraagt. De ruilpagina (js/ruilen.js) en ⚡ Snelruilen (js/snelruilen.js)
+// stellen allebei dezelfde bundel samen (js/ruilbundel.js); dit bestand kiest
+// de ruiler en registreert de bundel.
 //
 // Bouwt zijn eigen <dialog>-elementen lazy op, net als snelruilen.js: een
 // pagina die dit nooit gebruikt, merkt er niets van.
+//
+// ZOLANG sql/022 NIET GEDRAAID IS. Registreren valt dan terug op de losse
+// functies uit sql/016 (per paar registreren en de eigen kant bevestigen) —
+// niet alles-of-niets, maar de pagina blijft werken. Ruilen met iemand zonder
+// account en weigeren kunnen pas na de migratie; dat zegt de foutmelding.
 import { supabase } from "./supabase.js";
 import { normaliseer } from "./landen-data.js";
 
 // ---------- gegevens ----------
 
-// Eén aanvraag per kind_id per paginabezoek. get_matches() verandert niet
-// terwijl je aan het kiezen bent; wisselt de lijst intussen echt (iemand
-// boekte iets in), dan merk je dat toch pas bij de volgende poging omdat
-// ruil_registreren() de match hoe dan ook opnieuw controleert (sql/016).
+// Eén aanvraag per kind_id per paginabezoek. Verandert de lijst intussen echt,
+// dan vangt de databank dat bij het registreren toch op (de match wordt daar
+// opnieuw gecontroleerd, sql/016).
 const matchesPerKind = new Map();
 
 export function haalRuilkansen(kindId) {
@@ -31,44 +33,108 @@ export function haalRuilkansen(kindId) {
   return matchesPerKind.get(kindId);
 }
 
-let afsprakenOphaling = null;
-
-export function haalAfspraken() {
-  if (!afsprakenOphaling) {
-    afsprakenOphaling = (async () => {
-      const { data, error } = await supabase.rpc("mijn_ruilen");
-      if (error) throw error;
-      return data || [];
-    })();
-    afsprakenOphaling.catch(() => {
-      afsprakenOphaling = null;
-    });
-  }
-  return afsprakenOphaling;
+// Een onbekende functie of tabel (migratie niet gedraaid) meldt PostgREST met
+// één van deze zinsneden; een gewone weigering van de databank nooit.
+function ontbreektInDatabank(err) {
+  const tekst = String((err && err.message) || "");
+  return tekst.includes("Could not find the function") || tekst.includes("schema cache") || tekst.includes("does not exist");
 }
 
-// Na een registratie of bevestiging klopt de gecachte lijst niet meer.
-export function vergeetAfspraken() {
-  afsprakenOphaling = null;
-}
+const MIGRATIE_NODIG = "Draai eerst sql/022_ruildossiers.sql in Supabase — dit kan pas daarna.";
 
-export function zoekAfspraak(afspraken, eigenKindId, anderKindId, ikKrijg, anderKrijgt) {
-  return afspraken.find(
-    (r) =>
-      r.eigen_kind_id === eigenKindId &&
-      r.ander_kind_id === anderKindId &&
-      r.eigen_krijgt === ikKrijg &&
-      r.ander_krijgt === anderKrijgt
-  );
-}
+// Na elke geslaagde registratie, op document: de ruilpagina ververst dan haar
+// afspraken, ook als de registratie vanuit Snelruilen kwam.
+export const GEREGISTREERD_EVENT = "ruilregistratie:geregistreerd";
 
 // ---------- ruiler kiezen ----------
 
-// Enkel ruilers waarmee vandaag effectief iets kan (get_matches geeft alleen
-// echte matches terug) — een naam typen die nergens toe leidt, helpt aan
-// tafel niemand vooruit.
+let kiesVenster = null;
+
+function maak(tag, klasse, tekst) {
+  const el = document.createElement(tag);
+  if (klasse) el.className = klasse;
+  if (tekst !== undefined) el.textContent = tekst;
+  return el;
+}
+
+function bouwKiesVenster() {
+  const dialoog = maak("dialog", "ruiler-kies");
+  dialoog.setAttribute("aria-labelledby", "ruiler-kies-titel");
+
+  const form = maak("form", "ruiler-kies__form");
+  form.method = "dialog";
+
+  const titel = maak("h2", "ruiler-kies__titel", "Met wie ben je aan het ruilen?");
+  titel.id = "ruiler-kies-titel";
+
+  // Stap 1: bestaande ruiler.
+  const bestaand = maak("div", "ruiler-kies__stap");
+  const zoekLabel = maak("label", "form-label", "Kies bestaande ruiler");
+  zoekLabel.htmlFor = "ruiler-kies-zoek";
+  const zoekVeld = maak("input", "form-input ruiler-kies__zoek");
+  zoekVeld.id = "ruiler-kies-zoek";
+  zoekVeld.type = "search";
+  zoekVeld.placeholder = "Zoek op voornaam of eerste letter van de familienaam…";
+  zoekVeld.autocomplete = "off";
+  const leeg = maak("p", "form-meta ruiler-kies__leeg hidden");
+  const lijst = maak("ul", "ruiler-kies__lijst");
+  const nieuwKnop = maak("button", "btn btn--outline btn--sm ruiler-kies__nieuw", "+ Nieuwe ruiler (zonder account)");
+  nieuwKnop.type = "button";
+  bestaand.append(zoekLabel, zoekVeld, leeg, lijst, nieuwKnop);
+
+  // Stap 2: nieuwe ruiler zonder account.
+  const nieuw = maak("div", "ruiler-kies__stap hidden");
+  const nieuwUitleg = maak(
+    "p",
+    "form-meta",
+    "Voor iemand zonder account. De ruil wordt enkel bij jou vastgelegd en is meteen afgerond vanaf jouw kant."
+  );
+  const voornaamLabel = maak("label", "form-label", "Voornaam");
+  voornaamLabel.htmlFor = "ruiler-kies-voornaam";
+  const voornaam = maak("input", "form-input");
+  voornaam.id = "ruiler-kies-voornaam";
+  voornaam.autocomplete = "off";
+  const familienaamLabel = maak("label", "form-label", "Familienaam");
+  familienaamLabel.htmlFor = "ruiler-kies-familienaam";
+  const familienaam = maak("input", "form-input");
+  familienaam.id = "ruiler-kies-familienaam";
+  familienaam.autocomplete = "off";
+  const nieuwFout = maak("p", "form-meta ruiler-kies__fout");
+  nieuwFout.setAttribute("role", "alert");
+  const nieuwActies = maak("div", "form-actions");
+  const nieuwOk = maak("button", "btn btn--primary btn--sm", "Ruiler toevoegen");
+  nieuwOk.type = "button";
+  const nieuwTerug = maak("button", "btn btn--outline btn--sm", "Terug");
+  nieuwTerug.type = "button";
+  nieuwActies.append(nieuwOk, nieuwTerug);
+  nieuw.append(nieuwUitleg, voornaamLabel, voornaam, familienaamLabel, familienaam, nieuwFout, nieuwActies);
+
+  const annuleer = maak("button", "btn btn--outline btn--sm", "Annuleren");
+  annuleer.type = "submit";
+  annuleer.value = "annuleer";
+
+  form.append(titel, bestaand, nieuw, annuleer);
+  dialoog.append(form);
+  dialoog.addEventListener("click", (e) => {
+    if (e.target === dialoog) dialoog.close();
+  });
+  document.body.appendChild(dialoog);
+  return { dialoog, zoekVeld, leeg, lijst, nieuwKnop, bestaand, nieuw, voornaam, familienaam, nieuwFout, nieuwOk, nieuwTerug };
+}
+
+// Geeft { id, naam, letter } terug, { id: null, naam, tijdelijk: true } voor
+// een nieuwe ruiler zonder account, of null bij annuleren.
+//
+// Enkel ruilers waarmee vandaag effectief iets kan (get_matches) staan in de
+// lijst. Zoeken gaat op voornaam en de eerste letter van de familienaam: meer
+// van een ander gezin tonen we bewust niet (sql/015, sql/021).
 export async function kiesRuiler({ eigenKindId }) {
-  const matches = await haalRuilkansen(eigenKindId);
+  let matches = [];
+  try {
+    matches = await haalRuilkansen(eigenKindId);
+  } catch (err) {
+    matches = [];
+  }
   const perRuiler = new Map();
   matches.forEach((rij) => {
     if (!perRuiler.has(rij.ander_kind_id)) {
@@ -79,247 +145,232 @@ export async function kiesRuiler({ eigenKindId }) {
       });
     }
   });
-  if (perRuiler.size === 0) {
-    throw new Error("Je hebt op dit moment met niemand een geldige ruilkans — er is nog niemand om mee te registreren.");
-  }
-  const ruilers = [...perRuiler.values()].sort((a, b) => a.naam.localeCompare(b.naam, "nl"));
-  return kiesUitLijst({
-    titel: "Met wie ruil je?",
-    leegTekst: "Geen ruiler gevonden.",
-    zoeken: true,
-    items: ruilers,
-    // "eerste letter achternaam" komt er pas bij zodra sql/021 gedraaid is —
-    // tot dan is ander_kind_letter leeg en toont de lijst enkel de voornaam.
-    labelVoor: (r) => r.naam + (r.letter ? ` ${r.letter}.` : ""),
-  });
-}
+  const ruilers = [...perRuiler.values()].sort((a, b) => String(a.naam).localeCompare(String(b.naam), "nl"));
 
-// ---------- de ruil zelf vinden ----------
-
-// Bestaat er, met deze specifieke ruiler, effectief een geldig paar rond
-// `ikKrijg`? Dat moet apart gecontroleerd worden: kiesRuiler() zegt alleen
-// dat er ÍETS mogelijk is met deze persoon, niet dat het net deze sticker is.
-export async function vindRuilpaar({ eigenKindId, anderKindId, ikKrijg }) {
-  const matches = await haalRuilkansen(eigenKindId);
-  const vanDezeRuiler = matches.filter((r) => r.ander_kind_id === anderKindId);
-  const heeftIkKrijg = vanDezeRuiler.some((r) => r.richting === "jij_zoekt" && r.code === ikKrijg);
-  if (!heeftIkKrijg) {
-    throw new Error(`Deze ruiler heeft ${ikKrijg} niet (meer) als dubbel staan.`);
-  }
-  const kandidaten = vanDezeRuiler.filter((r) => r.richting === "jij_hebt_dubbel");
-  if (kandidaten.length === 0) {
-    throw new Error("Er is niets dat deze ruiler van jou zoekt — een ruil kan hier niet geregistreerd worden.");
-  }
-  if (kandidaten.length === 1) return kandidaten[0].code;
-  const gekozen = await kiesUitLijst({
-    titel: "Welke van je dubbels geef je terug?",
-    zoeken: false,
-    items: kandidaten,
-    labelVoor: (r) => `${r.code}${r.sticker_naam ? " — " + r.sticker_naam : ""}`,
-  });
-  return gekozen ? gekozen.code : null;
-}
-
-// ---------- generieke kies-uit-lijst ----------
-
-let kiesVenster = null;
-
-function bouwKiesVenster() {
-  const dialoog = document.createElement("dialog");
-  dialoog.className = "ruiler-kies";
-  dialoog.setAttribute("aria-labelledby", "ruiler-kies-titel");
-
-  const form = document.createElement("form");
-  form.className = "ruiler-kies__form";
-  form.method = "dialog";
-
-  const titel = document.createElement("h2");
-  titel.id = "ruiler-kies-titel";
-  titel.className = "ruiler-kies__titel";
-
-  const zoekVeld = document.createElement("input");
-  zoekVeld.type = "text";
-  zoekVeld.className = "form-input ruiler-kies__zoek hidden";
-  zoekVeld.placeholder = "Typ een naam…";
-  zoekVeld.autocomplete = "off";
-
-  const leeg = document.createElement("p");
-  leeg.className = "form-meta ruiler-kies__leeg hidden";
-
-  const lijst = document.createElement("ul");
-  lijst.className = "ruiler-kies__lijst";
-
-  const annuleer = document.createElement("button");
-  annuleer.type = "submit";
-  annuleer.className = "btn btn--outline btn--sm";
-  annuleer.value = "annuleer";
-  annuleer.textContent = "Annuleren";
-
-  form.append(titel, zoekVeld, leeg, lijst, annuleer);
-  dialoog.append(form);
-  // Klik op de achtergrond sluit ook, zoals bij de andere vensters in dit
-  // portaal (bv. snelruilen.js).
-  dialoog.addEventListener("click", (e) => {
-    if (e.target === dialoog) dialoog.close();
-  });
-  document.body.appendChild(dialoog);
-  return { dialoog, titel, zoekVeld, lijst, leeg };
-}
-
-// Geeft het gekozen item terug, of null bij annuleren.
-function kiesUitLijst({ titel, zoeken = false, leegTekst = "Niets gevonden.", items, labelVoor }) {
   if (!kiesVenster) kiesVenster = bouwKiesVenster();
-  const { dialoog, titel: titelEl, zoekVeld, lijst, leeg } = kiesVenster;
-  titelEl.textContent = titel;
-  zoekVeld.classList.toggle("hidden", !zoeken);
-  zoekVeld.value = "";
+  const v = kiesVenster;
+  v.zoekVeld.value = "";
+  v.voornaam.value = "";
+  v.familienaam.value = "";
+  v.nieuwFout.textContent = "";
+  v.bestaand.classList.remove("hidden");
+  v.nieuw.classList.add("hidden");
 
   return new Promise((resolve) => {
     let opgelost = false;
+    const klaar = (ruiler) => {
+      opgelost = true;
+      v.dialoog.close();
+      resolve(ruiler);
+    };
 
-    const teken = (term) => {
-      const genormaliseerd = normaliseer(term);
-      const zichtbaar = items.filter(
-        (item) => !genormaliseerd || normaliseer(labelVoor(item)).includes(genormaliseerd)
+    const teken = () => {
+      const term = normaliseer(v.zoekVeld.value.trim());
+      const zichtbaar = ruilers.filter(
+        (r) => !term || normaliseer(`${r.naam} ${r.letter}`).includes(term)
       );
-      lijst.textContent = "";
-      leeg.textContent = leegTekst;
-      leeg.classList.toggle("hidden", zichtbaar.length > 0);
-      zichtbaar.forEach((item) => {
-        const li = document.createElement("li");
-        const knop = document.createElement("button");
+      v.lijst.textContent = "";
+      v.leeg.textContent = ruilers.length
+        ? "Geen ruiler gevonden."
+        : "Je hebt nog met niemand een geldige ruilkans. Ruil je met iemand zonder account? Voeg hem hieronder toe.";
+      v.leeg.classList.toggle("hidden", zichtbaar.length > 0);
+      zichtbaar.forEach((ruiler) => {
+        const li = maak("li");
+        const knop = maak("button", "ruilvoorstel-item", ruiler.naam + (ruiler.letter ? ` ${ruiler.letter}.` : ""));
         knop.type = "button";
-        knop.className = "ruilvoorstel-item";
-        knop.textContent = labelVoor(item);
-        knop.addEventListener("click", () => {
-          opgelost = true;
-          dialoog.close();
-          resolve(item);
-        });
+        knop.addEventListener("click", () => klaar(ruiler));
         li.append(knop);
-        lijst.append(li);
+        v.lijst.append(li);
       });
     };
-    teken("");
 
-    const opInvoer = () => teken(zoekVeld.value);
-    zoekVeld.addEventListener("input", opInvoer);
-    dialoog.addEventListener(
+    const opInvoer = () => teken();
+    const naarNieuw = () => {
+      v.bestaand.classList.add("hidden");
+      v.nieuw.classList.remove("hidden");
+      v.voornaam.focus();
+    };
+    const naarBestaand = () => {
+      v.nieuw.classList.add("hidden");
+      v.bestaand.classList.remove("hidden");
+      v.zoekVeld.focus();
+    };
+    const voegNieuwToe = () => {
+      const vn = v.voornaam.value.trim();
+      const fn = v.familienaam.value.trim();
+      if (!vn || !fn) {
+        v.nieuwFout.textContent = "Vul voornaam en familienaam in.";
+        return;
+      }
+      klaar({ id: null, naam: `${vn} ${fn}`, letter: "", tijdelijk: true });
+    };
+
+    v.zoekVeld.addEventListener("input", opInvoer);
+    v.nieuwKnop.addEventListener("click", naarNieuw);
+    v.nieuwTerug.addEventListener("click", naarBestaand);
+    v.nieuwOk.addEventListener("click", voegNieuwToe);
+    v.dialoog.addEventListener(
       "close",
       () => {
-        zoekVeld.removeEventListener("input", opInvoer);
+        v.zoekVeld.removeEventListener("input", opInvoer);
+        v.nieuwKnop.removeEventListener("click", naarNieuw);
+        v.nieuwTerug.removeEventListener("click", naarBestaand);
+        v.nieuwOk.removeEventListener("click", voegNieuwToe);
         if (!opgelost) resolve(null);
       },
       { once: true }
     );
 
-    dialoog.showModal();
-    if (zoeken) zoekVeld.focus();
+    teken();
+    v.dialoog.showModal();
+    v.zoekVeld.focus();
   });
 }
 
-// ---------- registreren of bevestigen ----------
+// ---------- registreren ----------
+
+// Alle volledige paren van de bundel als één dossier. Gooit een Error met een
+// tekst die zo op het scherm mag.
+export async function registreerDossier({ eigenKindId, ruiler, paren }) {
+  if (!paren.length) throw new Error("Kies minstens één volledige ruil (een sticker aan elke kant).");
+
+  if (ruiler.tijdelijk) {
+    const dossier = crypto.randomUUID();
+    const { error } = await supabase.from("eenzijdige_ruilen").insert(
+      paren.map((p) => ({
+        kind_id: eigenKindId,
+        dossier_id: dossier,
+        tegenpartij: ruiler.naam,
+        ik_krijg: p.ik,
+        ik_geef: p.ander,
+      }))
+    );
+    if (error) throw new Error(ontbreektInDatabank(error) ? MIGRATIE_NODIG : error.message);
+    return dossier;
+  }
+
+  const { data, error } = await supabase.rpc("ruil_dossier_registreren", {
+    p_eigen_kind: eigenKindId,
+    p_ander_kind: ruiler.id,
+    p_paren: paren.map((p) => ({ ik_krijg: p.ik, ander_krijgt: p.ander })),
+  });
+  if (!error) return data;
+  if (!ontbreektInDatabank(error)) throw new Error(error.message);
+
+  // Terugval zonder sql/022: per paar, met de eigen kant meteen bevestigd.
+  for (const p of paren) {
+    const reg = await supabase.rpc("ruil_registreren", {
+      p_eigen_kind: eigenKindId,
+      p_ander_kind: ruiler.id,
+      p_ik_krijg: p.ik,
+      p_ander_krijgt: p.ander,
+    });
+    if (reg.error) throw new Error(reg.error.message);
+    const bev = await supabase.rpc("ruil_bevestigen", {
+      p_ruil_id: reg.data,
+      p_kind_id: eigenKindId,
+      p_bevestigd: true,
+    });
+    if (bev.error) throw new Error(bev.error.message);
+  }
+  return null;
+}
+
+export async function bevestigRuil(ruilId, kindId, bevestigd = true) {
+  const { error } = await supabase.rpc("ruil_bevestigen", {
+    p_ruil_id: ruilId,
+    p_kind_id: kindId,
+    p_bevestigd: bevestigd,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function weigerRuil(ruilId, kindId) {
+  const { error } = await supabase.rpc("ruil_weigeren", { p_ruil_id: ruilId, p_kind_id: kindId });
+  if (error) throw new Error(ontbreektInDatabank(error) ? MIGRATIE_NODIG : error.message);
+}
+
+// Leeg zolang sql/022 niet gedraaid is — dan bestaan er ook geen.
+export async function haalEenzijdigeRuilen(kindId) {
+  const { data, error } = await supabase
+    .from("eenzijdige_ruilen")
+    .select("id,dossier_id,tegenpartij,ik_krijg,ik_geef,created_at")
+    .eq("kind_id", kindId)
+    .order("created_at", { ascending: false });
+  return error ? [] : data || [];
+}
+
+// ---------- bevestigingsvenster ----------
 
 let bevestigVenster = null;
 
 function bouwBevestigVenster() {
-  const dialoog = document.createElement("dialog");
-  dialoog.className = "ruil-dialoog";
+  const dialoog = maak("dialog", "ruil-dialoog");
   dialoog.setAttribute("aria-labelledby", "ruil-dialoog-titel");
 
-  const form = document.createElement("form");
-  form.className = "ruil-dialoog__form";
+  const form = maak("form", "ruil-dialoog__form");
   form.method = "dialog";
 
-  const titel = document.createElement("h2");
+  const titel = maak("h2", "", "Ruil registreren");
   titel.id = "ruil-dialoog-titel";
-  titel.textContent = "Ruil registreren";
-
-  const inhoud = document.createElement("div");
-  inhoud.className = "ruil-dialoog__inhoud";
-
-  const uitleg = document.createElement("p");
-  uitleg.className = "form-meta";
-  uitleg.textContent =
-    "Na het registreren bevestigt elke ruiler apart dat de sticker effectief geruild is. " +
-    "Je stickerlijsten blijven ongewijzigd — die pas je zelf aan.";
-
-  const hint = document.createElement("p");
-  hint.className = "form-meta";
-  hint.textContent = "Heb je beide kaarten aan elkaar gegeven? Dan is je ruil enkel nog te registreren.";
-
-  const fout = document.createElement("div");
-  fout.className = "message";
+  const met = maak("p", "ruil-dialoog__met");
+  const inhoud = maak("div", "ruil-dialoog__inhoud");
+  const uitleg = maak("p", "form-meta");
+  const hint = maak(
+    "p",
+    "form-meta ruil-dialoog__hint",
+    "Heb je beide kaarten aan elkaar gegeven? Dan is je ruil enkel nog te registreren."
+  );
+  const fout = maak("div", "message");
   fout.setAttribute("role", "alert");
   fout.setAttribute("aria-live", "polite");
 
-  const acties = document.createElement("div");
-  acties.className = "form-actions";
-  const ok = document.createElement("button");
+  const acties = maak("div", "form-actions");
+  const ok = maak("button", "btn btn--primary", "Ruil registreren");
   ok.type = "button";
-  ok.className = "btn btn--primary";
-  ok.textContent = "Ruil registreren";
-  const annuleer = document.createElement("button");
+  const annuleer = maak("button", "btn btn--outline", "Annuleren");
   annuleer.type = "submit";
-  annuleer.className = "btn btn--outline";
   annuleer.value = "annuleer";
-  annuleer.textContent = "Annuleren";
   acties.append(ok, annuleer);
 
-  form.append(titel, inhoud, uitleg, hint, fout, acties);
+  form.append(titel, met, inhoud, uitleg, hint, fout, acties);
   dialoog.append(form);
   dialoog.addEventListener("click", (e) => {
     if (e.target === dialoog) dialoog.close();
   });
   document.body.appendChild(dialoog);
-  return { dialoog, inhoud, fout, ok };
+  return { dialoog, met, inhoud, uitleg, fout, ok };
 }
 
-function ontvangtRegel(naam, code) {
-  const regel = document.createElement("div");
-  regel.className = "ruil-dialoog__regel";
-  const wie = document.createElement("span");
-  wie.className = "ruil-dialoog__wie";
-  wie.textContent = `${naam} ontvangt`;
-  const wat = document.createElement("strong");
-  wat.className = "ruil-dialoog__wat";
-  wat.textContent = code;
-  regel.append(wie, wat);
-  return regel;
-}
-
-// bestaandeAfspraak: de rij uit mijn_ruilen() als dit paar al geregistreerd
-// staat (dan bevestigt de knop in plaats van te registreren) — of null.
-export function openRuilBevestiging({ eigenKind, ander, ikKrijg, anderKrijgt, bestaandeAfspraak, onGeregistreerd }) {
+// eigenKind: { id, naam }; ruiler: zie ruilbundel.js; paren: [{ ik, ander }].
+export function openRuilBevestiging({ eigenKind, ruiler, paren, onGeregistreerd }) {
   if (!bevestigVenster) bevestigVenster = bouwBevestigVenster();
-  const { dialoog, inhoud, fout, ok } = bevestigVenster;
+  const { dialoog, met, inhoud, uitleg, fout, ok } = bevestigVenster;
 
+  met.textContent = `Ruil met ${ruiler.naam}${ruiler.tijdelijk ? " (zonder account)" : ""}`;
   inhoud.textContent = "";
-  inhoud.append(ontvangtRegel(eigenKind.naam, ikKrijg), ontvangtRegel(ander.naam, anderKrijgt));
+  paren.forEach((p, i) => {
+    const regel = maak("div", "ruil-dialoog__regel");
+    regel.append(maak("span", "ruil-dialoog__wie", `Ruil ${i + 1}`));
+    regel.append(maak("strong", "ruil-dialoog__wat", `${p.ik} ⇄ ${p.ander}`));
+    inhoud.append(regel);
+  });
+  uitleg.textContent = ruiler.tijdelijk
+    ? `${eigenKind.naam} ontvangt telkens de eerste sticker. De ruil wordt enkel bij jou vastgelegd en is meteen afgerond.`
+    : `${eigenKind.naam} ontvangt telkens de eerste sticker, ${ruiler.naam} de tweede. Jouw kant is daarmee bevestigd; ${ruiler.naam} bevestigt (of weigert) elke ruil apart. Je stickerlijsten blijven ongewijzigd — die pas je zelf aan.`;
   fout.textContent = "";
   fout.className = "message";
+  ok.textContent = paren.length === 1 ? "Ruil registreren" : `${paren.length} ruilen registreren`;
 
   const opKlik = async () => {
     ok.disabled = true;
     fout.textContent = "";
     fout.className = "message";
     try {
-      const { error } = bestaandeAfspraak
-        ? await supabase.rpc("ruil_bevestigen", {
-            p_ruil_id: bestaandeAfspraak.id,
-            p_kind_id: eigenKind.id,
-            p_bevestigd: true,
-          })
-        : await supabase.rpc("ruil_registreren", {
-            p_eigen_kind: eigenKind.id,
-            p_ander_kind: ander.id,
-            p_ik_krijg: ikKrijg,
-            p_ander_krijgt: anderKrijgt,
-          });
-      if (error) throw error;
-      vergeetAfspraken();
+      await registreerDossier({ eigenKindId: eigenKind.id, ruiler, paren });
       dialoog.close();
-      onGeregistreerd && onGeregistreerd();
+      if (onGeregistreerd) onGeregistreerd();
+      document.dispatchEvent(new CustomEvent(GEREGISTREERD_EVENT));
     } catch (err) {
       fout.textContent = err.message;
       fout.className = "message message--show message--error";

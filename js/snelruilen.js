@@ -25,7 +25,23 @@
 // lokale lijst, zonder aan het venster te komen.
 import { supabase } from "./supabase.js";
 import { loadKinderen } from "./kinderen.js";
-import { kiesRuiler, vindRuilpaar, haalAfspraken, zoekAfspraak, openRuilBevestiging } from "./ruilregistratie.js";
+import { kiesRuiler as kiesRuilerVenster, haalRuilkansen, openRuilBevestiging } from "./ruilregistratie.js";
+import {
+  BUNDEL_EVENT,
+  huidigeBundel,
+  bundelKindId,
+  kiesRuiler as kiesBundelRuiler,
+  vergeetRuiler,
+  voegToe,
+  zetKant,
+  verwijderRuil,
+  leegRuilen,
+  ruilNummer,
+  volledigeParen,
+  ruilerLabel,
+  teHerstellen,
+  herstelMelding,
+} from "./ruilbundel.js";
 
 const PAGINA = 1000; // PostgREST levert maximaal 1000 rijen per aanvraag
 const HISTORIEK_MAX = 20;
@@ -52,9 +68,10 @@ let laden = null; // de lopende of afgeronde laadronde (Promise)
 let historiek = [];
 let venster = null; // de <dialog> en zijn onderdelen, na de eerste opening
 
-// De ruiler waarmee je aan het registreren bent — net als `historiek`, bewaard
-// zolang je bij hetzelfde kind blijft, gewist bij wisselKind() (zie daar).
-let actieveRuiler = null; // { id, naam, letter } of null
+// Met wie je aan tafel ruilt en wat er in de ruil zit, staat niet hier maar in
+// js/ruilbundel.js: de ruilpagina moet dezelfde bundel zien. Enkel voor de
+// keuzelijst bij een halve ruil: welke codes van deze ruiler er passen.
+let kandidaten = { sleutel: null, ik: [], ander: [] };
 
 let modus = "controleren"; // bewust niet bewaard: zie bovenaan
 // Elke inboeking legt haar vorige stand op de stapel; ongedaan maken pakt er
@@ -72,6 +89,35 @@ document.addEventListener("DOMContentLoaded", () => {
     knop.addEventListener("click", open);
   });
 });
+
+// Kiest de ruilpagina een sticker of een andere ruiler, dan moet een open
+// venster dat meteen tonen (js/ruilen.js luistert omgekeerd op hetzelfde).
+document.addEventListener(BUNDEL_EVENT, () => {
+  if (!venster) return;
+  tekenRuilerVak();
+  tekenBundel();
+  tekenHistoriek();
+});
+
+// Vanuit een ruilerkaart: meteen voor de verzamelaar van die kaart, niet voor
+// wie Snelruilen de vorige keer koos.
+export async function openSnelruilen({ kindId } = {}) {
+  if (kindId && kindId !== actiefKindId) {
+    const hadAl = Boolean(actiefKindId);
+    actiefKindId = kindId;
+    lijstGeladen = false;
+    if (hadAl) {
+      historiek = [];
+      ongedaanStapel = [];
+      if (venster) {
+        tekenHistoriek();
+        tekenOngedaanKnop();
+        venster.resultaat.textContent = "";
+      }
+    }
+  }
+  await open();
+}
 
 // ---------- ontleden en rekenen (los van de DOM) ----------
 
@@ -220,6 +266,8 @@ function kiesStartKind() {
     const uitUrl = new URLSearchParams(location.search).get("id");
     if (bestaat(uitUrl)) return uitUrl;
   }
+  // Staat er aan tafel een bundel open, dan hoort Snelruilen bij die verzamelaar.
+  if (bestaat(bundelKindId())) return bundelKindId();
   let bewaard = null;
   try {
     bewaard = localStorage.getItem(KEUZE_SLEUTEL);
@@ -252,6 +300,7 @@ async function open() {
   }
   vulKindKeuze();
   tekenRuilerVak();
+  tekenBundel();
   tekenWaarschuwing();
   // Typte iemand al een korte code terwijl de catalogus nog laadde, dan kon
   // meteenVerwerken() dat nog niet beslissen. Nu wel.
@@ -299,17 +348,21 @@ function bouwVenster() {
   kindKeuze.addEventListener("change", () => wisselKind(kindKeuze.value));
   kindVak.append(kindLabel, kindKeuze);
 
-  // Enkel zichtbaar zodra er via de "Ruil voor sticker?"-knop een ruiler
-  // gekozen is — daarvóór valt er niets te wijzigen.
-  const ruilerVak = maak("p", "form-meta snelruil__ruiler hidden");
-  const ruilerTekst = maak("span");
-  const ruilerWijzig = maak("button", "snelruil__ruiler-wijzig", "wijzig");
-  ruilerWijzig.type = "button";
-  ruilerWijzig.addEventListener("click", () => {
-    actieveRuiler = null;
-    tekenRuilerVak();
+  // "Ruil met: Sol" bovenaan. Nooit een verplichte keuze: Snelruilen dient ook
+  // gewoon om je eigen lijst na te kijken, zonder vaste tegenpartij.
+  const ruilerVak = maak("div", "form-meta snelruil__ruiler");
+  const ruilerTekst = maak("span", "snelruil__ruiler-tekst");
+  const ruilerKies = maak("button", "snelruil__ruiler-wijzig", "kies ruiler");
+  ruilerKies.type = "button";
+  ruilerKies.addEventListener("click", () => void kiesEenRuiler());
+  const ruilerStop = maak("button", "snelruil__ruiler-wijzig hidden", "stoppen");
+  ruilerStop.type = "button";
+  ruilerStop.title = "Niet meer met deze ruiler bezig — de gekozen ruilen worden gewist";
+  ruilerStop.addEventListener("click", () => {
+    vergeetRuiler();
+    venster.invoer.focus();
   });
-  ruilerVak.append(ruilerTekst, " · ", ruilerWijzig);
+  ruilerVak.append(ruilerTekst, ruilerKies, ruilerStop);
 
   const invoerLabel = maak("label", "form-label", "Stickercode");
   invoerLabel.htmlFor = "snelruil-invoer";
@@ -353,10 +406,14 @@ function bouwVenster() {
   const resultaat = maak("div", "snelruil__resultaat");
   resultaat.setAttribute("aria-live", "polite");
 
+  // De ruilen die aan tafel samengesteld worden (js/ruilbundel.js).
+  const bundelVak = maak("section", "snelruil__bundel hidden");
+  bundelVak.setAttribute("aria-label", "Voorgestelde ruilen");
+
   const historiekKop = maak("h3", "snelruil__historiek-kop hidden", "Recent");
   const historiekLijst = maak("ul", "snelruil__historiek");
 
-  dialoog.append(kop, modi, uitleg, waarschuwing, kindVak, ruilerVak, invoerLabel, invoer, onder, resultaat, historiekKop, historiekLijst);
+  dialoog.append(kop, ruilerVak, modi, uitleg, waarschuwing, kindVak, invoerLabel, invoer, onder, resultaat, bundelVak, historiekKop, historiekLijst);
 
   // Klik op de donkere achtergrond sluit ook: de dialoog zelf vult enkel het
   // kader, dus een klik die op het element zelf landt, viel erbuiten.
@@ -375,7 +432,8 @@ function bouwVenster() {
 
   document.body.appendChild(dialoog);
   return {
-    dialoog, modusKnoppen, uitleg, waarschuwing, kindVak, kindKeuze, ruilerVak, ruilerTekst, invoerLabel, invoer,
+    dialoog, modusKnoppen, uitleg, waarschuwing, kindVak, kindKeuze, ruilerVak, ruilerTekst, ruilerKies, ruilerStop,
+    bundelVak, invoerLabel, invoer,
     hint, ongedaanKnop, resultaat, historiekKop, historiekLijst,
   };
 }
@@ -407,10 +465,10 @@ async function wisselKind(kindId) {
   // helemaal niet zoekt, of maak je een inboeking van een ander kind ongedaan.
   historiek = [];
   ongedaanStapel = [];
-  actieveRuiler = null;
   tekenHistoriek();
   tekenOngedaanKnop();
   tekenRuilerVak();
+  tekenBundel();
   tekenWaarschuwing();
   venster.resultaat.textContent = "";
   venster.invoer.focus();
@@ -477,6 +535,7 @@ function controleer(code) {
   const antwoord = bekijkSticker(code);
   tekenResultaat(antwoord);
   voegToeAanHistoriek({ soort: "controle", ...antwoord });
+  void koppelAanBundel(antwoord);
 }
 
 // Lokaal meteen bijwerken en tekenen, daarna op de achtergrond wegschrijven.
@@ -568,6 +627,8 @@ function tekenModus() {
   invoer.placeholder = inboeken ? "BEL3 → toevoegen" : "BEL3";
   invoer.setAttribute("enterkeyhint", inboeken ? "done" : "search");
   tekenOngedaanKnop();
+  tekenRuilerVak();
+  tekenBundel();
   tekenWaarschuwing();
 }
 
@@ -587,11 +648,19 @@ function tekenOngedaanKnop() {
   if (laatste) ongedaanKnop.textContent = `↩ Ongedaan maken (${laatste.code})`;
 }
 
+// Enkel in Controleren: in Inboeken ruil je niet, je verwerkt pakjes.
 function tekenRuilerVak() {
   if (!venster) return;
-  const { ruilerVak, ruilerTekst } = venster;
-  ruilerVak.classList.toggle("hidden", !actieveRuiler);
-  if (actieveRuiler) ruilerTekst.textContent = `Ruilt met: ${actieveRuiler.naam}`;
+  const { ruilerVak, ruilerTekst, ruilerKies, ruilerStop } = venster;
+  const bundel = huidigeBundel(actiefKindId);
+  const ruiler = bundel && bundel.ruiler;
+  ruilerVak.classList.toggle("hidden", modus !== "controleren");
+  ruilerTekst.textContent = "Ruil met: ";
+  if (ruiler) {
+    ruilerTekst.append(maak("strong", "", ruilerLabel(ruiler) + (ruiler.tijdelijk ? " (zonder account)" : "")));
+  }
+  ruilerKies.textContent = ruiler ? "wijzig" : "kies ruiler";
+  ruilerStop.classList.toggle("hidden", !ruiler);
 }
 
 function kopVoor(sticker, code) {
@@ -602,64 +671,224 @@ function kopVoor(sticker, code) {
   return [naam, land];
 }
 
-// ---------- ruil registreren ----------
+// ---------- ruilen aan tafel ----------
 
-// Enkel op een "zoek ik"-rij: dat is de sticker die je van de andere ruiler
-// zou ontvangen, en dus het aanknopingspunt om een ruil rond op te bouwen.
+// Enkel op een "zoek ik"-rij zonder gekozen ruiler: dat is de sticker die je
+// wil krijgen, en dus het moment om te vragen met wie je ruilt.
 function ruilKnop(code) {
   const knop = maak("button", "btn btn--outline btn--sm snelruil__ruil-knop", "Ruil voor sticker?");
   knop.type = "button";
   knop.addEventListener("click", (e) => {
     e.stopPropagation();
-    startRuilFlow(code);
+    void startRuilFlow(code);
   });
   return knop;
 }
 
-// Kiest, indien nodig, eerst een ruiler (éénmalig per venstersessie, zie
-// actieveRuiler bovenaan) en dan het paar rond `code`, en opent tenslotte het
-// gedeelde bevestigingsscherm — hetzelfde als op de Ruilvoorstellen-pagina.
-async function startRuilFlow(code) {
+async function kiesEenRuiler() {
+  let ruiler = null;
   try {
-    if (!actieveRuiler) {
-      const ruiler = await kiesRuiler({ eigenKindId: actiefKindId });
-      if (!ruiler) return; // geannuleerd
-      actieveRuiler = ruiler;
-      tekenRuilerVak();
-    }
-    const anderKrijgt = await vindRuilpaar({
-      eigenKindId: actiefKindId,
-      anderKindId: actieveRuiler.id,
-      ikKrijg: code,
-    });
-    if (!anderKrijgt) return; // geannuleerd bij het kiezen van de dubbel
-
-    const afspraken = await haalAfspraken();
-    const bestaandeAfspraak = zoekAfspraak(afspraken, actiefKindId, actieveRuiler.id, code, anderKrijgt);
-    const eigenKind = kinderen.find((k) => k.id === actiefKindId);
-
-    openRuilBevestiging({
-      eigenKind: { id: eigenKind.id, naam: eigenKind.voornaam },
-      ander: { id: actieveRuiler.id, naam: actieveRuiler.naam },
-      ikKrijg: code,
-      anderKrijgt,
-      bestaandeAfspraak,
-      onGeregistreerd: () => {
-        const { resultaat } = venster;
-        resultaat.textContent = "";
-        resultaat.append(
-          maak(
-            "div",
-            "message message--show",
-            bestaandeAfspraak ? "✓ Ruil bevestigd." : "✓ Ruil geregistreerd."
-          )
-        );
-        venster.invoer.focus();
-      },
-    });
+    ruiler = await kiesRuilerVenster({ eigenKindId: actiefKindId });
   } catch (err) {
     toonFout(err.message);
   }
+  if (!ruiler) return null;
+  kiesBundelRuiler(actiefKindId, ruiler);
+  venster.invoer.focus();
+  return ruiler;
+}
+
+async function startRuilFlow(code) {
+  const bundel = huidigeBundel(actiefKindId);
+  if (!(bundel && bundel.ruiler) && !(await kiesEenRuiler())) return;
+  await koppelAanBundel(bekijkSticker(code), { handmatig: true });
+}
+
+// Past een gecontroleerde code bij de gekozen ruiler, dan komt ze in de
+// bundel: zoek ik en hij heeft ze dubbel → jij krijgt ze; jouw dubbel en hij
+// zoekt ze → hij krijgt ze. Twee keer dezelfde code typen haalt niets weg
+// (voegToe, niet wisselSticker): controleren moet onschuldig blijven.
+//
+// Bij een ruiler zonder account weet het portaal niet wat hij heeft. Daar telt
+// een controle dus niet vanzelf mee; een knop laat je zelf beslissen.
+async function koppelAanBundel({ code, zoekt, dubbel }, { handmatig = false } = {}) {
+  const bundel = huidigeBundel(actiefKindId);
+  if (!bundel || !bundel.ruiler || modus !== "controleren") return;
+  if (!zoekt && !(dubbel > 0)) return;
+  const kant = zoekt ? "ik" : "ander";
+  const naam = bundel.ruiler.naam;
+  const inRuil = () => `→ Ruil ${ruilNummer(huidigeBundel(actiefKindId), kant, code)} met ${naam}`;
+
+  if (bundel.ruiler.tijdelijk) {
+    if (handmatig) {
+      voegToe(actiefKindId, kant, code);
+      bundelRegel(code, inRuil());
+      return;
+    }
+    const knop = maak(
+      "button",
+      "btn btn--outline btn--sm",
+      zoekt ? `+ In de ruil (je krijgt ${code})` : `+ In de ruil (je geeft ${code})`
+    );
+    knop.type = "button";
+    knop.addEventListener("click", () => void koppelAanBundel({ code, zoekt, dubbel }, { handmatig: true }));
+    bundelRegel(code, knop);
+    return;
+  }
+
+  let rijen;
+  try {
+    rijen = await haalRuilkansen(actiefKindId);
+  } catch (err) {
+    return;
+  }
+  const richting = zoekt ? "jij_zoekt" : "jij_hebt_dubbel";
+  const past = rijen.some((r) => r.ander_kind_id === bundel.ruiler.id && r.richting === richting && r.code === code);
+  if (!past) {
+    bundelRegel(code, zoekt ? `${naam} heeft ${code} niet dubbel — niet in de ruil.` : `${naam} zoekt ${code} niet — niet in de ruil.`);
+    return;
+  }
+  voegToe(actiefKindId, kant, code);
+  bundelRegel(code, inRuil());
+}
+
+// Onder het antwoord, maar enkel als dat antwoord nog over deze code gaat —
+// wie intussen verder typte, zou anders een regel bij de verkeerde sticker
+// zien. Dan komt een tekst in de hint.
+function bundelRegel(code, inhoud) {
+  const { resultaat } = venster;
+  if (resultaat.dataset.code !== code || !resultaat.querySelector(".snelruil__antwoorden")) {
+    if (typeof inhoud === "string") toonHint(inhoud);
+    return;
+  }
+  resultaat.querySelector(".snelruil__bundelregel")?.remove();
+  const regel = maak("p", "snelruil__bundelregel");
+  regel.append(inhoud);
+  resultaat.append(regel);
+}
+
+function tekenBundel() {
+  if (!venster) return;
+  const { bundelVak } = venster;
+  bundelVak.textContent = "";
+  const bundel = huidigeBundel(actiefKindId);
+  const herstel = modus === "controleren" ? teHerstellen() : null;
+  const toon = Boolean(bundel && bundel.ruiler && bundel.ruilen.length && modus === "controleren");
+  bundelVak.classList.toggle("hidden", !toon && !herstel);
+  if (herstel) {
+    bundelVak.append(
+      herstelMelding(herstel, {
+        naHerstel: (b) => {
+          if (b.eigenKindId !== actiefKindId && kinderen && kinderen.some((k) => k.id === b.eigenKindId)) {
+            venster.kindKeuze.value = b.eigenKindId;
+            void wisselKind(b.eigenKindId);
+          }
+        },
+      })
+    );
+  }
+  if (!toon) return;
+
+  laadKandidaten(bundel);
+  bundelVak.append(maak("h3", "snelruil__bundel-kop", "Voorgestelde ruilen"));
+  bundelVak.append(maak("p", "form-meta form-meta--plat", `Links wat jij krijgt, rechts wat ${bundel.ruiler.naam} krijgt.`));
+
+  const lijstEl = maak("ol", "snelruil__bundel-lijst");
+  bundel.ruilen.forEach((ruil, index) => {
+    const li = maak("li", "snelruil__bundel-ruil");
+    const paar = maak("span", "snelruil__bundel-paar");
+    paar.append(kantVeld(bundel, index, "ik"), " ⇄ ", kantVeld(bundel, index, "ander"));
+    const weg = maak("button", "snelruil__bundel-weg", "✕");
+    weg.type = "button";
+    weg.setAttribute("aria-label", `Ruil ${index + 1} verwijderen`);
+    weg.addEventListener("click", () => verwijderRuil(actiefKindId, index));
+    li.append(maak("span", "ruilbadge", `Ruil ${index + 1}`), paar, weg);
+    lijstEl.append(li);
+  });
+  bundelVak.append(lijstEl);
+
+  const paren = volledigeParen(bundel);
+  const knop = maak("button", "btn btn--primary btn--sm", paren.length > 1 ? `${paren.length} ruilen registreren` : "Ruil registreren");
+  knop.type = "button";
+  knop.disabled = paren.length === 0;
+  knop.addEventListener("click", registreerBundel);
+  bundelVak.append(knop);
+}
+
+// Een ingevulde kant is gewoon de code; een open kant een keuzelijst met wat
+// er bij deze ruiler nog past — sneller dan de code opzoeken en typen.
+function kantVeld(bundel, index, kant) {
+  const code = bundel.ruilen[index][kant];
+  if (code) return maak("strong", "", code);
+  const gebruikt = new Set(bundel.ruilen.map((r) => r[kant]).filter(Boolean));
+  const opties = kandidaten.sleutel === kandidatenSleutel(bundel) ? kandidaten[kant].filter((c) => !gebruikt.has(c)) : [];
+  // Bij iemand zonder account kent het portaal zijn lijst niet: dan is typen
+  // de enige weg, en dat mag er staan.
+  if (!opties.length) {
+    return maak("span", "snelruil__bundel-open", bundel.ruiler.tijdelijk ? (kant === "ik" ? "typ wat je krijgt" : "typ wat je geeft") : "…");
+  }
+  const keuze = maak("select", "form-input snelruil__bundel-keuze");
+  keuze.setAttribute(
+    "aria-label",
+    kant === "ik" ? `Welke sticker krijg je in ruil ${index + 1}?` : `Welke dubbel geef je in ruil ${index + 1}?`
+  );
+  keuze.append(new Option("kies…", ""));
+  opties.forEach((c) => keuze.append(new Option(c, c)));
+  keuze.addEventListener("change", () => zetKant(actiefKindId, index, kant, keuze.value));
+  return keuze;
+}
+
+function kandidatenSleutel(bundel) {
+  return `${actiefKindId}|${bundel.ruiler.id}`;
+}
+
+function laadKandidaten(bundel) {
+  if (bundel.ruiler.tijdelijk) return;
+  const sleutel = kandidatenSleutel(bundel);
+  if (kandidaten.sleutel === sleutel) return;
+  kandidaten = { sleutel, ik: [], ander: [] };
+  haalRuilkansen(actiefKindId).then(
+    (rijen) => {
+      if (kandidaten.sleutel !== sleutel) return;
+      rijen
+        .filter((r) => r.ander_kind_id === bundel.ruiler.id)
+        .forEach((r) => (r.richting === "jij_zoekt" ? kandidaten.ik : kandidaten.ander).push(r.code));
+      tekenBundel();
+    },
+    () => {
+      if (kandidaten.sleutel === sleutel) kandidaten.sleutel = null;
+    }
+  );
+}
+
+function registreerBundel() {
+  const bundel = huidigeBundel(actiefKindId);
+  if (!bundel || !bundel.ruiler) return;
+  const paren = volledigeParen(bundel);
+  const ruiler = bundel.ruiler;
+  const eigenKind = kinderen.find((k) => k.id === actiefKindId);
+  openRuilBevestiging({
+    eigenKind: { id: eigenKind.id, naam: eigenKind.voornaam },
+    ruiler,
+    paren,
+    onGeregistreerd: () => {
+      leegRuilen(actiefKindId);
+      const { resultaat } = venster;
+      resultaat.textContent = "";
+      delete resultaat.dataset.code;
+      const aantal = paren.length === 1 ? "1 ruil" : `${paren.length} ruilen`;
+      resultaat.append(
+        maak(
+          "div",
+          "message message--show",
+          ruiler.tijdelijk
+            ? `✓ ${aantal} met ${ruiler.naam} vastgelegd.`
+            : `✓ ${aantal} met ${ruiler.naam} geregistreerd. ${ruiler.naam} moet nog bevestigen.`
+        )
+      );
+      venster.invoer.focus();
+    },
+  });
 }
 
 // Groen en rood, maar nooit enkel kleur: ✓ en ✗ hebben een andere vorm, en de
@@ -674,8 +903,10 @@ function tekenResultaat({ code, sticker, zoekt, dubbel }) {
     antwoordVak("Zoek ik?", zoekt, zoekt ? "Zoek ik" : "Zoek ik niet"),
     antwoordVak("Heb ik dubbel?", dubbel > 0 ? "dub" : false, dubbelTekst(dubbel))
   );
+  resultaat.dataset.code = code;
   resultaat.append(...kopVoor(sticker, code), antwoorden);
-  if (zoekt) resultaat.append(ruilKnop(code));
+  const bundel = huidigeBundel(actiefKindId);
+  if (zoekt && !(bundel && bundel.ruiler)) resultaat.append(ruilKnop(code));
 }
 
 function tekenInboeking(regel) {
@@ -736,11 +967,17 @@ function tekenHistoriek() {
   const { historiekKop, historiekLijst } = venster;
   historiekLijst.textContent = "";
   historiekKop.classList.toggle("hidden", historiek.length === 0);
+  const bundel = huidigeBundel(actiefKindId);
   historiek.forEach((regel) => {
     const { stand, tekst, klasse } = historiekRegel(regel);
     const li = maak("li", `snelruil__regel ${standKlasse(stand)} ${klasse}`);
     li.append(maak("strong", "snelruil__code", regel.code), maak("span", "", tekst));
-    if (regel.soort === "controle" && regel.zoekt) li.append(ruilKnop(regel.code));
+    if (regel.soort === "controle") {
+      const kant = regel.zoekt ? "ik" : regel.dubbel > 0 ? "ander" : null;
+      const nummer = kant ? ruilNummer(bundel, kant, regel.code) : 0;
+      if (nummer) li.append(maak("span", "ruilbadge snelruil__regel-badge", `Ruil ${nummer}`));
+      else if (regel.zoekt && !(bundel && bundel.ruiler)) li.append(ruilKnop(regel.code));
+    }
     historiekLijst.append(li);
   });
 }

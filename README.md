@@ -32,7 +32,7 @@ gebruiker die dat kind beheert.
    `015_wijk_en_altijd_naam.sql` → `016_ruilen_registreren.sql` →
    `017_statistieken.sql` → `018_favorieten.sql` →
    `019_stickers_updated_at.sql` → `020_favorieten_algemeen.sql` →
-   `021_ruiler_letter.sql`. Enkel `002`
+   `021_ruiler_letter.sql` → `022_ruildossiers.sql`. Enkel `002`
    en de blokken die het zelf aankondigen zijn destructief; `009` en later
    zijn dat niet.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
@@ -247,6 +247,31 @@ een policy kan (bestaat de match, klopt de richting, is dit wel jouw kind).
 per ruiler te groeperen en een ruil aan een tegenpartij te hangen, en verder
 niets prijsgevend — en `pagina`, zodat de ruilpagina de landen in albumvolgorde
 kan zetten zonder de hele catalogus op te halen.
+
+### Ruildossiers: meerdere ruilen als één pakket (`022`)
+
+Aan de ruiltafel gaan er zelden één sticker tegen één over. Sinds
+`022_ruildossiers.sql` registreert `ruil_dossier_registreren(eigen_kind,
+ander_kind, paren)` een hele bundel in één transactie — klopt één paar niet
+meer, dan staat er niets. Elk paar blijft een eigen rij in `public.ruilen`, met
+dezelfde controle als hierboven; `dossier_id` houdt ze samen.
+
+- **Wie registreert, bevestigt meteen zijn eigen kant.** Registreren gebeurt
+  nadat de kaarten van hand wisselden; enkel de andere kant moet nog.
+- **De andere kant antwoordt per ruil**: bevestigen, of `ruil_weigeren()`. Een
+  geweigerde ruil wordt gemarkeerd, niet gewist, en telt niet meer als
+  openstaand — hetzelfde paar mag daarna opnieuw geregistreerd worden. Op
+  `ruilen.html` staat dat bovenaan als één blok **Te bevestigen** per dossier.
+  Er gaat geen push of e-mail uit.
+- **Zonder account** (`public.eenzijdige_ruilen`): een ruil met iemand die geen
+  account heeft, enkel bij jou vastgelegd en meteen afgerond vanaf jouw kant.
+  Er valt bij niemand iets te controleren of te bevestigen.
+- `mijn_ruilen()` kreeg `dossier_id`, `geweigerd`, `door_eigen_gezin` en de
+  status `GEWEIGERD`.
+
+Zolang `022` niet gedraaid is, registreert de pagina per paar met de functies
+uit `016` (niet alles-of-niets), en geven "zonder account" en weigeren een
+melding dat de migratie nog moet.
 
 ## 8. FIFA Wereldreis
 
@@ -711,8 +736,9 @@ persoon is; zie [../Todo.md](../Todo.md) voor dat onderscheid).
 ## De ruilplanner: met wie ga je eerst praten?
 
 Bovenaan de ruilpagina staat **🎯 Beste ruilkansen**, een top tien van ruilers in de
-volgorde waarin je ze het best afgaat. Dezelfde volgorde en dezelfde redenen als de
-kaarten eronder — het is een inhoudsopgave van het advies, geen tweede mening.
+volgorde waarin je ze het best afgaat. Dezelfde volgorde als de kaarten eronder — het
+is een inhoudsopgave van het advies, geen tweede mening. De redenen staan enkel hier;
+de (dichtgevouwen) kaarten zeggen zelf hoeveel ruilen er kunnen.
 
 ### Geen puntentotaal, wel echte cijfers
 
@@ -731,9 +757,11 @@ bewust **niet** gebouwd, om vier redenen:
   één zin in de redenregel, in dezelfde volgorde.
 
 De volgorde is dus: **favorieten → tweerichting → wat je nergens anders krijgt →
-bundelgrootte → naam**. De cijfers die je te zien krijgt zijn cijfers die je kan
-natellen: "★ 2 favorieten · ruil kan meteen rond · 1 sticker krijg je enkel hier ·
-4 stickers samen · plaats voor 1 ruil".
+bundelgrootte → naam**. De uitleg is compact en volgt die keten tot en met
+zeldzaamheid — hoogstens drie stukjes, cijfers die je kan natellen: "★ 2 favorieten ·
+4 ruilen mogelijk · 1 zeldzame sticker". "Zeldzaam" vat "krijg je enkel hier" en
+"raak je enkel hier kwijt" samen; die uitgebreide versie staat in de tooltip.
+Bundelgrootte en naam beslissen enkel nog bij gelijke stand en halen de uitleg niet.
 
 ### Schaarste is persoonlijk, niet globaal
 
@@ -969,6 +997,59 @@ ruil blijft ook ongemoeid; inboeken doet de eigenaar zelf.
 `ontleedCode()`, `bekijkSticker()` en `bepaalInboeking()` staan los van het
 venster, zodat plakken, bulk, volledige pakjes of scannen later geen
 herschrijving vraagt.
+
+### Ruilen aan tafel: de bundel
+
+Ruilpagina en Snelruilen delen één **bundel** (`js/ruilbundel.js`): met wie je
+ruilt en welke ruilen er klaarliggen.
+
+**Geen werk verliezen.** De bundel staat in `localStorage`, per tabblad
+(`ruilbundel:<id>`, het id in `sessionStorage`). Een refresh laat hem gewoon
+staan. Na een crash of een gesloten tabblad komt hij niet ongevraagd terug — dan
+sta je de volgende dag nog op "Sol" — maar vraagt de ruilpagina (en Snelruilen):
+"Je had nog een niet-geregistreerde ruil klaarstaan … [Herstellen]
+[Verwijderen]". Een bundel zonder ruilen komt nooit terug, en na 7 dagen vervalt
+er een stil. Twee tabbladen tegelijk: het tweede ziet de bundel van het eerste
+als te herstellen; dubbel registreren kan niet, want de databank geeft een
+openstaand paar gewoon terug.
+
+- **Ruilerkaarten staan dicht.** Enkel de naam, hoeveel ruilen er kunnen en
+  hoeveel stickers die ruiler daarna nog voor je heeft. De uitgeschreven
+  redenen staan enkel nog in Beste ruilkansen. Eén kaart tegelijk open; een
+  naam in Beste ruilkansen aanklikken opent die kaart. Een kaart openen
+  onthoudt ook de ruiler.
+- **Meerdere ruilen tegelijk.** Tik om beurt een sticker links (wat jij krijgt,
+  lichtgroen) en rechts (wat je geeft, lichtgeel): ze krijgen samen "Ruil 1",
+  daarna "Ruil 2". Nog eens tikken haalt een sticker eruit; de volgende tik
+  vult het gat. "Mogelijke ruil" wordt dan "Meerdere ruilen", met één knop die
+  alle volledige ruilen als één dossier registreert.
+- **Snelruilen weet met wie.** Bovenaan staat "Ruil met: Sol". Een getypte code
+  die bij Sol past, komt vanzelf in de bundel; twee keer dezelfde code typen
+  haalt niets weg. Een halve ruil krijgt een keuzelijst met wat er nog past.
+  Zonder gekozen ruiler blokkeert niets: "kies ruiler" is een link en geen
+  verplichte popup, want Snelruilen dient ook gewoon om je eigen lijst na te
+  kijken.
+- **Een ruiler zoeken** gaat op voornaam en de eerste letter van de familienaam
+  (`021`): meer van een ander gezin tonen we bewust niet. Wie geen account
+  heeft, voeg je toe als nieuwe ruiler; bij hem beslis je per code zelf met
+  een knop, want het portaal weet niet wat hij heeft.
+
+### 🔔 Openstaande acties
+
+Een bel in de navigatiebalk (op elke ingelogde pagina met Snelruilen) en een blok
+op het dashboard tonen dezelfde lijst (`js/acties.js`). Bewust geen aparte pagina
+"Mijn acties": dezelfde lijst op een derde plek voegt niets toe.
+
+- **De teller telt enkel wat jij moet doen:** een ruildossier dat een ander
+  registreerde en op jouw bevestiging wacht, en een bundel uit een gesloten
+  tabblad die je nog moet herstellen of verwijderen. Een teller die altijd iets
+  toont, leer je negeren.
+- **Daaronder, zonder teller:** je eigen bundel die klaar is om te registreren,
+  en dossiers die op de andere ruiler wachten.
+- Elke regel is een link naar `ruilen.html?kind=…#…`, zodat een gezin met twee
+  kinderen meteen bij de juiste verzamelaar en het juiste blok uitkomt.
+- Geen e-mail, geen push, geen realtime-verbinding: de lijst ververst bij elke
+  paginalading en na elke registratie of bevestiging op de ruilpagina.
 
 ## Frontend
 
