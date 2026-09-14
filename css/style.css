@@ -225,8 +225,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 /* De status zit in de achtergrond, niet in de rand: zo blijft het land
    herkenbaar terwijl de status verandert. Lichte tinten, zodat de
    stickernummers zwart-op-licht leesbaar blijven. */
-.sticker-chip--gezocht { background: #fdeaea; }
-.sticker-chip--dubbel { background: #e4f5ea; }
+.sticker-chip--gezocht { background: #e4f5ea; }
+.sticker-chip--dubbel { background: #fdf0d0; }
 /* Dezelfde blauwe rand, twee verschillende redenen om ze te zetten:
    --gevonden is een paar tellen oplichten na een sprong vanuit de
    zoekresultaten (tijdelijk, met een timer), --zoektreffer is de sticker(s)
@@ -1038,11 +1038,26 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .ruil-dialoog__wie { font-size: 0.9rem; color: var(--text-muted); }
 .ruil-dialoog__wat { font-size: 1.05rem; }
 
+/* ----- ruiler/sticker kiezen (js/ruilregistratie.js) ----- */
+/* Zelfde opzet als .ruil-dialoog, maar dan met een doorzoekbare lijst in
+   plaats van een vaste inhoud — hergebruikt door zowel de ruilerkeuze als
+   de keuze tussen meerdere eigen dubbels. */
+.ruiler-kies { width: min(24rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); border: none; border-radius: var(--radius); padding: 0; box-shadow: var(--shadow-lg); color: var(--text); background: var(--surface); }
+.ruiler-kies::backdrop { background: rgba(26, 26, 46, 0.45); }
+.ruiler-kies__form { display: flex; flex-direction: column; padding: 1.5rem; max-height: calc(100dvh - 2rem); }
+.ruiler-kies__titel { font-size: 1.1rem; color: var(--cf-blue-dark); margin-bottom: 0.75rem; }
+.ruiler-kies__zoek { margin-bottom: 0.6rem; }
+.ruiler-kies__leeg { color: var(--text-muted); }
+.ruiler-kies__lijst { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; overflow-y: auto; margin-bottom: 1rem; }
+
 /* ----- ⚡ snelruilen (js/snelruilen.js) ----- */
 /* Eigen, donkerder groen en rood dan --success en --danger: die halen als
    tekstkleur geen 4.5:1 op hun lichte achtergrond, en dit antwoord moet je
    in een halve seconde kunnen lezen. */
 .snelruil { --snel-ja: #1e7a3c; --snel-ja-licht: #eaf7ee; --snel-nee: #b4232a; --snel-nee-licht: #fef0f0;
+  /* Zelfde goudtint als .favoriet__nr en .sticker-chip--dubbel: "dubbel"
+     betekent overal in het portaal dezelfde kleur. */
+  --snel-dub: #8a5d00; --snel-dub-licht: #fdf0d0;
   width: min(34rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); margin: 8vh auto auto; border: none; border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow-lg); color: var(--text); background: var(--surface); overflow-y: auto; }
 .snelruil::backdrop { background: rgba(26, 26, 46, 0.45); }
 .snelruil__kop { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
@@ -1060,16 +1075,47 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .snelruil__uitkomst { font-size: 1.2rem; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
 .snelruil--ja { color: var(--snel-ja); border-color: var(--snel-ja); background: var(--snel-ja-licht); }
 .snelruil--nee { color: var(--snel-nee); border-color: var(--snel-nee); background: var(--snel-nee-licht); }
+.snelruil--dub { color: var(--snel-dub); border-color: var(--snel-dub); background: var(--snel-dub-licht); }
 .snelruil__historiek-kop { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 1.25rem 0 0.4rem; }
 .snelruil__historiek { list-style: none; display: flex; flex-direction: column; gap: 0.25rem; }
-.snelruil__regel { display: flex; gap: 0.75rem; padding: 0.25rem 0.6rem; border: none; border-left: 4px solid; border-radius: 4px; font-size: 0.9rem; }
+.snelruil__regel { display: flex; align-items: center; gap: 0.75rem; padding: 0.25rem 0.6rem; border: none; border-left: 4px solid; border-radius: 4px; font-size: 0.9rem; }
 .snelruil__regel .snelruil__code { min-width: 3.5rem; }
+.snelruil__regel--ongedaan { opacity: 0.6; }
+/* Enkel op groene ("zoek ik") rijen — die knop niet laten meekrimpen met de
+   tekst ervoor, en rechts uitlijnen zodat de rijen niet verspringen. */
+.snelruil__ruil-knop { flex: none; margin-left: auto; }
+.snelruil__ruiler { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.75rem; }
+.snelruil__ruiler-wijzig { border: none; background: none; padding: 0; font: inherit; color: var(--cf-blue-primary); text-decoration: underline; cursor: pointer; }
+
+/* Modusschakelaar. Inboeken wijzigt de lijst en krijgt daarom een eigen,
+   opvallende kleur (het oranje dat de statistieken voor ruilen gebruiken) —
+   wie per ongeluk in die modus zit, moet dat zien vóór hij typt. Groen en
+   rood blijven voorbehouden aan het resultaat. */
+.snelruil { --snel-modus: var(--cf-blue-primary); }
+.snelruil--modus-inboeken { --snel-modus: #c25f0a; border-top: 6px solid var(--snel-modus); }
+.snelruil__modi { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid var(--snel-modus); border-radius: 8px; overflow: hidden; margin-bottom: 0.5rem; }
+.snelruil__modus { min-height: 44px; border: none; background: var(--surface); color: var(--snel-modus); font-family: var(--font); font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+.snelruil__modus + .snelruil__modus { border-left: 2px solid var(--snel-modus); }
+.snelruil__modus[aria-pressed="true"] { background: var(--snel-modus); color: #fff; }
+.snelruil__modus:focus-visible { outline: 3px solid var(--text); outline-offset: -5px; }
+.snelruil__uitleg { margin-bottom: 0.6rem; }
+.snelruil__waarschuwing { margin: 0 0 0.75rem; }
+/* Hint en ongedaan-knop op één regel: een lege hint die de knop naar een eigen
+   regel duwt, kost op een gsm net de ruimte die het antwoord boven het
+   toetsenbord houdt. */
+.snelruil__onder { display: flex; align-items: center; gap: 0.5rem; }
+.snelruil__onder .snelruil__hint { flex: 1 1 0; min-width: 0; }
+.snelruil__ongedaan { margin: 0.35rem 0 0.5rem auto; white-space: nowrap; }
+.snelruil__detail { font-size: 0.9rem; font-weight: 600; line-height: 1.35; }
 
 @media (max-width: 640px) {
   /* Bovenaan het scherm in plaats van gecentreerd: het toetsenbord neemt de
      onderste helft in, en het antwoord moet net onder het veld zichtbaar
      blijven. */
   .snelruil { width: 100vw; max-width: 100vw; max-height: 100dvh; margin: 0 auto auto; border-radius: 0 0 var(--radius) var(--radius); padding: 1rem; }
+  /* Elke regel boven het veld duwt het antwoord dichter bij het toetsenbord. */
+  .snelruil__kop { margin-bottom: 0.6rem; }
+  .snelruil__uitleg { font-size: 0.78rem; line-height: 1.4; margin-bottom: 0.4rem; }
   /* In de navbalk enkel het bliksemicoon: die balk is op een gsm al te breed. */
   .snelruil-knop__tekst { display: none; }
 }

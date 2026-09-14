@@ -199,6 +199,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   bewaakVerlaten();
 
+  // ⚡ Snelruilen (js/snelruilen.js) kan in de modus Inboeken deze lijst
+  // wijzigen terwijl de pagina openstaat. Zonder dit toont ze tot een herlading
+  // de oude stand. ververs() legt onbewaarde vinkjes er gewoon weer bovenop.
+  document.addEventListener("snelruilen:gewijzigd", (e) => {
+    if (e.detail && e.detail.kindId === kindId) void ververs();
+  });
+
   // Bleef er van een vorige keer iets openstaan (tabblad gesloten vóór de
   // laatste schrijfronde klaar was), dan gaat dat er nu alsnog in — vóór
   // ververs(), zodat de lijsten meteen de bijgewerkte stand tonen.

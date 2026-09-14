@@ -31,7 +31,8 @@ gebruiker die dat kind beheert.
    `013_landen_engels_en_pagina.sql` → `014_na_beurs_contact.sql` →
    `015_wijk_en_altijd_naam.sql` → `016_ruilen_registreren.sql` →
    `017_statistieken.sql` → `018_favorieten.sql` →
-   `019_stickers_updated_at.sql` → `020_favorieten_algemeen.sql`. Enkel `002`
+   `019_stickers_updated_at.sql` → `020_favorieten_algemeen.sql` →
+   `021_ruiler_letter.sql`. Enkel `002`
    en de blokken die het zelf aankondigen zijn destructief; `009` en later
    zijn dat niet.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
@@ -918,8 +919,56 @@ leeft enkel in het geheugen van de pagina en verdwijnt bij wisselen van
 verzamelaar. Welke verzamelaar gekozen is, onthoudt het toestel
 (`localStorage`); op `kind.html` is dat kind de standaard.
 
-`ontleedCode()` en `bekijkSticker()` staan los van het venster, zodat plakken of
-een bulkcontrole later geen herschrijving vraagt.
+### Twee modi: Controleren en Inboeken
+
+Bovenaan het venster staat een schakelaar. **Controleren** is wat hierboven
+staat en wijzigt niets. **Inboeken** is voor na het openen van pakjes of na een
+ruil: elke code wordt meteen verwerkt, met dezelfde regels voor wanneer een code
+"klaar" is.
+
+| Stond de sticker… | Dan |
+|---|---|
+| in Zoek ik | rij verwijderd — je hebt hem nu |
+| nergens (dus "heb ik") | dubbel 0 → 1 |
+| als dubbel ×n | dubbel n → n+1 |
+
+**Eén venster, geen tweede knop.** Invoer, verzamelaarskeuze en historiek zijn
+dezelfde, en de navbalk is op een gsm al te breed. Het echte risico is de
+verkeerde modus: wie op de beurs "zoek jij FRA05?" typt terwijl het venster nog
+op Inboeken staat, haalt FRA05 uit zijn Zoek ik. Daarom:
+
+- **Inboeken wordt niet per toestel onthouden**, enkel zolang je op dezelfde
+  pagina blijft. Venster sluiten en openen tijdens een stapel pakjes blijft
+  Inboeken; een nieuwe pagina begint altijd bij Controleren.
+- Inboeken ziet er **anders uit**: oranje rand en schakelaar, ander label en
+  andere tekst op de Enter-toets. Groen en rood blijven voor het resultaat.
+
+**"Heb ik" is een afleiding.** De databank kent enkel Zoek ik en dubbel; alles
+wat niet gezocht is, geldt als al in het album (zie "Geplakt is een
+afleiding"). Wie zijn Zoek ik-lijst niet invulde, maakt zo van elke nieuwe
+sticker een valse dubbel — die dan op de ruilpagina van andere kinderen staat.
+Is de Zoek ik-lijst leeg, dan staat daar een rode waarschuwing, en bij 0 → 1
+zegt het resultaat letterlijk "stond niet in Zoek ik, dus je had hem al".
+
+**Ongedaan maken is een stapel.** Elke druk op de knop — of **Ctrl+Z in een
+leeg veld** — draait de vorige inboeking terug, tot twintig ver (zoveel als de
+historiek toont). Een tikfout merk je bij een stapel stickers vaak pas later.
+
+**Schrijven.** De nieuwe stand wordt lokaal berekend en meteen getoond; de
+schrijfopdrachten gaan daarna één voor één, in volgorde, met de volledige stand
+(upsert op `(kind_id, nummer)` of delete) en nooit "+1". Twee keer snel `ARG10`
+geeft zo 1 en dan 2, geen verloren update. Eén aanvraag per inboeking, niets per
+toetsaanslag. Mislukt er een, dan wordt die regel rood en wordt de lijst opnieuw
+opgehaald. Na het sluiten stuurt het venster `snelruilen:gewijzigd`, waarop
+`kind.html` zijn lijsten ververst.
+
+Een verwijderde Zoek ik-rij laat een eventuele favoriet staan — dezelfde keuze
+als in `sql/018`: nooit stil iets van de gebruiker weggooien. Een geregistreerde
+ruil blijft ook ongemoeid; inboeken doet de eigenaar zelf.
+
+`ontleedCode()`, `bekijkSticker()` en `bepaalInboeking()` staan los van het
+venster, zodat plakken, bulk, volledige pakjes of scannen later geen
+herschrijving vraagt.
 
 ## Frontend
 
@@ -943,8 +992,9 @@ een bulkcontrole later geen herschrijving vraagt.
   favoriet → tweerichting → bundelgrootte. Registreert ruilen, toont de
   bevestiging per kant en — voor beheerders — het opvolgingsoverzicht.
 - `js/snelruilen.js` — ⚡ Snelruilen: een venster vanuit de navigatiebalk
-  om aan de ruiltafel een code te typen en meteen te zien of de verzamelaar
-  hem zoekt en/of dubbel heeft. Zie "Snelruilen aan de ruiltafel".
+  om een code te typen en meteen te zien of de verzamelaar hem zoekt en/of
+  dubbel heeft (Controleren), of hem meteen in te boeken (Inboeken). Zie
+  "Snelruilen aan de ruiltafel".
 - `js/gezin.js` — tweede volwassene toevoegen, gsm-nummer van het gezin.
 - `js/whatsapp.js` — nummers normaliseren naar E.164 en wa.me-links bouwen.
 - `js/instellingen.js` — beheerpagina: beursvenster, glans, organisatornummer,

@@ -31,6 +31,7 @@
 import { supabase, requireAuth } from "./supabase.js";
 import { loadKinderen } from "./kinderen.js";
 import { whatsappKnop, toonOrganisatorKnop } from "./whatsapp.js";
+import { openRuilBevestiging } from "./ruilregistratie.js";
 import {
   landLabel,
   accentVoor,
@@ -77,9 +78,6 @@ let landsortering = "pagina";
 // heen, zodat filteren of bevestigen je keuze niet wegneemt.
 const keuzePerRuiler = new Map();
 
-// Wat het bevestigingsvenster op dit moment wil registreren.
-let openVoorstel = null;
-
 // null = nog niet nagevraagd. Het antwoord verandert niet tijdens een sessie,
 // dus het wordt één keer opgehaald; de lijst eronder wél elke keer opnieuw.
 let isBeheerder = null;
@@ -113,7 +111,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   actiefKindId = kinderen[0].id;
   vulKindKeuze();
   koppelFilters();
-  koppelDialoog();
 
   try {
     await laadGegevens();
@@ -1373,14 +1370,18 @@ function ruilVoorstel(info, ikKrijg, anderKrijgt) {
   knop.type = "button";
   knop.className = "btn btn--primary btn--sm";
 
+  // Is er al een afspraak en heb je zelf al bevestigd (of is ze voltooid),
+  // dan valt er met één klik niets meer te doen. Staat ze enkel nog
+  // geregistreerd, dan bevestigt deze knop nu in plaats van te registreren —
+  // zo hoef je er niet apart voor naar "Afspraken" te scrollen.
   const bestaande = zoekAfspraak(info.ander_kind_id, ikKrijg, anderKrijgt);
-  if (bestaande) {
+  const klaar = bestaande && (bestaande.status === "VOLTOOID" || bestaande.eigen_bevestigd);
+  if (klaar) {
     knop.disabled = true;
-    knop.textContent =
-      bestaande.status === "VOLTOOID" ? "✔ Al geruild" : "✔ Al geregistreerd";
+    knop.textContent = bestaande.status === "VOLTOOID" ? "✔ Al geruild" : "✔ Al bevestigd";
   } else {
     knop.textContent = "Ruil registreren";
-    knop.addEventListener("click", () => openDialoog(info, ikKrijg, anderKrijgt));
+    knop.addEventListener("click", () => openRegistratie(info, ikKrijg, anderKrijgt, bestaande));
   }
   vak.appendChild(knop);
   return vak;
@@ -1663,63 +1664,23 @@ function toonAfspraakMelding(tekst) {
 
 // ---------- registreren ----------
 
-function koppelDialoog() {
-  const dialoog = document.getElementById("ruil-dialoog");
-  document.getElementById("ruil-dialoog-ok").addEventListener("click", async () => {
-    if (!openVoorstel) return;
-    const knop = document.getElementById("ruil-dialoog-ok");
-    const fout = document.getElementById("ruil-dialoog-fout");
-    knop.disabled = true;
-    fout.className = "message";
-    try {
-      const { error } = await supabase.rpc("ruil_registreren", {
-        p_eigen_kind: actiefKindId,
-        p_ander_kind: openVoorstel.anderKindId,
-        p_ik_krijg: openVoorstel.ikKrijg,
-        p_ander_krijgt: openVoorstel.anderKrijgt,
-      });
-      if (error) throw error;
-      openVoorstel = null;
-      dialoog.close();
+// Gedeeld met Snelruilen (js/ruilregistratie.js): daar kent men de
+// tegenpartij pas na een eigen ruilerkeuze, hier staat die al vast via de
+// ruilerkaart. bestaandeAfspraak laat hetzelfde scherm ook bevestigen in
+// plaats van registreren (zie ruilVoorstel()).
+function openRegistratie(info, ikKrijg, anderKrijgt, bestaandeAfspraak) {
+  const kind = actiefKind();
+  openRuilBevestiging({
+    eigenKind: { id: kind.id, naam: kind.voornaam },
+    ander: { id: info.ander_kind_id, naam: info.ander_kind },
+    ikKrijg,
+    anderKrijgt,
+    bestaandeAfspraak,
+    onGeregistreerd: async () => {
       await verversNaWijziging();
       document.getElementById("ruil-afspraken").scrollIntoView({ block: "nearest" });
-    } catch (err) {
-      fout.textContent = err.message;
-      fout.className = "message message--show message--error";
-    } finally {
-      knop.disabled = false;
-    }
+    },
   });
-}
-
-function openDialoog(info, ikKrijg, anderKrijgt) {
-  const kind = actiefKind();
-  openVoorstel = { anderKindId: info.ander_kind_id, ikKrijg, anderKrijgt };
-
-  const inhoud = document.getElementById("ruil-dialoog-inhoud");
-  inhoud.textContent = "";
-  inhoud.appendChild(ontvangtRegel(kind.voornaam, ikKrijg));
-  inhoud.appendChild(ontvangtRegel(info.ander_kind, anderKrijgt));
-
-  const fout = document.getElementById("ruil-dialoog-fout");
-  fout.textContent = "";
-  fout.className = "message";
-
-  document.getElementById("ruil-dialoog").showModal();
-}
-
-function ontvangtRegel(naam, code) {
-  const regel = document.createElement("div");
-  regel.className = "ruil-dialoog__regel";
-  const wie = document.createElement("span");
-  wie.className = "ruil-dialoog__wie";
-  wie.textContent = `${naam} ontvangt`;
-  const wat = document.createElement("strong");
-  wat.className = "ruil-dialoog__wat";
-  wat.textContent = code;
-  regel.appendChild(wie);
-  regel.appendChild(wat);
-  return regel;
 }
 
 // ---------- opvolging voor de organisatie ----------
