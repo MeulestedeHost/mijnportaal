@@ -879,7 +879,9 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 
 /* ----- kaart per ruiler ----- */
 .ruiler-kaart { padding: 1.5rem; }
-.ruiler-kaart__kop { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+/* De hele kop is het tikvlak om de kaart te openen of te sluiten (js/ruilen.js). */
+.ruiler-kaart__kop { cursor: pointer; }
+.ruiler-kaart__kopregel { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
 .ruiler-kaart__kop h2 { font-size: 1.25rem; color: var(--cf-blue-dark); }
 .ruiler-kaart__wijk { text-transform: none; letter-spacing: 0; font-weight: 600; }
 .ruiler-kaart__eigen { text-transform: none; letter-spacing: 0; color: var(--success); background: #eaf7ee; border-color: #cbe8d4; }
@@ -894,7 +896,18 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
    zichzelf rangschikt zonder reden is een orakel. */
 /* Dichtgevouwen: naam, hoeveel ruilen er kunnen en wat er daarna overblijft.
    De knop Openen rechts, zodat een lange lijst ruilers snel te overlopen is. */
-.ruiler-kaart__toggle { margin-left: auto; }
+/* Het klassieke + en −, als vierkantje vóór de naam. Uit de CSS en niet in de
+   tekst, zodat de naam van de knop voor een schermlezer gewoon de naam blijft
+   (de stand zit in aria-expanded); de "/ """-schrijfwijze houdt het teken ook
+   uit de toegankelijke naam. */
+.ruiler-kaart__toggle { display: inline-flex; align-items: center; gap: 0.55rem; padding: 0; border: none; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.ruiler-kaart__toggle::before { content: "+"; content: "+" / ""; display: inline-flex; align-items: center; justify-content: center; flex: none; width: 1.6rem; height: 1.6rem; border: 2px solid var(--cf-blue-primary); border-radius: 6px; color: var(--cf-blue-primary); font-size: 1.15rem; font-weight: 700; line-height: 1; }
+.ruiler-kaart--open .ruiler-kaart__toggle::before { content: "−"; content: "−" / ""; background: var(--cf-blue-primary); color: #fff; }
+.ruiler-kaart__kop:hover .ruiler-kaart__toggle::before { background: var(--cf-blue-light); }
+.ruiler-kaart--open .ruiler-kaart__kop:hover .ruiler-kaart__toggle::before { background: var(--cf-blue-dark); }
+.ruiler-kaart__toggle:focus-visible { outline: 3px solid var(--cf-blue-dark); outline-offset: 3px; border-radius: 6px; }
+/* Onder de naam uitgelijnd, niet onder het ±-vierkantje. */
+.ruiler-kaart__samenvatting { padding-left: 2.15rem; }
 .ruiler-kaart__ruilen { font-weight: 700; }
 .ruiler-kaart__inhoud { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
 .ruiler-kaart--open { box-shadow: 0 0 0 2px var(--cf-blue-primary), var(--shadow); }
@@ -1152,6 +1165,57 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .snelruil__bundel-weg:hover { color: var(--danger); }
 .snelruil__bundelregel { margin-top: 0.5rem; font-size: 0.9rem; font-weight: 600; }
 .snelruil__regel-badge { margin-left: auto; }
+
+/* ----- 📷 scan stickers (js/scanner.js) ----- */
+.snelruil__invoerkop { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.sticker-kaart__kop { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.scanner { width: min(40rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); margin: auto; border: none; border-radius: var(--radius); padding: 1.25rem; box-shadow: var(--shadow-lg); color: var(--text); background: var(--surface); overflow-y: auto; }
+.scanner::backdrop { background: rgba(26, 26, 46, 0.45); }
+.scanner__kop { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.25rem; }
+.scanner__titel { font-size: 1.25rem; color: var(--cf-blue-dark); }
+.scanner__voor { margin-bottom: 0.5rem; }
+.scanner__waarschuwing, .scanner__melding { margin-bottom: 0.75rem; }
+/* Grote tikvlakken: dit gebruik je met één hand terwijl de andere een pakje vasthoudt. */
+.scanner__knoppen { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 1rem 0; }
+.scanner__knop { position: relative; display: flex; align-items: center; justify-content: center; min-height: 4rem; font-size: 1.05rem; cursor: pointer; }
+.scanner__knop:focus-within { outline: 3px solid var(--cf-blue-dark); outline-offset: 2px; }
+/* Visueel verborgen maar bereikbaar met Tab: de label is de knop. */
+.scanner__bestand { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.scanner__foto { display: block; max-width: 100%; height: auto; margin: 1rem 0 0; border: 1px solid var(--border); border-radius: 8px; }
+.scanner__voortgang { width: 100%; height: 0.75rem; }
+.scanner__status { margin-bottom: 0.4rem; font-weight: 600; }
+.scanner__controlekop { font-size: 1.05rem; margin-bottom: 0.25rem; }
+.scanner__lijst { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; margin: 0.5rem 0 0.75rem; }
+.scanner__rij { display: grid; grid-template-columns: auto 6.5rem minmax(0, 1fr) auto auto; align-items: center; gap: 0.5rem; padding: 0.45rem 0.6rem; border: 1.5px solid var(--border); border-radius: 8px; background: var(--surface); }
+.scanner__rij--zeker { border-color: #cbe8d4; background: #f6fcf8; }
+.scanner__rij--onzeker { border-color: #d99400; background: #fdf6e3; }
+.scanner__rij--onbekend { border-color: var(--danger); background: var(--danger-light); }
+.scanner__vink { width: 1.4rem; height: 1.4rem; }
+.scanner__code { font-weight: 700; text-transform: uppercase; padding: 0.35rem 0.5rem; }
+.scanner__info { display: flex; flex-direction: column; min-width: 0; font-size: 0.85rem; }
+.scanner__statustekst { font-weight: 600; }
+.scanner__uitleg { color: var(--text-muted); overflow-wrap: anywhere; }
+.scanner__aantal { display: flex; align-items: center; gap: 0.25rem; }
+.scanner__getal { min-width: 2rem; text-align: center; font-weight: 700; }
+.scanner__stap-knop { min-width: 2.25rem; min-height: 2.25rem; padding: 0; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.scanner__weg { min-width: 2.25rem; min-height: 2.25rem; padding: 0; border: none; background: none; color: var(--text-muted); }
+.scanner__weg:hover { color: var(--danger); }
+.scanner__acties { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+.scanner__acties .btn { min-height: 2.75rem; }
+.scanner__tijdelijk { margin-top: 1rem; padding: 0.75rem 1rem; border: 1.5px solid var(--cf-blue-primary); border-radius: 8px; background: var(--cf-blue-light); }
+.scanner__tijdelijkkop { font-size: 1rem; }
+.scanner__tijdelijkcodes { font-weight: 600; overflow-wrap: anywhere; }
+.scanner__samenvatting { list-style: none; display: flex; flex-direction: column; gap: 0.25rem; margin: 0.5rem 0; font-weight: 600; }
+.scanner__fout { color: var(--danger); }
+.scanner__details { list-style: none; font-size: 0.85rem; color: var(--text-muted); }
+@media (max-width: 640px) {
+  .scanner { width: 100vw; max-width: 100vw; max-height: 100dvh; margin: 0 auto auto; border-radius: 0 0 var(--radius) var(--radius); padding: 1rem; }
+  .scanner__knoppen { grid-template-columns: 1fr; }
+  /* Code en aantal op de eerste regel, de uitleg eronder over de volle breedte. */
+  .scanner__rij { grid-template-columns: auto 5.5rem minmax(0, 1fr) auto; }
+  .scanner__rij .scanner__info { grid-column: 2 / -1; grid-row: 2; }
+  .scanner__acties .btn { flex: 1 1 100%; justify-content: center; }
+}
 
 /* ----- bundel herstellen (js/ruilbundel.js) ----- */
 .bundel-herstel { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; padding: 0.75rem 1rem; border: 1.5px solid var(--cf-blue-primary); border-radius: 8px; background: var(--cf-blue-light); color: var(--text); }

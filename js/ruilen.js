@@ -1196,25 +1196,41 @@ function ruilerKaart(groep) {
   // in een #id-selector niet werkt.
   sectie.dataset.ruiler = info.ander_kind_id;
 
-  // ----- kop: naam, wijk, etiket, openen -----
+  const inhoud = document.createElement("div");
+  inhoud.className = "ruiler-kaart__inhoud" + (open ? "" : " hidden");
+  inhoud.id = `ruiler-inhoud-${info.ander_kind_id}`;
+
+  // ----- kop: ± naam, wijk, etiket en samenvatting — samen één tikvlak -----
+  // De hele kop opent en sluit, niet enkel een knopje: aan tafel tik je met je
+  // duim op de naam of op "Je kan 4 ruilen doen", niet op een vierkantje van
+  // een centimeter. Toetsenbord en schermlezer gebruiken de knop in de h2
+  // (aria-expanded). Het ±-teken komt uit de CSS, zodat de h2 enkel de naam is.
   const kop = document.createElement("header");
   kop.className = "ruiler-kaart__kop";
+  const regel = document.createElement("div");
+  regel.className = "ruiler-kaart__kopregel";
 
   const titel = document.createElement("h2");
-  titel.textContent = info.ander_kind;
-  kop.appendChild(titel);
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "ruiler-kaart__toggle";
+  toggle.textContent = info.ander_kind;
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.setAttribute("aria-controls", inhoud.id);
+  titel.appendChild(toggle);
+  regel.appendChild(titel);
 
   if (info.ander_wijk) {
     const wijk = document.createElement("span");
     wijk.className = "chip ruiler-kaart__wijk";
     wijk.textContent = info.ander_wijk;
-    kop.appendChild(wijk);
+    regel.appendChild(wijk);
   }
   if (info.eigen_gezin) {
     const eigen = document.createElement("span");
     eigen.className = "chip ruiler-kaart__eigen";
     eigen.textContent = "je eigen verzamelaar";
-    kop.appendChild(eigen);
+    regel.appendChild(eigen);
   }
 
   // Het etiket blijft: twee woorden die zeggen waarom deze kaart hier staat.
@@ -1226,24 +1242,14 @@ function ruilerKaart(groep) {
     badge.className = "planner__etiket planner__etiket--" + etiket.soort;
     badge.textContent = etiket.tekst;
     badge.title = etiket.uitleg;
-    kop.appendChild(badge);
+    regel.appendChild(badge);
   }
 
-  const inhoud = document.createElement("div");
-  inhoud.className = "ruiler-kaart__inhoud" + (open ? "" : " hidden");
-  inhoud.id = `ruiler-inhoud-${info.ander_kind_id}`;
-
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.className = "btn btn--sm ruiler-kaart__toggle " + (open ? "btn--outline" : "btn--primary");
-  toggle.textContent = open ? "Sluiten" : "Openen";
-  toggle.setAttribute("aria-expanded", String(open));
-  toggle.setAttribute("aria-controls", inhoud.id);
-  toggle.addEventListener("click", () => openKaart(open ? null : info));
-  kop.appendChild(toggle);
-
+  kop.append(regel, ruilerSamenvatting(groep, bundel));
+  // Eén luisteraar op de hele kop: ook een klik op (of Enter/Spatie in) de
+  // knop zelf komt hier aan, dus die krijgt er bewust geen eigen.
+  kop.addEventListener("click", () => openKaart(open ? null : info));
   sectie.appendChild(kop);
-  sectie.appendChild(ruilerSamenvatting(groep, bundel));
 
   // Ook een dichte kaart bouwt haar inhoud op, verborgen: één tekenpad, en een
   // ster die je in "Per land" zet, klopt meteen als je de kaart opent.
@@ -1267,10 +1273,10 @@ function ruilerKaart(groep) {
   const kolommen = document.createElement("div");
   kolommen.className = "ruiler-kaart__kolommen";
   kolommen.appendChild(
-    ruilKolom("Deze ruiler heeft wat jij zoekt", groep.heeft, "ik", bundel, (code) => kiesSticker(info, "ik", code))
+    ruilKolom(`${info.ander_kind} heeft wat jij zoekt`, groep.heeft, "ik", bundel, (code) => kiesSticker(info, "ik", code))
   );
   kolommen.appendChild(
-    ruilKolom("Deze ruiler wil jouw dubbels", groep.wil, "ander", bundel, (code) => kiesSticker(info, "ander", code))
+    ruilKolom(`${info.ander_kind} wil jouw dubbels`, groep.wil, "ander", bundel, (code) => kiesSticker(info, "ander", code))
   );
   kolommen.appendChild(
     ruilVoorstellenKolom(groep, info, bundel, paren, (ik, ander) => kiesPaar(info, ik, ander))

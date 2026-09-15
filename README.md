@@ -911,6 +911,24 @@ Blijkt de treffer al in de geopende checklist te staan (dus geen lijst om uit
 te kiezen) en druk je toch Enter, dan krijgt die chip gewoon de focus — handig
 voor wie met het toetsenbord werkt.
 
+**Geen lijst als er niets te kiezen valt.** Een lijst met één regel is een klik
+te veel. Twee gevallen weet het systeem al exact (`eenduidigDoel()` in
+`js/stickers.js`):
+
+- **Een volledige stickercode** — dezelfde regel als bij Snelruilen hieronder:
+  `GER15` en `BEL03` meteen, `BEL3` ook (er is geen `BEL30`), maar `ALG1` niet,
+  want dat kan nog `ALG12` worden. Het land gaat open, de pagina scrollt naar de
+  sticker, die licht op en krijgt de focus.
+- **Een land** — alle treffers horen bij één land én dat land matcht zelf op
+  code of naam: `ALG`, `Algeria`, `Algerije`, maar ook `belg` (Belgium en
+  België zijn hetzelfde land). Het land gaat open; de focus blijft in het
+  zoekveld en er komt geen blauwe rand op elke chip — die zou niets aanwijzen.
+
+Een spelersnaam als `Bentaleb` levert ook maar één land op, maar matcht dat
+land niet zelf: daar blijft de lijst staan, want er is een sticker bedoeld en
+de naam kan nog een andere speler worden. Hetzelfde doel springt maar één keer:
+wie daarna zelf een ander land kiest, wordt niet teruggetrokken.
+
 ## Snelruilen aan de ruiltafel
 
 Voor wie op de beurs staat met een stapel stickers in de hand en geen tijd
@@ -994,9 +1012,9 @@ Een verwijderde Zoek ik-rij laat een eventuele favoriet staan — dezelfde keuze
 als in `sql/018`: nooit stil iets van de gebruiker weggooien. Een geregistreerde
 ruil blijft ook ongemoeid; inboeken doet de eigenaar zelf.
 
-`ontleedCode()`, `bekijkSticker()` en `bepaalInboeking()` staan los van het
-venster, zodat plakken, bulk, volledige pakjes of scannen later geen
-herschrijving vraagt.
+`ontleedCode()`, `bepaalInboeking()` en de geordende schrijfrij staan in
+`js/inboeken.js`, los van elk venster: 📷 Scan stickers boekt een hele foto in
+met exact dezelfde regel (zie hieronder).
 
 ### Ruilen aan tafel: de bundel
 
@@ -1015,9 +1033,11 @@ openstaand paar gewoon terug.
 
 - **Ruilerkaarten staan dicht.** Enkel de naam, hoeveel ruilen er kunnen en
   hoeveel stickers die ruiler daarna nog voor je heeft. De uitgeschreven
-  redenen staan enkel nog in Beste ruilkansen. Eén kaart tegelijk open; een
-  naam in Beste ruilkansen aanklikken opent die kaart. Een kaart openen
-  onthoudt ook de ruiler.
+  redenen staan enkel nog in Beste ruilkansen. De hele kop (＋/−, naam en
+  samenvatting) opent en sluit de kaart — een groot tikvlak, geen klein knopje.
+  Eén kaart tegelijk open; een naam in Beste ruilkansen aanklikken opent die
+  kaart. Een kaart openen onthoudt ook de ruiler. De kolomtitels noemen de
+  ruiler bij naam: "Olivier heeft wat jij zoekt", "Olivier wil jouw dubbels".
 - **Meerdere ruilen tegelijk.** Tik om beurt een sticker links (wat jij krijgt,
   lichtgroen) en rechts (wat je geeft, lichtgeel): ze krijgen samen "Ruil 1",
   daarna "Ruil 2". Nog eens tikken haalt een sticker eruit; de volgende tik
@@ -1050,6 +1070,82 @@ op het dashboard tonen dezelfde lijst (`js/acties.js`). Bewust geen aparte pagin
   kinderen meteen bij de juiste verzamelaar en het juiste blok uitkomt.
 - Geen e-mail, geen push, geen realtime-verbinding: de lijst ververst bij elke
   paginalading en na elke registratie of bevestiging op de ruilpagina.
+
+## 📷 Stickers scannen via foto
+
+Na het openen van pakjes: één foto van de nieuwe stickers in plaats van elke
+code te typen. De knop staat bij **Stickers beheren** op `kind.html` en in
+⚡ Snelruilen in de modus **Inboeken**. Enkel stickercodes — geen ruilbladen,
+tabellen, vinkjes of handschrift.
+
+**De gebruiker bevestigt altijd.** Na de foto volgt een controlevenster; pas na
+een klik op Inboeken verandert er iets:
+
+| De scan vond | Controlevenster |
+|---|---|
+| exact een bestaande code, met genoeg zekerheid | ☑ aangevinkt |
+| een bestaande code na rechtzetten (`8EL3` → `BEL3`), of met lage zekerheid | ⚠ **niet** aangevinkt: "klopt dit?" |
+| iets dat op een code lijkt maar niet bestaat (`BLE3`, `QQQ99`) | ❌ bewerkbaar, niet aan te vinken |
+| dezelfde code op twee plaatsen | één regel ×2 |
+
+Elke code is te verbeteren (een verbeterde, bestaande code staat meteen
+aangevinkt), het aantal aan te passen en te verwijderen; wat gemist werd, voeg
+je toe. Op de foto staat een kader rond elke gevonden code, zodat je ziet wat
+er gelezen werd — en wat niet.
+
+**Inboeken** gebruikt `js/inboeken.js`, dezelfde regel als Snelruilen: stond hij
+in Zoek ik, dan gaat hij eruit; anders dubbel +1, één exemplaar per keer en in
+volgorde. Daarna een samenvatting ("4 stickers verwerkt · ✅ 2 verwijderd uit
+Zoek ik · ✅ 2 dubbels toegevoegd"), en `kind.html` ververst. De waarschuwing
+bij een lege Zoek ik geldt ook hier.
+
+**Tijdelijke lijst.** "Toevoegen aan tijdelijke lijst" wijzigt nog niets: de
+codes gaan per verzamelaar naar `localStorage` (`scanlijst:<kind>`, overleeft
+een refresh), en je scant verder. Het startscherm toont de lijst met "Alles
+inboeken" en "Wissen" (twee keer tikken). Wat niet bewaard kon worden, blijft
+erop staan.
+
+### Herkenning op het toestel
+
+Tesseract.js (WebAssembly, in een worker): geen foto verlaat het toestel, geen
+kosten, en na de eerste keer werkt het offline. Drie lagen, elk vervangbaar:
+
+- `js/ocr-lokaal.js` — foto klaarmaken (juiste stand, verkleind tot 2400 px,
+  grijs, contrast opgerekt) en woorden lezen. Alleen hoofdletters en cijfers,
+  paginasegmentatie "verspreide tekst". **Elke foto wordt twee keer gelezen:**
+  zoals ze is, en zonder dunne donkere lijnen (een grijze "sluiting" met een
+  venster van 3 px). Gemeten op gegenereerde stapels: een schuine kaderlijn van
+  2 px rond de stickers deed Tesseract níets meer lezen zodra de stapel 1,5° of
+  meer gedraaid lag; zonder die lijnen alle codes, ook bij ±3° en 4°. Een venster
+  van 5 px tastte al tekens aan. De tweede leesbeurt kost ongeveer evenveel tijd
+  als de eerste.
+- `js/herkenning.js` — woorden → codes, los van de foto (en dus te testen). Op
+  een letterplaats wordt `0` een O, op een cijferplaats `S` een 5; wat dan in de
+  catalogus staat, is een kandidaat. `GER07` wordt `GER7`, zoals overal. Een
+  code die OCR in twee woorden splitst (`FRA 12`) wordt samengevoegd.
+- `js/scanner.js` — het venster.
+
+Later kan AI het eerste deel vervangen zonder dat de andere twee veranderen.
+
+**Bestanden in `vendor/tesseract/`**, niet van een CDN: Tesseract.js 7.0.0
+(`tesseract.min.js`, `worker.min.js`), de LSTM-kernen van tesseract.js-core
+7.0.0 (drie varianten; de worker kiest wat het toestel aankan) en het Engelse
+LSTM-model `4.0.0_best_int`, **onverpakt** (een `.gz` dat een CDN onderweg
+uitpakt, breekt het inlezen). Licenties ernaast (Apache-2.0). Samen ~17 MB in
+de repo, maar een toestel laadt er ~9 MB van, en pas bij de eerste scan.
+Bijwerken: `npm pack tesseract.js tesseract.js-core @tesseract.js-data/eng` en
+dezelfde bestanden vervangen.
+
+**CSP.** `script-src` kreeg `'wasm-unsafe-eval'`: zonder mag de browser geen
+WebAssembly compileren. Verder niets: de worker komt van `'self'` (geen
+blob-URL), het model ook, en de foto wordt op een canvas getekend (geen
+`blob:`-afbeelding). De proefopstelling stuurt geen CSP mee — na een deploy dus
+één echte scan doen.
+
+**Wat het niet (goed) kan.** Glansstickers, codes ondersteboven, sterke schuine
+hoeken, schittering over de code en een code die voor de helft bedekt is. De
+betrouwbaarheid op echte gsm-foto's meet `test/scanfotos.mjs` — gegenereerde
+foto's zeggen daar weinig over.
 
 ## Frontend
 

@@ -31,7 +31,11 @@
     <p id="kind-geboortejaar" class="form-meta"></p>
 
     <div class="card" id="sticker-kaart">
-      <h2>Stickers beheren</h2>
+      <div class="sticker-kaart__kop">
+        <h2>Stickers beheren</h2>
+        <!-- Een hele stapel uit een pakje in één keer (js/scanner.js). -->
+        <button type="button" class="btn btn--primary btn--sm" data-scanner>📷 Scan stickers</button>
+      </div>
       <p class="form-meta">
         Kies een land, vink aan wat je zoekt en zet met + en − hoeveel je er dubbel hebt.
         Weet je al welke sticker je zoekt? Typ dan meteen de code, de speler of het land in het
@@ -91,9 +95,11 @@
            Hoort de treffer al bij het land dat hieronder open staat, dan licht
            hij daar rechtstreeks op in de checklist (bouwChip/pasZoekMarkeringToe
            in js/stickers.js) — geen apart "zoeken binnen dit land"-veldje meer
-           nodig, want dat deed precies hetzelfde in het klein. Hoort hij bij
-           een ander land, dan staat hij in de lijst eronder; die aanklikken
-           (of Enter) zet het land goed en springt naar de sticker. -->
+           nodig, want dat deed precies hetzelfde in het klein. Is de zoekterm
+           eenduidig (een volledige code als GER15, of een land als ALG of
+           Algerije), dan gaat het land meteen open en springt de pagina naar de
+           sticker. Enkel wie nog moet kiezen, krijgt de lijst eronder; die
+           aanklikken (of Enter) zet het land goed en springt naar de sticker. -->
       <div class="form-group stickerzoek">
         <label for="sticker-globaalzoek" class="form-label">Of zoek een sticker of speler</label>
         <input
@@ -163,6 +169,7 @@
   <script type="module" src="/js/auth.js"></script>
   <script type="module" src="/js/snelruilen.js"></script>
   <script type="module" src="/js/acties.js"></script>
+  <script type="module" src="/js/scanner.js"></script>
   <script type="module" src="/js/kinderen.js"></script>
   <script type="module" src="/js/stickers.js"></script>
 </body>

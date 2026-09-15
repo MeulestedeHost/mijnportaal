@@ -19,12 +19,19 @@
 // bij de eerste klik gebouwd, zodat pagina's die het nooit openen er niets van
 // merken.
 //
-// LATER: plakken, bulk, volledige pakjes, scannen. Daarom staan het ontleden
-// (ontleedCode), het opzoeken (bekijkSticker) en het rekenen (bepaalInboeking)
-// los van de DOM: een pakje verwerken is dan per code bepaalInboeking op de
-// lokale lijst, zonder aan het venster te komen.
-import { supabase } from "./supabase.js";
+// Het ontleden van een code, de regel wat inboeken doet en het wegschrijven
+// staan in js/inboeken.js: 📷 Scan stickers (js/scanner.js) boekt een hele
+// foto in met exact dezelfde regel.
 import { loadKinderen } from "./kinderen.js";
+import {
+  ontleedCode,
+  bepaalInboeking,
+  haalCatalogus,
+  haalLijst,
+  schrijfStickerRij,
+  wachtOpSchrijven,
+  GEWIJZIGD_EVENT,
+} from "./inboeken.js";
 import { kiesRuiler as kiesRuilerVenster, haalRuilkansen, openRuilBevestiging } from "./ruilregistratie.js";
 import {
   BUNDEL_EVENT,
@@ -43,15 +50,12 @@ import {
   herstelMelding,
 } from "./ruilbundel.js";
 
-const PAGINA = 1000; // PostgREST levert maximaal 1000 rijen per aanvraag
 const HISTORIEK_MAX = 20;
 
 // Een voorkeur van dit toestel, geen gegeven van het gezin — zelfde afweging
 // als de verzamelaarskeuze van de wereldreis (js/wereldreis.js).
 const KEUZE_SLEUTEL = "snelruilen.kind";
 
-// Andere pagina's (js/stickers.js) luisteren hierop om hun lijst te verversen.
-export const GEWIJZIGD_EVENT = "snelruilen:gewijzigd";
 
 const UITLEG = {
   controleren: "Controleer snel of je een sticker zoekt of als dubbel hebt. Je verzameling wordt niet gewijzigd.",
@@ -78,10 +82,6 @@ let modus = "controleren"; // bewust niet bewaard: zie bovenaan
 // telkens één af. Een stapel en niet enkel "de laatste": bij een stapel stickers
 // merk je een tikfout vaak pas twee stickers later.
 let ongedaanStapel = [];
-// Schrijfopdrachten gaan één voor één en in volgorde: wie twee keer snel ARG10
-// typt, moet 1 en dan 2 wegschrijven — niet twee keer 1 in willekeurige
-// volgorde. Elke opdracht schrijft de volledige gewenste stand, geen "+1".
-let schrijfrij = Promise.resolve();
 let gewijzigd = false; // iets weggeschreven sinds het venster openging?
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -98,6 +98,22 @@ document.addEventListener(BUNDEL_EVENT, () => {
   tekenBundel();
   tekenHistoriek();
 });
+
+// Boekte het scanvenster iets in voor deze verzamelaar, dan klopt de lijst in
+// het geheugen hier niet meer.
+document.addEventListener(GEWIJZIGD_EVENT, (e) => {
+  if (!venster || !e.detail || e.detail.bron !== "scanner" || e.detail.kindId !== actiefKindId) return;
+  lijstGeladen = false;
+  laadGegevens().then(tekenWaarschuwing, () => {});
+});
+
+// Het scanvenster opent boven Snelruilen, voor dezelfde verzamelaar. Pas bij
+// de eerste klik geladen: wie nooit scant, laadt er ook niets van.
+async function openScan() {
+  if (!actiefKindId) return;
+  const { openScanner } = await import("./scanner.js");
+  openScanner({ kindId: actiefKindId });
+}
 
 // Vanuit een ruilerkaart: meteen voor de verzamelaar van die kaart, niet voor
 // wie Snelruilen de vorige keer koos.
@@ -120,20 +136,6 @@ export async function openSnelruilen({ kindId } = {}) {
 }
 
 // ---------- ontleden en rekenen (los van de DOM) ----------
-
-// "bel 3", "BEL-03" en "Bel3" worden allemaal BEL3: aan een tafel typt niemand
-// netjes, en een spatie of koppelteken verandert niets aan welke sticker bedoeld
-// is. Glansstickers (BEL2s) vallen hier bewust buiten: BEL12 zou al gecontroleerd
-// zijn vóór de "s" getypt is.
-export function ontleedCode(invoer) {
-  const schoon = String(invoer || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  if (schoon === "00") return { code: "00", cijfers: 2 };
-  const m = /^([A-Z]{3})(\d{1,2})$/.exec(schoon);
-  if (!m) return null;
-  // De catalogus schrijft zonder voorloopnul (BEL3), net als de rest van het
-  // portaal. BEL03 wordt dus BEL3, niet omgekeerd.
-  return { code: m[1] + Number(m[2]), land: m[1], cijfers: m[2].length, eersteCijfer: m[2][0] };
-}
 
 // Mag deze invoer meteen verwerkt worden, zonder Enter?
 // Zodra er geen langere code meer kan bedoeld zijn. BEL12 kan nooit nog
@@ -167,19 +169,6 @@ export function bekijkSticker(code) {
   };
 }
 
-// Wat er met de lijst gebeurt als je deze sticker krijgt. `voor` en `na` zijn
-// een rij ({ status, aantal }) of null (geen rij: "heb ik, niet dubbel").
-//
-// De databank kent geen "heb ik" — alles wat niet gezocht is, geldt als al in
-// het album (zie README, "Geplakt is een afleiding"). Een sticker die niet in
-// Zoek ik staat, is dus per definitie een dubbel. Dat klopt enkel voor wie zijn
-// Zoek ik-lijst invulde; daarom de waarschuwing bij een lege lijst.
-export function bepaalInboeking(voor) {
-  if (voor && voor.status === "ZOEKT") return { na: null, soort: "uitZoek" };
-  const van = voor && voor.status === "RUILT" ? Math.max(Number(voor.aantal) || 1, 1) : 0;
-  return { na: { status: "RUILT", aantal: van + 1 }, soort: "dubbel", van, naar: van + 1 };
-}
-
 // ---------- gegevens ----------
 
 // De catalogus verandert niet terwijl je op een pagina staat en haalt hij dus
@@ -195,9 +184,9 @@ function laadGegevens() {
     const kindId = actiefKindId;
     const [catalogus, stickers] = await Promise.all([
       catalogusPerCode ? null : haalCatalogus(),
-      schrijfrij.then(() => haalLijst(kindId)),
+      wachtOpSchrijven().then(() => haalLijst(kindId)),
     ]);
-    if (catalogus) catalogusPerCode = new Map(catalogus.map((s) => [s.code, s]));
+    if (catalogus) catalogusPerCode = catalogus;
     if (kindId !== actiefKindId) return; // intussen van verzamelaar gewisseld
     lijst = stickers;
     lijstGeladen = true;
@@ -212,44 +201,16 @@ function laadGegevens() {
   return ronde;
 }
 
-async function haalCatalogus() {
-  const alles = [];
-  for (let van = 0; ; van += PAGINA) {
-    const { data, error } = await supabase
-      .from("sticker_catalogus")
-      .select("code,naam,land_naam")
-      .order("code", { ascending: true })
-      .range(van, van + PAGINA - 1);
-    if (error) throw error;
-    alles.push(...data);
-    if (data.length < PAGINA) return alles;
-  }
-}
-
-async function haalLijst(kindId) {
-  const { data, error } = await supabase
-    .from("stickers")
-    .select("nummer,status,aantal")
-    .eq("kind_id", kindId);
-  if (error) throw error;
-  return new Map((data || []).map((s) => [s.nummer, s]));
-}
-
-// Eén aanvraag per wijziging, met de volledige stand: een rij wordt upsert op
-// (kind_id, nummer) — dezelfde unieke index als js/stickers.js gebruikt — en
-// "geen rij" wordt een delete.
+// Wegschrijven via de gedeelde, geordende schrijfrij (js/inboeken.js); enkel
+// "er is iets gewijzigd" is van dit venster: bij sluiten ververst kind.html dan.
 function schrijf(kindId, code, rij) {
-  const opdracht = schrijfrij.then(async () => {
-    const { error } = rij
-      ? await supabase
-          .from("stickers")
-          .upsert({ kind_id: kindId, nummer: code, status: rij.status, aantal: rij.aantal }, { onConflict: "kind_id,nummer" })
-      : await supabase.from("stickers").delete().eq("kind_id", kindId).eq("nummer", code);
-    if (error) throw error;
-    gewijzigd = true;
-  });
-  // De rij zelf mag nooit afgewezen blijven, anders stopt alles erna.
-  schrijfrij = opdracht.catch(() => {});
+  const opdracht = schrijfStickerRij(kindId, code, rij);
+  opdracht.then(
+    () => {
+      gewijzigd = true;
+    },
+    () => {}
+  );
   return opdracht;
 }
 
@@ -366,6 +327,13 @@ function bouwVenster() {
 
   const invoerLabel = maak("label", "form-label", "Stickercode");
   invoerLabel.htmlFor = "snelruil-invoer";
+  // Een hele stapel uit een pakje: één foto in plaats van elke code te typen.
+  // Enkel in Inboeken, want daar worden pakjes verwerkt.
+  const scanKnop = maak("button", "btn btn--outline btn--sm snelruil__scan hidden", "📷 Scan stickers");
+  scanKnop.type = "button";
+  scanKnop.addEventListener("click", () => void openScan());
+  const invoerKop = maak("div", "snelruil__invoerkop");
+  invoerKop.append(invoerLabel, scanKnop);
   const invoer = maak("input", "form-input snelruil__invoer");
   invoer.id = "snelruil-invoer";
   invoer.type = "text";
@@ -413,7 +381,7 @@ function bouwVenster() {
   const historiekKop = maak("h3", "snelruil__historiek-kop hidden", "Recent");
   const historiekLijst = maak("ul", "snelruil__historiek");
 
-  dialoog.append(kop, ruilerVak, modi, uitleg, waarschuwing, kindVak, invoerLabel, invoer, onder, resultaat, bundelVak, historiekKop, historiekLijst);
+  dialoog.append(kop, ruilerVak, modi, uitleg, waarschuwing, kindVak, invoerKop, invoer, onder, resultaat, bundelVak, historiekKop, historiekLijst);
 
   // Klik op de donkere achtergrond sluit ook: de dialoog zelf vult enkel het
   // kader, dus een klik die op het element zelf landt, viel erbuiten.
@@ -423,7 +391,7 @@ function bouwVenster() {
   // De pagina eronder (kind.html) toont anders nog de stand van vóór het
   // inboeken. Wachten tot alles weggeschreven is, anders ververst ze te vroeg.
   dialoog.addEventListener("close", () => {
-    void schrijfrij.then(() => {
+    void wachtOpSchrijven().then(() => {
       if (!gewijzigd) return;
       gewijzigd = false;
       document.dispatchEvent(new CustomEvent(GEWIJZIGD_EVENT, { detail: { kindId: actiefKindId } }));
@@ -433,7 +401,7 @@ function bouwVenster() {
   document.body.appendChild(dialoog);
   return {
     dialoog, modusKnoppen, uitleg, waarschuwing, kindVak, kindKeuze, ruilerVak, ruilerTekst, ruilerKies, ruilerStop,
-    bundelVak, invoerLabel, invoer,
+    bundelVak, invoerLabel, invoer, scanKnop,
     hint, ongedaanKnop, resultaat, historiekKop, historiekLijst,
   };
 }
@@ -622,6 +590,7 @@ function tekenModus() {
   const inboeken = modus === "inboeken";
   modusKnoppen.forEach((knop) => knop.setAttribute("aria-pressed", String(knop.dataset.modus === modus)));
   dialoog.classList.toggle("snelruil--modus-inboeken", inboeken);
+  venster.scanKnop.classList.toggle("hidden", !inboeken);
   uitleg.textContent = UITLEG[modus];
   invoerLabel.textContent = inboeken ? "Sticker inboeken" : "Stickercode";
   invoer.placeholder = inboeken ? "BEL3 → toevoegen" : "BEL3";

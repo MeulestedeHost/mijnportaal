@@ -31,6 +31,7 @@ import {
   landMatcht,
 } from "./landen-data.js";
 import { maakLandcombo } from "./landcombo.js";
+import { ontleedCode } from "./inboeken.js";
 
 const TABEL = "stickers";
 const STATUS_TEKST = { ZOEKT: "zoek ik", RUILT: "heb ik dubbel" };
@@ -110,6 +111,11 @@ let autosaveBezig = false;
 let zoekResultaten = [];
 let zoekBinnenLand = [];
 let zoekActief = -1;
+// Het eenduidige doel ("GER:GER15" of "GER:") waar het zoekveld het laatst
+// vanzelf naartoe sprong. Zolang de zoekterm hetzelfde doel aanwijst, springt
+// het niet opnieuw — anders zou elke herschikking de focus terugtrekken, of
+// het land terugzetten dat de gebruiker intussen zelf koos.
+let zoekDoel = "";
 let zoekTimer = null;
 let markeerTimer = null;
 
@@ -633,14 +639,15 @@ function bouwChip(sticker) {
 // deze is voor wie al weet wélke sticker hij zoekt en niet eerst wil uitzoeken
 // bij welk land Musiala hoort. Zoekt daarom over alle landen heen.
 //
-// Twee uitkomsten, geen tussenstap. Hoort de treffer bij het land dat al open
-// staat, dan is hij al zichtbaar in de (ongefilterde) checklist eronder — die
-// krijgt gewoon een blauwe rand terwijl je typt, zonder klik. Er is dus geen
-// apart "zoeken binnen dit land"-veldje meer: dat deed precies hetzelfde,
-// alleen via filteren (rijen verbergen) in plaats van markeren. Hoort de
-// treffer bij een ANDER land, dan kán hij niet zomaar verschijnen — het land
-// moet nog wisselen — en daarvoor blijft de resultatenlijst onder het veld
-// staan: die aanklikken (of Enter) kiest het land en springt naar de sticker.
+// Geen tussenstap zolang er niets te kiezen valt. Wijst de zoekterm maar één
+// ding aan — een volledige stickercode, of een land — dan gaat het land
+// meteen open en springt de pagina naar de sticker (eenduidigDoel). Hoort een
+// treffer bij het land dat al open staat, dan is hij al zichtbaar in de
+// (ongefilterde) checklist eronder en krijgt hij een blauwe rand terwijl je
+// typt. Enkel wie bij een ANDER land hoort en nog een keuze vraagt ("ALG1":
+// ALG1 of ALG10…ALG19? "Bentaleb": de naam kan nog een andere speler worden),
+// komt in de resultatenlijst onder het veld; die aanklikken (of Enter) kiest
+// het land en springt naar de sticker.
 //
 // Alles gebeurt in het geheugen: de catalogus staat er al, dus er gaat geen
 // aanvraag uit en de lijst kan bij elke aanslag mee.
@@ -716,26 +723,77 @@ function stickerMatcht(sticker, term) {
 
 function zoek() {
   clearTimeout(zoekTimer);
-  const term = normaliseer(document.getElementById("sticker-globaalzoek").value.trim());
+  const invoer = document.getElementById("sticker-globaalzoek").value.trim();
+  const term = normaliseer(invoer);
   if (!term) {
     zoekResultaten = [];
     zoekBinnenLand = [];
     pasZoekMarkeringToe();
     tekenZoekresultaten(0, 0, "");
+    void gaNaarDoel(null);
     return;
   }
   const treffers = catalogus.filter((s) => stickerMatcht(s, term));
+  const doel = eenduidigDoel(invoer, term, treffers);
+  // "BEL03" staat niet letterlijk in "BEL3", maar is wel die sticker.
+  if (doel && doel.sticker && !treffers.includes(doel.sticker)) treffers.push(doel.sticker);
+  // Is er een doel, dan rekenen we alsof dat land al open staat: het wisselen
+  // loopt nog (gaNaarDoel), maar de lijst mag al meteen wegblijven.
+  const openLand = doel ? doel.land_code : huidigLand;
   // Dezelfde volgorde als de landkeuzelijst: zoeken filtert/splitst, het
   // sorteert de gevonden landen niet anders dan ingesteld.
-  zoekBinnenLand = huidigLand
-    ? treffers.filter((s) => s.land_code === huidigLand).sort(vergelijkCatalogus)
+  zoekBinnenLand = openLand
+    ? treffers.filter((s) => s.land_code === openLand).sort(vergelijkCatalogus)
     : [];
-  const andereLanden = (huidigLand ? treffers.filter((s) => s.land_code !== huidigLand) : treffers).sort(
+  const andereLanden = (openLand ? treffers.filter((s) => s.land_code !== openLand) : treffers).sort(
     vergelijkCatalogus
   );
   zoekResultaten = andereLanden.slice(0, ZOEK_MAX);
   pasZoekMarkeringToe();
   tekenZoekresultaten(andereLanden.length, treffers.length, term);
+  void gaNaarDoel(doel);
+}
+
+// Wanneer weet het systeem al exact wat bedoeld wordt?
+//
+// - Een VOLLEDIGE stickercode, met dezelfde regel als ⚡ Snelruilen
+//   (ontleedCode): "GER15" en "BEL03" meteen, "BEL3" ook want er bestaat geen
+//   BEL30, maar "ALG1" niet — dat kan nog ALG12 worden. Een lijst met ALG1 en
+//   ALG10…ALG19 is daar precies de keuze die de gebruiker nog moet maken.
+// - Een LAND: alle treffers horen bij één land, en dat land matcht zelf op
+//   code of naam ("ALG", "Algeria", "Algerije", "belg"). Die tweede voorwaarde
+//   houdt spelersnamen erbuiten: "Bentaleb" levert ook maar één land op, maar
+//   bedoelt een sticker en geen land — dan blijft de lijst staan.
+function eenduidigDoel(invoer, term, treffers) {
+  const ontleed = ontleedCode(invoer);
+  const sticker = ontleed && catalogus.find((s) => s.code === ontleed.code);
+  if (sticker && (ontleed.cijfers === 2 || !heeftLangereCode(sticker.code))) {
+    return { land_code: sticker.land_code, sticker };
+  }
+  const landCodes = new Set(treffers.map((s) => s.land_code));
+  if (landCodes.size !== 1) return null;
+  const land = landen.find((l) => landCodes.has(l.land_code));
+  return land && landMatcht(land, term) ? { land_code: land.land_code, sticker: null } : null;
+}
+
+// Glansstickers (BEL3s) tellen niet als langere code, net als bij Snelruilen:
+// anders zou BEL3 nooit meer vanzelf springen zodra glans aanstaat.
+function heeftLangereCode(code) {
+  return catalogus.some((s) => s.code.length > code.length && s.code.startsWith(code) && /\d/.test(s.code[code.length]));
+}
+
+async function gaNaarDoel(doel) {
+  const sleutel = doel ? `${doel.land_code}:${doel.sticker ? doel.sticker.code : ""}` : "";
+  if (sleutel === zoekDoel) return;
+  zoekDoel = sleutel;
+  if (!doel) return;
+  if (doel.land_code !== huidigLand) {
+    landcombo.zetWaarde(doel.land_code);
+    await wisselLand(); // schrijft eerst weg wat nog openstond
+    // Intussen verder getypt? Dan heeft een nieuwere zoekopdracht het over.
+    if (zoekDoel !== sleutel) return;
+  }
+  if (doel.sticker) toonSticker(doel.sticker.code);
 }
 
 function vergelijkCatalogus(a, b) {
@@ -747,14 +805,14 @@ function vergelijkCatalogus(a, b) {
 // elke herbouw van de checklist (tekenChecklist) — die laatste is nodig omdat
 // een nieuw land of een undo de chips vervangt door verse exemplaren zonder
 // de klasse.
+//
+// Matcht het héle land (je typte "ALG" en het land ging open), dan geen
+// enkele rand: twintig blauwe chips wijzen niets meer aan.
 function pasZoekMarkeringToe() {
   const term = normaliseer(document.getElementById("sticker-globaalzoek").value.trim());
-  const treffers =
-    term && huidigLand
-      ? new Set(
-          catalogus.filter((s) => s.land_code === huidigLand && stickerMatcht(s, term)).map((s) => s.code)
-        )
-      : new Set();
+  const vanLand = term && huidigLand ? catalogus.filter((s) => s.land_code === huidigLand) : [];
+  const gevonden = vanLand.filter((s) => stickerMatcht(s, term));
+  const treffers = new Set(gevonden.length < vanLand.length ? gevonden.map((s) => s.code) : []);
   document.querySelectorAll("#sticker-checklist .sticker-chip").forEach((chip) => {
     const code = chip.id.slice(CHIP_ID_PREFIX.length);
     chip.classList.toggle("sticker-chip--zoektreffer", treffers.has(code));
