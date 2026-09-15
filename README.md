@@ -349,17 +349,22 @@ instructieblok.
 
 Op wereldniveau overlappen een stuk of twintig clusters elkaar rond Europa —
 daarom toont `tekenLanden()` (`js/wereldreis.js`) onder zoomtrap
-`kaart_ingezoomd_vanaf` (instellingen.html, `sql/024`; standaard 4 =
-`INGEZOOMD_VANAF`, van minZoom 1 tot maxZoom 6) per land maar **één bol**
-in plaats van de cluster. Die bol hergebruikt bewust dezelfde percentagetrap
+`kaart_ingezoomd_vanaf` (instellingen.html, `sql/024`; standaard 10 =
+`INGEZOOMD_VANAF`, ingezoomd op één land) per land maar **één bol** in plaats
+van de cluster. De grote kaart zoomt daarvoor tot `MAX_ZOOM` (12); met de
+vroegere maximumtrap 6 lag elke drempel al op het Europa-zicht, waar de
+clusters nog overlappen. Die bol hergebruikt bewust dezelfde percentagetrap
 als het stickerenicoon voor zowel kleur als grootte — hoe minder compleet, hoe
 groter de bol — in plaats van een tweede, eigen maat te verzinnen: `gezocht`
 in `sql/010_wereldreis.sql` is toch al rechtstreeks het spiegelbeeld van
-hetzelfde percentage. Tikken op de bol opent dezelfde stickerspopup als het
-stickerenicoon in de cluster (`data-categorie="stickers"`, zie
-`landBolHtml()`). `js/wereldkaart.js` luistert op `zoomend` en hertekent enkel
-wanneer die drempel echt gekruist wordt — niet bij elke tik van het muiswiel,
-anders zou een openstaande popup steeds sluiten voor niets.
+hetzelfde percentage.
+
+**Tikken op een bol klapt enkel dát land open** in zijn vijf iconen, zonder te
+zoomen; een ander land of een tik op de kaart klapt het weer dicht. Zo kan je
+op het Europa-zicht één land bekijken zonder dat de hele kaart uiteenvalt.
+`js/wereldkaart.js` luistert op `zoomend` en hertekent enkel wanneer de
+drempel echt gekruist wordt — niet bij elke tik van het muiswiel, anders zou
+een openstaande popup steeds sluiten voor niets.
 
 ### Vijf categorieën, allemaal actief sinds fase 3
 

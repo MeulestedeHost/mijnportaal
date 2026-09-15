@@ -19,6 +19,7 @@ import {
   bewaarKeuze,
   leesKeuze,
   INGEZOOMD_VANAF,
+  MAX_ZOOM,
 } from "./wereldreis.js";
 import { landLabel } from "./landen-data.js";
 
@@ -44,7 +45,7 @@ async function haalZoomdrempel() {
       .maybeSingle();
     if (error || !data) return INGEZOOMD_VANAF;
     const trap = Number(data.kaart_ingezoomd_vanaf);
-    return Number.isInteger(trap) && trap >= 1 && trap <= 6 ? trap : INGEZOOMD_VANAF;
+    return Number.isInteger(trap) && trap >= 1 && trap <= MAX_ZOOM ? trap : INGEZOOMD_VANAF;
   } catch {
     return INGEZOOMD_VANAF;
   }

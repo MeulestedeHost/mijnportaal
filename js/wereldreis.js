@@ -239,11 +239,20 @@ const WERELD = [
 // krijgt elk land maar één bol (zie tekenLanden() en landBolHtml()). Europa
 // staat op wereldniveau vol — een stuk of twintig clusters overlappen elkaar
 // daar (zie de kaart-instellingen hieronder) — en dat is precies wat de ene
-// bol per land moet oplossen. Dit is enkel de standaard: de beheerder zet de
-// echte waarde op instellingen.html (kolom kaart_ingezoomd_vanaf, sql/024), en
-// js/wereldkaart.js geeft die mee aan tekenLanden(). Zelfde getal als de
-// default in de databank, zodat er niets verspringt zolang 024 niet draaide.
-export const INGEZOOMD_VANAF = 4;
+// bol per land moet oplossen. Pas wanneer je op één land ingezoomd bent (trap
+// 10), staan de clusters ver genoeg uit elkaar; daarvoor opent een klik op een
+// bol enkel dát land (zie tekenLanden()). Dit is enkel de standaard: de
+// beheerder zet de echte waarde op instellingen.html (kolom
+// kaart_ingezoomd_vanaf, sql/024), en js/wereldkaart.js geeft die mee aan
+// tekenLanden(). Zelfde getal als de default in de databank, zodat er niets
+// verspringt zolang 024 niet draaide.
+export const INGEZOOMD_VANAF = 10;
+
+// Tot hier kan de grote kaart inzoomen. Trap 6 was genoeg zolang er enkel
+// landen aan te wijzen waren, maar een drempel "op één land" (10) moet ook
+// bereikbaar zijn, met nog wat marge erboven. De tegels van OpenStreetMap gaan
+// veel dieper; de minikaart zoomt sowieso niet.
+export const MAX_ZOOM = 12;
 
 // De kaart zelf. 'mini' schakelt alles uit waar je op een dashboardwidget niets
 // aan hebt: slepen, zoomen, knoppen. Wie de kaart écht wil gebruiken, klikt
@@ -262,7 +271,7 @@ export function maakKaart(element, { mini = false } = {}) {
     // hoog past de hele wereld pas op die trap. De grote kaart begint op 1 —
     // daar is ruimte zat en wordt 0 onnodig klein.
     minZoom: mini ? 0 : 1,
-    maxZoom: 6,
+    maxZoom: mini ? 6 : MAX_ZOOM,
     worldCopyJump: !mini,
   });
 
@@ -277,7 +286,7 @@ export function maakKaart(element, { mini = false } = {}) {
   // hieronder aan — meer is er niet aan.
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     minZoom: mini ? 0 : 1,
-    maxZoom: 6,
+    maxZoom: mini ? 6 : MAX_ZOOM,
     // De grote kaart mag horizontaal doorlopen (worldCopyJump verplaatst de
     // stippen dan mee naar de zichtbare kopie). Op de minikaart, waar je niet
     // kan slepen, zou een tweede wereld zonder stippen enkel verwarren.
@@ -306,49 +315,82 @@ export function tekenLanden(kaart, landen, { mini = false, ingezoomdVanaf = INGE
   const laag = L.layerGroup().addTo(kaart);
   const ingezoomd = mini || kaart.getZoom() >= ingezoomdVanaf;
 
+  const icoonVoor = (land, cluster) =>
+    L.divIcon({
+      className: "wr-marker",
+      html: cluster ? stippenHtml(land, mini) : `<span class="wr-stip-groep">${landBolHtml(land)}</span>`,
+      iconSize: [0, 0],
+      iconAnchor: [0, 0],
+    });
+
+  // Onder de drempel mag één land tegelijk openklappen: een tik op zijn bol
+  // toont zijn vijf iconen zonder te zoomen. Een ander land, of een tik op de
+  // kaart zelf, klapt het weer dicht — anders valt de kaart bij elke tik
+  // verder uiteen, precies wat de bollen moeten voorkomen.
+  let openGeklapt = null;
+  const klapDicht = () => {
+    if (!openGeklapt) return;
+    const { marker, land } = openGeklapt;
+    openGeklapt = null;
+    marker.setIcon(icoonVoor(land, false));
+    marker.setZIndexOffset(0);
+  };
+  const klapOpen = (marker, land, viaToetsenbord) => {
+    klapDicht();
+    openGeklapt = { marker, land };
+    // DivIcon hergebruikt bij setIcon() hetzelfde element, dus de
+    // toetsenbordluisteraar hieronder blijft gewoon werken.
+    marker.setIcon(icoonVoor(land, true));
+    // Boven de naburige bollen, anders valt de cluster rond Europa erachter.
+    marker.setZIndexOffset(1000);
+    // De bol met de focus is weg: geef die aan het eerste icoon van de cluster.
+    if (viaToetsenbord) marker.getElement()?.querySelector("[data-categorie]")?.focus();
+  };
+  if (!mini && !ingezoomd) {
+    kaart.on("click", klapDicht);
+    laag.on("remove", () => kaart.off("click", klapDicht));
+  }
+
   landen
     .filter((land) => land.opKaart)
     .forEach((land) => {
       const marker = L.marker(land.punt, {
-        icon: L.divIcon({
-          className: "wr-marker",
-          html: ingezoomd
-            ? stippenHtml(land, mini)
-            : `<span class="wr-stip-groep">${landBolHtml(land)}</span>`,
-          iconSize: [0, 0],
-          iconAnchor: [0, 0],
-        }),
+        icon: icoonVoor(land, ingezoomd),
         title: landLabel(land),
         keyboard: !mini,
         interactive: !mini,
-        // Europa staat vol: op wereldniveau overlappen een stuk of twintig
-        // iconengroepen elkaar. Inzoomen trekt ze uit elkaar, en tot dan
-        // brengt riseOnHover de groep waar je op mikt naar voren.
+        // Europa staat vol: ook enkele bollen overlappen elkaar daar. Tot je
+        // inzoomt, brengt riseOnHover de bol waar je op mikt naar voren.
         riseOnHover: !mini,
       });
       marker.addTo(laag);
 
       if (!mini) {
-        // Elk icoon heeft zijn EIGEN popup (zie openIconPopup() verderop) in
-        // plaats van één gedeelde popup met tabbladen: de listener leest
-        // welk icoon precies werd aangeklikt of met Enter/Spatie bevestigd.
-        const opIcoon = (doel) => {
-          const icoonEl = doel && doel.closest && doel.closest("[data-categorie]");
+        // Een bol klapt zijn land open; elk icoon in een cluster heeft zijn
+        // EIGEN popup (zie openIconPopup() verderop) in plaats van één gedeelde
+        // popup met tabbladen. De listener leest waarop precies getikt werd.
+        const opDoel = (doel, viaToetsenbord) => {
+          if (!doel || !doel.closest) return;
+          if (doel.closest(".wr-bol")) {
+            klapOpen(marker, land, viaToetsenbord);
+            return;
+          }
+          const icoonEl = doel.closest("[data-categorie]");
           const cat = icoonEl && CATEGORIEEN.find((c) => c.id === icoonEl.dataset.categorie);
           if (cat) openIconPopup(kaart, land, cat);
         };
-        marker.on("click", (e) => opIcoon(e.originalEvent && e.originalEvent.target));
+        marker.on("click", (e) => opDoel(e.originalEvent && e.originalEvent.target, false));
 
         // De iconen zijn gewone <span>'s, geen <button>'s (dat zou binnen een
         // L.divIcon extra Leaflet-eigenaardigheden geven), dus toetsenbord-
-        // bediening bouwen we hier zelf: elk icoon kreeg tabindex="0" in
-        // stippenHtml(), en Enter/Spatie opent dezelfde popup als een klik.
+        // bediening bouwen we hier zelf: elk icoon en elke bol kreeg
+        // tabindex="0", en Enter/Spatie doet hetzelfde als een klik.
         const el = marker.getElement();
         if (el) {
           el.addEventListener("keydown", (e) => {
             if (e.key !== "Enter" && e.key !== " ") return;
             e.preventDefault();
-            opIcoon(e.target);
+            opDoel(e.target, true);
           });
         }
       }

@@ -156,7 +156,7 @@ function vulFormulier() {
   document.getElementById("inst-pakje").value =
     origineel.stickers_per_pakje == null ? "5" : String(origineel.stickers_per_pakje);
   document.getElementById("inst-kaart-zoom").value =
-    origineel.kaart_ingezoomd_vanaf == null ? "4" : String(origineel.kaart_ingezoomd_vanaf);
+    origineel.kaart_ingezoomd_vanaf == null ? "10" : String(origineel.kaart_ingezoomd_vanaf);
   toonVensterStatus();
   document.getElementById("inst-message").className = "message";
 }
@@ -245,8 +245,8 @@ async function bewaar(e) {
     return;
   }
   const kaartZoom = Number(document.getElementById("inst-kaart-zoom").value);
-  if (metKaartKolom && (!Number.isInteger(kaartZoom) || kaartZoom < 1 || kaartZoom > 6)) {
-    toonMelding(messageEl, "De zoomtrap van de wereldkaart is een geheel getal van 1 tot 6.", "error");
+  if (metKaartKolom && (!Number.isInteger(kaartZoom) || kaartZoom < 1 || kaartZoom > 12)) {
+    toonMelding(messageEl, "De zoomtrap van de wereldkaart is een geheel getal van 1 tot 12.", "error");
     return;
   }
 
