@@ -44,6 +44,10 @@ function wachtOpAnder(r) {
 
 async function ververs() {
   try {
+    // Eerst ruilen afhandelen waarop de andere kant niet binnen de termijn
+    // antwoordde (sql/023) — anders telt een vervallen ruil hier nog mee. Een
+    // fout (die migratie nog niet gedraaid) houdt niets tegen.
+    await supabase.rpc("ruilen_verlopen_verwerken");
     const { data, error } = await supabase.rpc("mijn_ruilen");
     if (error) throw error;
     afspraken = data || [];

@@ -212,40 +212,43 @@ is en staat dus niet in de publieke bronbestanden.
 `ruilen.html` toont niet alleen wie wat heeft, maar laat een afspraak ook
 **registreren** (`016_ruilen_registreren.sql`, tabel `public.ruilen`).
 
-**Het systeem verplaatst geen sticker vóór beide kanten bevestigen.** Een
-geregistreerde ruil laat `public.stickers` ongemoeid: "zoek ik" en "heb ik
-dubbel" blijven staan zoals het kind ze zelf zette, want vóór die tweede
-bevestiging is er nog twijfel mogelijk over wat er precies gebeurde. Zodra
-beide kanten wél bevestigd hebben (status `VOLTOOID`), is die twijfel weg, en
-werkt de databank vanaf `023_ruil_auto_toepassen.sql` de lijst van beide
-verzamelaars zelf bij — zie "Automatisch verwerkt bij VOLTOOID" verderop.
+**Bevestigen = je eigen lijst verwerken** (sinds `023_ruil_auto_toepassen.sql`).
+Wie een ruil registreert of bevestigt, ziet zijn eigen "zoek ik" en "heb ik
+dubbel" meteen bijgewerkt: de boekhouding van een verzamelaar wacht niet op
+iemand anders. De lijst van de andere kant blijft ongemoeid tot die zelf
+bevestigt — wat daar echt in de map zit, weet enkel die eigenaar — maar de
+betrokken exemplaren zijn tot dan gereserveerd. Zie "Verwerken, reserveren en
+terugzetten" verderop. Ruilen van vóór `023` blijven zoals ze waren: niets
+verwerkt, de lijst pas je zelf aan.
 
 - **Registreren** — `ruil_registreren(eigen_kind, ander_kind, ik_krijg,
   ander_krijgt)`. Controleert opnieuw of de match nog bestaat en in beide
   richtingen klopt; is een van beide lijsten intussen aangepast, dan volgt een
-  duidelijke fout in plaats van een zinloze rij. Het paar wordt altijd in
-  dezelfde volgorde weggeschreven (`kind_a < kind_b`), zodat dezelfde afspraak
-  van beide kanten dezelfde rij oplevert. Twee keer registreren geeft de
-  bestaande ruil terug.
+  duidelijke fout in plaats van een zinloze rij. Sinds `023` tellen exemplaren
+  die al in een andere openstaande ruil beloofd zijn niet meer mee, aan beide
+  kanten. Het paar wordt altijd in dezelfde volgorde weggeschreven
+  (`kind_a < kind_b`), zodat dezelfde afspraak van beide kanten dezelfde rij
+  oplevert. Twee keer registreren geeft de bestaande ruil terug — vóór de
+  controle, want wie al registreerde, heeft zijn lijst al bijgewerkt.
 - **Bevestigen per kant** — `ruil_bevestigen(ruil_id, kind_id, ja/nee)`. Elke
-  ruiler bevestigt voor zichzelf dat de sticker effectief van hand wisselde;
-  intrekken mag zolang de ruil nog niet `VOLTOOID` is. Pas als beide kanten
-  bevestigd hebben, is de status `VOLTOOID` — en past `023` de lijst van beide
-  kanten meteen automatisch aan (zie verderop); intrekken kan dan niet meer.
-  De ruil blijft daarna in de historiek staan.
-- **Vóór VOLTOOID is markering per gebruiker** — bevestig jij als enige al,
-  dan is dat voorlopig enkel bij *jou* zichtbaar als een herinnering om je
-  eigen lijst na te kijken. Bij de andere ruiler verandert er niets tot die
-  zelf ook bevestigt.
+  ruiler bevestigt voor zichzelf dat de sticker effectief van hand wisselde,
+  en daarmee wordt zijn eigen lijst verwerkt. Een verwerkte bevestiging
+  intrekken is de ruil annuleren: de lijst gaat terug. Pas als beide kanten
+  bevestigd hebben, is de status `VOLTOOID`; intrekken kan dan niet meer. De
+  ruil blijft daarna in de historiek staan.
+- **Lichtrode markering** — `doorMijBevestigd()` in `js/ruilen.js` kleurt enkel
+  nog stickers uit ruilen van vóór `023` die jij bevestigde: bij nieuwe ruilen
+  is je lijst al bijgewerkt, dus valt er niets meer na te kijken.
 - **Opvolging** — `ruil_overzicht()` geeft alle ruilen van alle deelnemers
   terug, maar enkel aan wie in `public.beheerders` staat (`007`); voor alle
   anderen komt er geen enkele rij terug. De sectie "Opvolging voor de
   organisatie" onderaan `ruilen.html` toont daarop de tellers en de lijst, met
-  "half bevestigd" als het geval dat opvolging vraagt.
+  "half bevestigd" als het geval dat opvolging vraagt, en sinds `023` ook
+  "vervallen".
 
 RLS op `public.ruilen` laat enkel lezen aan wie aan één van beide kanten zit.
-Schrijven kan alleen via de twee functies hierboven: die controleren méér dan
-een policy kan (bestaat de match, klopt de richting, is dit wel jouw kind).
+Schrijven kan alleen via de functies hierboven: die controleren méér dan een
+policy kan (bestaat de match, klopt de richting, is dit wel jouw kind).
 
 `get_matches()` kreeg in `016` twee kolommen bij: `ander_kind_id` — nodig om
 per ruiler te groeperen en een ruil aan een tegenpartij te hangen, en verder
@@ -269,7 +272,8 @@ dezelfde controle als hierboven; `dossier_id` houdt ze samen.
   Er gaat geen push of e-mail uit.
 - **Zonder account** (`public.eenzijdige_ruilen`): een ruil met iemand die geen
   account heeft, enkel bij jou vastgelegd en meteen afgerond vanaf jouw kant.
-  Er valt bij niemand iets te controleren of te bevestigen.
+  Er valt bij niemand iets te controleren of te bevestigen. Sinds `023` via
+  `eenzijdig_registreren()`, die ook meteen je lijst bijwerkt.
 - `mijn_ruilen()` kreeg `dossier_id`, `geweigerd`, `door_eigen_gezin` en de
   status `GEWEIGERD`.
 
@@ -277,36 +281,54 @@ Zolang `022` niet gedraaid is, registreert de pagina per paar met de functies
 uit `016` (niet alles-of-niets), en geven "zonder account" en weigeren een
 melding dat de migratie nog moet.
 
-### Automatisch verwerkt bij VOLTOOID (`023`)
+### Verwerken, reserveren en terugzetten (`023`)
 
-Zodra de tweede kant bevestigt, is er geen twijfel meer over wat er gebeurde —
-en werkt `ruil_bevestigen()` vanaf `023_ruil_auto_toepassen.sql` dan zelf de
-lijst van **beide** verzamelaars bij, in dezelfde transactie als die tweede
-bevestiging:
+Eén regel: **bevestigen = je eigen kant verwerken**, en registreren telt als
+bevestigen.
 
-- **Krijgen** verwijdert de ZOEKT-rij (geen rij = in het album) — exact
-  `bepaalInboeking()` in `js/inboeken.js`, geval `"uitZoek"`.
-- **Geven** verlaagt `aantal` van de RUILT-rij met één, of verwijdert de rij
-  helemaal als dat het laatste exemplaar was.
-- **Alles-of-niets.** Klopt een van de vier (twee keer krijgen, twee keer
-  geven) niet meer omdat een lijst intussen aangepast werd, dan faalt de hele
-  bevestiging met een duidelijke fout en blijft er niets veranderd — ook de
-  bevestiging zelf niet. Dezelfde aanpak als `ruil_registreren()`.
-- **`ruilen.toegepast`** (nieuwe kolom) staat pas na deze automatische
-  verwerking. Eenmaal gezet kan geen van beide kanten nog intrekken
-  (`ruil_bevestigen()` weigert dat expliciet), en toont `ruilen.html` de rode
-  "vergeet dit niet zelf aan te passen"-herinnering niet meer voor die ruil —
-  in de plaats komt "✅ Automatisch verwerkt in beide lijsten."
-- **Favorieten blijven ongemoeid**, ook als dat een reservering "over budget"
-  achterlaat — hetzelfde precedent als een handmatige aanpassing van `aantal`
-  in `018_favorieten.sql`.
-- **Niet retroactief.** Ruilen die al vóór `023` `VOLTOOID` waren, krijgen geen
-  `toegepast` en dus ook geen automatische aanpassing: de rode herinnering
-  blijft daar gewoon staan.
+- **Verwerken** (`_ruil_kant_verwerken`). Krijgen verwijdert de ZOEKT-rij —
+  exact `bepaalInboeking()` in `js/inboeken.js`, geval `"uitZoek"`. Geven
+  verlaagt `aantal` met één, of verwijdert de RUILT-rij bij het laatste
+  exemplaar. Staat iets niet (meer) op ZOEKT of als dubbel, dan deed de
+  eigenaar het al zelf en wordt het overgeslagen. Wat effectief gebeurde, staat
+  in `zoekt_weg_a/b` en `dubbels_voor_a/b`: enkel zo kan het veilig terug.
+- **Reserveren** (`_gereserveerd`, `_dubbels_vrij`, `_zoekt_vrij`). Zolang één
+  kant verwerkt is en de andere niet, zijn de exemplaren van die andere kant
+  bezet. **Geen status op `stickers`**: daar staat één rij per sticker met een
+  aantal, en "1 van 3 dubbels bezet" past niet in een statuswoord — terwijl een
+  tiental functies op exact `ZOEKT`/`RUILT` filtert. Het is een afleiding uit
+  `public.ruilen`, dus er valt niets uit sync. `get_matches()` telt enkel vrije
+  exemplaren (`aantal` = het vrije aantal), `ruil_registreren()` weigert bezette,
+  en `favoriet_budget_bewaken()` telt enkel vrije dubbels. De ruilplanner, de
+  ruilvoorstellen, Snelruilen en de stickerpagina rekenen op `get_matches()` en
+  volgen dus vanzelf. De eigen lijst van wie nog moet bevestigen (checklist,
+  ruilfiche, statistieken) blijft bewust ongewijzigd.
+- **Terugzetten** (`_ruil_kant_terugzetten`). Bij weigeren (`ruil_weigeren`),
+  annuleren (`ruil_bevestigen(…, false)` na verwerking) en vervallen. Enkel als
+  de lijst nog exact is wat de verwerking achterliet; anders wordt er niets
+  aangeraakt en staat `nazien_a/b` — `ruilen.html` zegt dan welke stickers je
+  zelf moet nakijken. Een automatisch "herstel" bovenop een wijziging die het
+  portaal niet kent, zou de lijst net fout maken.
+- **Vervallen na 3 dagen** (`_ruil_termijn()`), zonder geplande taak. De
+  reservering telt na de termijn gewoon niet meer mee, `mijn_ruilen()` toont al
+  `VERVALLEN`, en `ruilen_verlopen_verwerken()` — bij elke paginalading
+  aangeroepen door `js/acties.js` en `js/ruilen.js` — zet de verwerkte kant
+  terug voor ruilen van het eigen gezin.
+- **Dossiers** blijven alles-of-niets: klopt één paar niet, dan gaat ook de
+  verwerking van de vorige paren terug. Binnen één dossier rekent elk paar al
+  verder op de lijst na het vorige.
+- **Zonder account** verwerkt `eenzijdig_registreren()` meteen: krijgen volledig
+  volgens `bepaalInboeking()` (er is geen match die garandeert dat de sticker
+  gezocht werd), geven enkel met een vrije dubbel. Rechtstreeks invoegen in
+  `eenzijdige_ruilen` kan niet meer.
+- **Niet retroactief.** Ruilen van vóór `023` hebben geen `verwerkt_a/b`: ze
+  reserveren niets, vervallen niet, en intrekken werkt er zoals vroeger.
+- `mijn_ruilen()` kreeg `eigen_/ander_verwerkt`, `eigen_/ander_nazien`,
+  `geweigerd_door`, `vervalt_op` en de status `VERVALLEN`.
 
-`eenzijdige_ruilen` (ruilen zonder account) blijft buiten deze wijziging: die
-tabel raakt `public.stickers` bewust nooit, ongeacht deze migratie — er is
-niemand die kan bevestigen, dus geen moment van "geen twijfel meer".
+Zolang `023` niet gedraaid is, werkt de databank zoals na `022`: niets
+verwerkt, geen reservering. De teksten op de pagina beschrijven wel al de
+nieuwe werking.
 
 ## 8. FIFA Wereldreis
 
@@ -327,7 +349,8 @@ instructieblok.
 
 Op wereldniveau overlappen een stuk of twintig clusters elkaar rond Europa —
 daarom toont `tekenLanden()` (`js/wereldreis.js`) onder zoomtrap
-`INGEZOOMD_VANAF` (3, van minZoom 1 tot maxZoom 6) per land maar **één bol**
+`kaart_ingezoomd_vanaf` (instellingen.html, `sql/024`; standaard 4 =
+`INGEZOOMD_VANAF`, van minZoom 1 tot maxZoom 6) per land maar **één bol**
 in plaats van de cluster. Die bol hergebruikt bewust dezelfde percentagetrap
 als het stickerenicoon voor zowel kleur als grootte — hoe minder compleet, hoe
 groter de bol — in plaats van een tweede, eigen maat te verzinnen: `gezocht`

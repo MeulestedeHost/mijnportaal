@@ -15,6 +15,14 @@ import { normaliseerTelefoon, toonTelefoon } from "./whatsapp.js";
 const KOLOMMEN =
   "beurs_start,beurs_einde,toon_glans,whatsapp_nummer,whatsapp_bericht," +
   "stickerwaarde,stickers_per_pakje";
+// Apart, want zolang sql/024 niet gedraaid is, bestaat deze kolom niet — en
+// dan mag hij het laden en opslaan van al de rest niet meesleuren.
+const KAART_KOLOM = "kaart_ingezoomd_vanaf";
+let metKaartKolom = true;
+
+function kolommen() {
+  return metKaartKolom ? `${KOLOMMEN},${KAART_KOLOM}` : KOLOMMEN;
+}
 
 let origineel = null;
 let userId = null;
@@ -116,12 +124,21 @@ function escapeHtml(tekst) {
 }
 
 async function laadInstellingen() {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("instellingen")
-    .select(KOLOMMEN)
+    .select(kolommen())
     .eq("id", 1)
     .single();
+  if (error && metKaartKolom) {
+    metKaartKolom = false;
+    ({ data, error } = await supabase
+      .from("instellingen")
+      .select(kolommen())
+      .eq("id", 1)
+      .single());
+  }
   if (error) throw error;
+  document.getElementById("inst-kaart-zoom").disabled = !metKaartKolom;
   origineel = data;
   vulFormulier();
 }
@@ -138,6 +155,8 @@ function vulFormulier() {
     origineel.stickerwaarde == null ? "0.25" : String(origineel.stickerwaarde);
   document.getElementById("inst-pakje").value =
     origineel.stickers_per_pakje == null ? "5" : String(origineel.stickers_per_pakje);
+  document.getElementById("inst-kaart-zoom").value =
+    origineel.kaart_ingezoomd_vanaf == null ? "4" : String(origineel.kaart_ingezoomd_vanaf);
   toonVensterStatus();
   document.getElementById("inst-message").className = "message";
 }
@@ -225,6 +244,11 @@ async function bewaar(e) {
     toonMelding(messageEl, "Een pakje bevat minstens één sticker.", "error");
     return;
   }
+  const kaartZoom = Number(document.getElementById("inst-kaart-zoom").value);
+  if (metKaartKolom && (!Number.isInteger(kaartZoom) || kaartZoom < 1 || kaartZoom > 6)) {
+    toonMelding(messageEl, "De zoomtrap van de wereldkaart is een geheel getal van 1 tot 6.", "error");
+    return;
+  }
 
   const knop = document.getElementById("inst-save-btn");
   knop.disabled = true;
@@ -240,10 +264,11 @@ async function bewaar(e) {
         whatsapp_bericht: waBericht || null,
         stickerwaarde: waarde,
         stickers_per_pakje: pakje,
+        ...(metKaartKolom ? { [KAART_KOLOM]: kaartZoom } : {}),
         updated_by: userId, // wie de beurs verzette, is achteraf de eerste vraag
       })
       .eq("id", 1)
-      .select(KOLOMMEN);
+      .select(kolommen());
     if (error) throw error;
     // RLS weigert stil: geen recht betekent nul bijgewerkte rijen, geen fout.
     if (!data || data.length === 0) {

@@ -109,6 +109,23 @@
         </section>
 
         <section class="card">
+          <h2>Wereldkaart</h2>
+          <p class="form-meta">
+            Uitgezoomd toont de <a href="/wereldreis.html">wereldkaart</a> per land één bol;
+            vanaf deze zoomtrap valt elke bol uiteen in de vijf losse iconen. 1 is de hele
+            wereld, 6 is maximaal ingezoomd. Hoe hoger, hoe langer de kaart rustig blijft
+            rond Europa. Vereist <code>sql/024_kaart_zoomdrempel.sql</code>.
+          </p>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="inst-kaart-zoom" class="form-label">Vijf iconen vanaf zoomtrap</label>
+              <input type="number" id="inst-kaart-zoom" class="form-input"
+                     min="1" max="6" step="1" placeholder="4" />
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
           <h2>WhatsApp van de organisator</h2>
           <p class="form-meta">
             Eén nummer voor vragen over de beurs zelf. Het verschijnt als knop op het

@@ -239,9 +239,11 @@ const WERELD = [
 // krijgt elk land maar één bol (zie tekenLanden() en landBolHtml()). Europa
 // staat op wereldniveau vol — een stuk of twintig clusters overlappen elkaar
 // daar (zie de kaart-instellingen hieronder) — en dat is precies wat de ene
-// bol per land moet oplossen. js/wereldkaart.js gebruikt deze constante om te
-// weten wanneer een zoombeweging de kaart moet hertekenen.
-export const INGEZOOMD_VANAF = 3;
+// bol per land moet oplossen. Dit is enkel de standaard: de beheerder zet de
+// echte waarde op instellingen.html (kolom kaart_ingezoomd_vanaf, sql/024), en
+// js/wereldkaart.js geeft die mee aan tekenLanden(). Zelfde getal als de
+// default in de databank, zodat er niets verspringt zolang 024 niet draaide.
+export const INGEZOOMD_VANAF = 4;
 
 // De kaart zelf. 'mini' schakelt alles uit waar je op een dashboardwidget niets
 // aan hebt: slepen, zoomen, knoppen. Wie de kaart écht wil gebruiken, klikt
@@ -300,9 +302,9 @@ export function maakKaart(element, { mini = false } = {}) {
 // weergavemodus te hertekenen wanneer een zoombeweging INGEZOOMD_VANAF
 // kruist — kaart.getZoom() bepaalt dan telkens opnieuw welke modus geldt, dus
 // deze functie hoeft de modus niet als apart argument te krijgen.
-export function tekenLanden(kaart, landen, { mini = false } = {}) {
+export function tekenLanden(kaart, landen, { mini = false, ingezoomdVanaf = INGEZOOMD_VANAF } = {}) {
   const laag = L.layerGroup().addTo(kaart);
-  const ingezoomd = mini || kaart.getZoom() >= INGEZOOMD_VANAF;
+  const ingezoomd = mini || kaart.getZoom() >= ingezoomdVanaf;
 
   landen
     .filter((land) => land.opKaart)

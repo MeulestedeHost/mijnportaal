@@ -5,7 +5,7 @@
 // pagina naar hetzelfde kind kijken. Wisselen van verzamelaar hertekent enkel
 // de stippenlaag — de kaart zelf, de tegels en het zoomniveau blijven staan,
 // zodat je niet telkens opnieuw naar Europa moet scrollen.
-import { requireAuth } from "./supabase.js";
+import { supabase, requireAuth } from "./supabase.js";
 import { loadKinderen } from "./kinderen.js";
 import {
   laadLanden,
@@ -30,6 +30,25 @@ let laatsteLanden = [];
 // per land vs. cluster van vijf) echt wisselt — anders zou elke tik van het
 // muiswiel een openstaande popup sluiten voor niets.
 let ingezoomd = null;
+let ingezoomdVanaf = INGEZOOMD_VANAF;
+
+// De zoomdrempel uit instellingen.html. Een fout of een ontbrekende kolom
+// (sql/024 nog niet gedraaid) is geen reden om de kaart niet te tonen: dan
+// gewoon de standaard.
+async function haalZoomdrempel() {
+  try {
+    const { data, error } = await supabase
+      .from("instellingen")
+      .select("kaart_ingezoomd_vanaf")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error || !data) return INGEZOOMD_VANAF;
+    const trap = Number(data.kaart_ingezoomd_vanaf);
+    return Number.isInteger(trap) && trap >= 1 && trap <= 6 ? trap : INGEZOOMD_VANAF;
+  } catch {
+    return INGEZOOMD_VANAF;
+  }
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   const paneel = document.getElementById("wr-paneel");
@@ -39,7 +58,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!user) return;
 
   try {
-    kinderen = await loadKinderen();
+    [kinderen, ingezoomdVanaf] = await Promise.all([loadKinderen(), haalZoomdrempel()]);
   } catch (err) {
     toonFout("De verzamelaars konden niet geladen worden: " + err.message);
     return;
@@ -71,14 +90,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   await toon(kiezer.value);
 
-  // Enkel hertekenen wanneer het kruisen van INGEZOOMD_VANAF echt de modus
+  // Enkel hertekenen wanneer het kruisen van de zoomdrempel echt de modus
   // doet omslaan — tekenLanden() leest kaart.getZoom() toch zelf opnieuw uit.
   kaart.on("zoomend", () => {
-    const nu = kaart.getZoom() >= INGEZOOMD_VANAF;
+    const nu = kaart.getZoom() >= ingezoomdVanaf;
     if (nu === ingezoomd || laatsteLanden.length === 0) return;
     ingezoomd = nu;
     stippenLaag.remove();
-    stippenLaag = tekenLanden(kaart, laatsteLanden);
+    stippenLaag = tekenLanden(kaart, laatsteLanden, { ingezoomdVanaf });
   });
 
   // De hero neemt de volledige beschikbare hoogte in via calc(100vh - …), en
@@ -167,9 +186,9 @@ async function toon(kindId) {
   toonBuitenKaart(landen);
 
   laatsteLanden = landen;
-  ingezoomd = kaart.getZoom() >= INGEZOOMD_VANAF;
+  ingezoomd = kaart.getZoom() >= ingezoomdVanaf;
   if (stippenLaag) stippenLaag.remove();
-  stippenLaag = tekenLanden(kaart, landen);
+  stippenLaag = tekenLanden(kaart, landen, { ingezoomdVanaf });
 }
 
 function toonCijfers(s) {

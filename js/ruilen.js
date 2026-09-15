@@ -37,6 +37,7 @@ import {
   bevestigRuil,
   weigerRuil,
   haalEenzijdigeRuilen,
+  verwerkVerlopenRuilen,
   GEREGISTREERD_EVENT,
 } from "./ruilregistratie.js";
 import {
@@ -200,6 +201,7 @@ async function haalMatches(kindId) {
 }
 
 async function haalAfspraken() {
+  await verwerkVerlopenRuilen();
   const { data, error } = await supabase.rpc("mijn_ruilen");
   if (error) throw error;
   afspraken = data || [];
@@ -1780,17 +1782,19 @@ function groepeerPerLand(rijen) {
 
 // ---------- afspraken ----------
 
-// Alle stickers waarvan JIJ zei dat ze effectief geruild zijn. Enkel jouw
-// eigen bevestiging telt: wat de andere ruiler aanduidt, kleurt jouw scherm
-// niet. Beide codes van de ruil horen erbij — je geeft er een en krijgt er een,
-// en allebei vragen ze dat je je eigen lijst nakijkt.
+// Alle stickers waarvan JIJ zei dat ze effectief geruild zijn, maar die het
+// portaal niet zelf in je lijst verwerkte — enkel nog ruilen van vóór sql/023.
+// Bij nieuwere is je lijst al bijgewerkt, en valt er niets meer na te kijken.
+// Enkel jouw eigen bevestiging telt: wat de andere ruiler aanduidt, kleurt
+// jouw scherm niet. Beide codes van de ruil horen erbij — je geeft er een en
+// krijgt er een, en allebei vragen ze dat je je eigen lijst nakijkt.
 function doorMijBevestigd() {
   const codes = new Set();
   afspraken.forEach((r) => {
-    if (r.status === "GEWEIGERD") return;
+    if (r.status === "GEWEIGERD" || r.status === "VERVALLEN") return;
     const mijnKant =
-      (r.eigen_kind_id === actiefKindId && r.eigen_bevestigd) ||
-      (r.ander_kind_id === actiefKindId && r.ander_bevestigd);
+      (r.eigen_kind_id === actiefKindId && r.eigen_bevestigd && !r.eigen_verwerkt) ||
+      (r.ander_kind_id === actiefKindId && r.ander_bevestigd && !r.ander_verwerkt);
     if (mijnKant) {
       codes.add(r.eigen_krijgt);
       codes.add(r.ander_krijgt);
@@ -1799,12 +1803,13 @@ function doorMijBevestigd() {
   return codes;
 }
 
-// Bestaat er al een (niet geweigerde) afspraak met deze ruiler over precies
-// deze twee stickers?
+// Bestaat er al een lopende of voltooide afspraak met deze ruiler over
+// precies deze twee stickers?
 function zoekAfspraak(anderKindId, ikKrijg, anderKrijgt) {
   return afspraken.find(
     (r) =>
       r.status !== "GEWEIGERD" &&
+      r.status !== "VERVALLEN" &&
       r.eigen_kind_id === actiefKindId &&
       r.ander_kind_id === anderKindId &&
       r.eigen_krijgt === ikKrijg &&
@@ -1848,17 +1853,36 @@ function tekenAfspraken() {
 // "andere" kant. Deze omdraaiing zet hem altijd links.
 function kantenVan(r) {
   const omgedraaid = r.ander_kind_id === actiefKindId && r.eigen_kind_id !== actiefKindId;
-  const eigen = { id: r.eigen_kind_id, naam: r.eigen_kind, krijgt: r.eigen_krijgt, naamSticker: r.eigen_krijgt_naam, bevestigd: r.eigen_bevestigd };
-  const ander = { id: r.ander_kind_id, naam: r.ander_kind, krijgt: r.ander_krijgt, naamSticker: r.ander_krijgt_naam, bevestigd: r.ander_bevestigd };
+  // verwerkt/nazien bestaan pas sinds sql/023; daarvoor zijn ze undefined en
+  // gedraagt alles zich zoals vroeger.
+  const eigen = {
+    id: r.eigen_kind_id, naam: r.eigen_kind, krijgt: r.eigen_krijgt, naamSticker: r.eigen_krijgt_naam,
+    bevestigd: r.eigen_bevestigd, verwerkt: r.eigen_verwerkt, nazien: r.eigen_nazien,
+  };
+  const ander = {
+    id: r.ander_kind_id, naam: r.ander_kind, krijgt: r.ander_krijgt, naamSticker: r.ander_krijgt_naam,
+    bevestigd: r.ander_bevestigd, verwerkt: r.ander_verwerkt, nazien: r.ander_nazien,
+  };
   return omgedraaid ? { r, ik: ander, ander: eigen } : { r, ik: eigen, ander };
 }
+
+// "dinsdag 17 september om 14:30" — wanneer een ruil vervalt (sql/023).
+const TERMIJN_DATUM = new Intl.DateTimeFormat("nl-BE", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 function dossierBlok(rijen) {
   const kanten = rijen.map(kantenVan);
   const { r: eerste, ik, ander } = kanten[0];
-  const lopend = kanten.filter((k) => k.r.status !== "GEWEIGERD");
+  const gestoptStatus = (k) => k.r.status === "GEWEIGERD" || k.r.status === "VERVALLEN";
+  const lopend = kanten.filter((k) => !gestoptStatus(k));
   const voltooid = lopend.length > 0 && lopend.every((k) => k.r.status === "VOLTOOID");
   const geweigerd = lopend.length === 0;
+  const vervallen = geweigerd && kanten.every((k) => k.r.status === "VERVALLEN");
 
   const blok = document.createElement("article");
   blok.className = "afspraak";
@@ -1870,7 +1894,7 @@ function dossierBlok(rijen) {
   titel.textContent = `Ruil met ${ander.naam}`;
   const status = document.createElement("span");
   status.className = "chip afspraak__status-chip" + (voltooid ? " afspraak__status-chip--klaar" : "");
-  status.textContent = voltooid ? "Voltooid" : geweigerd ? "Geweigerd" : "Geregistreerd";
+  status.textContent = voltooid ? "Voltooid" : vervallen ? "Vervallen" : geweigerd ? "Geweigerd" : "Geregistreerd";
   const aantal = document.createElement("span");
   aantal.className = "form-meta form-meta--plat";
   aantal.textContent = `${rijen.length} ${rijen.length === 1 ? "ruil" : "ruilen"}`;
@@ -1899,7 +1923,7 @@ function dossierBlok(rijen) {
   lijst.className = "afspraak__ruilen";
   kanten.forEach((k) => {
     const li = document.createElement("li");
-    li.className = "afspraak__ruil" + (k.r.status === "GEWEIGERD" ? " afspraak__ruil--geweigerd" : "");
+    li.className = "afspraak__ruil" + (gestoptStatus(k) ? " afspraak__ruil--geweigerd" : "");
     const paar = document.createElement("span");
     paar.className = "afspraak__paar";
     paar.textContent = `${k.ik.krijgt} ⇄ ${k.ander.krijgt}`;
@@ -1908,11 +1932,10 @@ function dossierBlok(rijen) {
       `${k.ander.naam} ontvangt ${stickerTekst(k.ander.krijgt, k.ander.naamSticker)}`;
     li.append(paar, ruilStatusChip(k));
 
-    // Enkel voor je eigen kant een knop. Bij een ruil binnen het eigen gezin
-    // zijn beide kanten van jou en krijg je er dus twee. Eenmaal toegepast
-    // (sql/023) is er niets meer om te bevestigen of in te trekken: de
-    // stickers zijn dan al echt verplaatst.
-    if (k.r.status !== "GEWEIGERD" && !k.r.toegepast) {
+    // Enkel voor je eigen kant een knop, en enkel zolang de ruil loopt. Bij
+    // een ruil binnen het eigen gezin zijn beide kanten van jou en krijg je er
+    // dus twee.
+    if (k.r.status === "GEREGISTREERD") {
       const acties = document.createElement("div");
       acties.className = "afspraak__ruil-acties";
       acties.appendChild(bevestigKnop(k.r.id, k.ik));
@@ -1923,21 +1946,51 @@ function dossierBlok(rijen) {
   });
   blok.appendChild(lijst);
 
-  // Enkel nog de rode herinnering voor wat de databank NIET zelf verwerkte:
-  // ruilen van vóór sql/023, of ruilen waar ik wel al bevestigde maar de
-  // andere kant nog niet (dan is er nog niets automatisch bijgewerkt).
-  if (lopend.some((k) => k.ik.bevestigd && !k.r.toegepast)) {
+  // Ruilen van vóór sql/023: daar werd niets verwerkt, dus blijft het je eigen
+  // taak om de lijst na te kijken.
+  if (lopend.some((k) => k.ik.bevestigd && !k.ik.verwerkt)) {
     const uitleg = document.createElement("p");
     uitleg.className = "form-meta form-meta--plat afspraak__herinnering";
     uitleg.textContent =
       "Jij bevestigde deze ruil — de betrokken stickers staan hierboven lichtrood. Vergeet ze niet zelf aan te passen bij je verzamelaar.";
     blok.appendChild(uitleg);
   }
-  if (lopend.some((k) => k.r.toegepast)) {
+
+  // Mijn lijst is al bijgewerkt; de andere kant moet nog antwoorden.
+  const wachtend = lopend.filter((k) => k.r.status === "GEREGISTREERD" && k.ik.verwerkt && !k.ander.bevestigd);
+  if (wachtend.length) {
+    const eerstVervalt = wachtend.map((k) => k.r.vervalt_op).filter(Boolean).sort()[0];
+    const termijn = eerstVervalt ? ` tot ${TERMIJN_DATUM.format(new Date(eerstVervalt))}` : "";
+    const info = document.createElement("p");
+    info.className = "form-meta form-meta--plat";
+    info.textContent =
+      `Je lijst is al bijgewerkt. ${ander.naam} heeft${termijn} om te bevestigen — weigert ${ander.naam}, ` +
+      "of komt er geen antwoord, dan zet het portaal je lijst terug.";
+    blok.appendChild(info);
+  }
+  if (lopend.some((k) => k.r.status === "VOLTOOID" && k.ik.verwerkt)) {
     const verwerkt = document.createElement("p");
     verwerkt.className = "form-meta form-meta--plat afspraak__herinnering afspraak__herinnering--klaar";
-    verwerkt.textContent = "✅ Automatisch verwerkt in beide lijsten.";
+    verwerkt.textContent = "✅ Verwerkt in je lijst.";
     blok.appendChild(verwerkt);
+  }
+
+  // De ruil ging niet door. Was de lijst intussen al gewijzigd, dan zette het
+  // portaal bewust niets terug (sql/023) — dat moet de eigenaar dan weten.
+  const nazien = kanten.filter((k) => k.ik.nazien || (k.r.eigen_gezin && k.ander.nazien));
+  if (nazien.length) {
+    const codes = [...new Set(nazien.flatMap((k) => [k.ik.krijgt, k.ander.krijgt]))].join(", ");
+    const melding = document.createElement("p");
+    melding.className = "form-meta form-meta--plat afspraak__herinnering";
+    melding.textContent =
+      "Deze ruil ging niet door, maar je lijst was intussen al aangepast — daarom zette het portaal niets terug. " +
+      `Kijk ${codes} zelf na bij je verzamelaar.`;
+    blok.appendChild(melding);
+  } else if (geweigerd && eerste.door_eigen_gezin && kanten.some((k) => k.r.geweigerd_door || k.r.status === "VERVALLEN")) {
+    const terug = document.createElement("p");
+    terug.className = "form-meta form-meta--plat";
+    terug.textContent = "Wat het portaal al in je lijst bijwerkte, is teruggezet.";
+    blok.appendChild(terug);
   }
 
   return blok;
@@ -1946,7 +1999,12 @@ function dossierBlok(rijen) {
 function ruilStatusChip(k) {
   const chip = document.createElement("span");
   chip.className = "chip afspraak__status-chip";
-  if (k.r.status === "GEWEIGERD") chip.textContent = "Geweigerd";
+  if (k.r.status === "GEWEIGERD") {
+    // Stopte de kant die registreerde zelf, dan heet dat annuleren. Wie
+    // stopte, weet de databank pas sinds sql/023.
+    const registreerder = k.r.door_eigen_gezin ? k.ik.id : k.ander.id;
+    chip.textContent = k.r.geweigerd_door && k.r.geweigerd_door === registreerder ? "Geannuleerd" : "Geweigerd";
+  } else if (k.r.status === "VERVALLEN") chip.textContent = "Vervallen";
   else if (k.r.status === "VOLTOOID") {
     chip.textContent = "Voltooid";
     chip.classList.add("afspraak__status-chip--klaar");
@@ -1987,9 +2045,16 @@ function eenzijdigBlok(rijen) {
   });
   blok.appendChild(lijst);
 
+  // Sinds sql/023 werkt het registreren je lijst meteen bij; oudere ruilen
+  // zonder account deden dat niet.
   const uitleg = document.createElement("p");
-  uitleg.className = "form-meta form-meta--plat afspraak__herinnering";
-  uitleg.textContent = "Vergeet de betrokken stickers niet zelf aan te passen bij je verzamelaar.";
+  if (rijen.every((r) => r.verwerkt)) {
+    uitleg.className = "form-meta form-meta--plat afspraak__herinnering afspraak__herinnering--klaar";
+    uitleg.textContent = "✅ Verwerkt in je lijst.";
+  } else {
+    uitleg.className = "form-meta form-meta--plat afspraak__herinnering";
+    uitleg.textContent = "Vergeet de betrokken stickers niet zelf aan te passen bij je verzamelaar.";
+  }
   blok.appendChild(uitleg);
   return blok;
 }
@@ -2022,6 +2087,14 @@ function teBevestigenBlok(rijen) {
   const uitleg = document.createElement("p");
   uitleg.className = "form-meta form-meta--plat";
   uitleg.textContent = `Links wat ${eerste.eigen_kind} krijgt, rechts wat ${eerste.ander_kind} krijgt.`;
+  // Sinds sql/023: wat bevestigen en weigeren met beide lijsten doet, en tot
+  // wanneer er geantwoord kan worden.
+  if (rijen.some((r) => r.ander_verwerkt)) {
+    const eerstVervalt = rijen.map((r) => r.vervalt_op).filter(Boolean).sort()[0];
+    uitleg.textContent +=
+      ` Bevestigen werkt de lijst van ${eerste.eigen_kind} meteen bij; weigeren zet die van ${eerste.ander_kind} terug.` +
+      (eerstVervalt ? ` Antwoord vóór ${TERMIJN_DATUM.format(new Date(eerstVervalt))}, anders vervalt de ruil.` : "");
+  }
   blok.appendChild(uitleg);
 
   const lijst = document.createElement("ul");
@@ -2103,10 +2176,19 @@ function bevestigKnop(ruilId, kant) {
   const knop = document.createElement("button");
   knop.type = "button";
   knop.className = kant.bevestigd ? "btn btn--outline btn--sm" : "btn btn--primary btn--sm";
-  knop.textContent = kant.bevestigd
+  // Sinds sql/023 is een verwerkte bevestiging intrekken de hele ruil
+  // annuleren, en gaat de lijst terug: dat verdient een ander woord en een
+  // vraag vooraf.
+  const annuleren = Boolean(kant.bevestigd && kant.verwerkt);
+  knop.textContent = annuleren
+    ? `↶ Ruil annuleren (${kant.naam})`
+    : kant.bevestigd
     ? `↶ Bevestiging van ${kant.naam} intrekken`
     : `✔ ${kant.naam}: deze sticker werd effectief geruild`;
   knop.addEventListener("click", async () => {
+    if (annuleren && !window.confirm(`Ruil annuleren? Wat het portaal al in de lijst van ${kant.naam} bijwerkte, gaat terug.`)) {
+      return;
+    }
     knop.disabled = true;
     toonAfspraakMelding("");
     try {
@@ -2181,6 +2263,7 @@ async function toonBeheer() {
     ["⏳", tel("HALF"), "Half bevestigd"],
     ["✅", tel("VOLTOOID"), "Voltooid"],
     ["🚫", tel("GEWEIGERD"), "Geweigerd"],
+    ["⌛", tel("VERVALLEN"), "Vervallen"],
   ].forEach(([icoon, getal, label]) => cijfers.appendChild(beheerCijfer(icoon, getal, label)));
 
   const tabel = document.getElementById("ruil-beheer-tabel");
@@ -2231,6 +2314,8 @@ const BEHEER_STATUS = {
   HALF: { tekst: "Half bevestigd", klasse: "richting--zoekt" },
   VOLTOOID: { tekst: "Voltooid", klasse: "richting--dubbel" },
   GEWEIGERD: { tekst: "Geweigerd", klasse: "" },
+  // sql/023: de andere kant antwoordde niet binnen 3 dagen.
+  VERVALLEN: { tekst: "Vervallen", klasse: "" },
 };
 
 function beheerRij(r) {
@@ -2259,7 +2344,7 @@ function beheerRij(r) {
 
   const dagen = document.createElement("td");
   dagen.textContent =
-    r.status === "VOLTOOID" || r.status === "GEWEIGERD"
+    r.status === "VOLTOOID" || r.status === "GEWEIGERD" || r.status === "VERVALLEN"
       ? "—"
       : r.dagen_open === 0
       ? "vandaag"

@@ -235,8 +235,19 @@ export async function registreerDossier({ eigenKindId, ruiler, paren }) {
   if (!paren.length) throw new Error("Kies minstens één volledige ruil (een sticker aan elke kant).");
 
   if (ruiler.tijdelijk) {
+    // Sinds sql/023 via de databank: die legt de ruil vast en werkt de eigen
+    // lijst in dezelfde transactie bij.
+    const { data, error } = await supabase.rpc("eenzijdig_registreren", {
+      p_eigen_kind: eigenKindId,
+      p_tegenpartij: ruiler.naam,
+      p_paren: paren.map((p) => ({ ik_krijg: p.ik, ander_krijgt: p.ander })),
+    });
+    if (!error) return data;
+    if (!ontbreektInDatabank(error)) throw new Error(error.message);
+
+    // Zonder sql/023: enkel vastleggen, zoals sql/022 het deed.
     const dossier = crypto.randomUUID();
-    const { error } = await supabase.from("eenzijdige_ruilen").insert(
+    const vastgelegd = await supabase.from("eenzijdige_ruilen").insert(
       paren.map((p) => ({
         kind_id: eigenKindId,
         dossier_id: dossier,
@@ -245,7 +256,9 @@ export async function registreerDossier({ eigenKindId, ruiler, paren }) {
         ik_geef: p.ander,
       }))
     );
-    if (error) throw new Error(ontbreektInDatabank(error) ? MIGRATIE_NODIG : error.message);
+    if (vastgelegd.error) {
+      throw new Error(ontbreektInDatabank(vastgelegd.error) ? MIGRATIE_NODIG : vastgelegd.error.message);
+    }
     return dossier;
   }
 
@@ -290,13 +303,25 @@ export async function weigerRuil(ruilId, kindId) {
   if (error) throw new Error(ontbreektInDatabank(error) ? MIGRATIE_NODIG : error.message);
 }
 
-// Leeg zolang sql/022 niet gedraaid is — dan bestaan er ook geen.
+// Ruilen waarop de andere kant niet binnen de termijn antwoordde, afhandelen
+// (sql/023): de reservering vervalt en de eigen lijst gaat terug. Zonder die
+// migratie geeft dit een fout, en dan is er ook niets af te handelen.
+export async function verwerkVerlopenRuilen() {
+  await supabase.rpc("ruilen_verlopen_verwerken");
+}
+
+// Leeg zolang sql/022 niet gedraaid is — dan bestaan er ook geen. 'verwerkt'
+// bestaat pas sinds sql/023; zonder die kolom de vraag van daarvoor.
 export async function haalEenzijdigeRuilen(kindId) {
-  const { data, error } = await supabase
-    .from("eenzijdige_ruilen")
-    .select("id,dossier_id,tegenpartij,ik_krijg,ik_geef,created_at")
-    .eq("kind_id", kindId)
-    .order("created_at", { ascending: false });
+  const vraag = (kolommen) =>
+    supabase
+      .from("eenzijdige_ruilen")
+      .select(kolommen)
+      .eq("kind_id", kindId)
+      .order("created_at", { ascending: false });
+  const basis = "id,dossier_id,tegenpartij,ik_krijg,ik_geef,created_at";
+  let { data, error } = await vraag(basis + ",verwerkt");
+  if (error && ontbreektInDatabank(error)) ({ data, error } = await vraag(basis));
   return error ? [] : data || [];
 }
 
@@ -319,7 +344,7 @@ function bouwBevestigVenster() {
   const hint = maak(
     "p",
     "form-meta ruil-dialoog__hint",
-    "Heb je beide kaarten aan elkaar gegeven? Dan is je ruil enkel nog te registreren."
+    "Heb je beide kaarten al aan elkaar gegeven? Registreer dan hieronder — dat bevestigt in dezelfde klik meteen ook jouw kant."
   );
   const fout = maak("div", "message");
   fout.setAttribute("role", "alert");
@@ -356,8 +381,8 @@ export function openRuilBevestiging({ eigenKind, ruiler, paren, onGeregistreerd 
     inhoud.append(regel);
   });
   uitleg.textContent = ruiler.tijdelijk
-    ? `${eigenKind.naam} ontvangt telkens de eerste sticker. De ruil wordt enkel bij jou vastgelegd en is meteen afgerond.`
-    : `${eigenKind.naam} ontvangt telkens de eerste sticker, ${ruiler.naam} de tweede. Jouw kant is daarmee bevestigd; ${ruiler.naam} bevestigt (of weigert) elke ruil apart. Je stickerlijsten blijven ongewijzigd — die pas je zelf aan.`;
+    ? `${eigenKind.naam} ontvangt telkens de eerste sticker. De ruil wordt enkel bij jou vastgelegd, is meteen afgerond, en je stickerlijst wordt meteen bijgewerkt.`
+    : `${eigenKind.naam} ontvangt telkens de eerste sticker, ${ruiler.naam} de tweede. Registreren bevestigt jouw kant en werkt je stickerlijst meteen bij. ${ruiler.naam} bevestigt (of weigert) elke ruil apart, binnen 3 dagen — tot dan zijn die stickers voor niemand anders beschikbaar. Weigert ${ruiler.naam}, of komt er geen antwoord, dan zet het portaal je lijst terug.`;
   fout.textContent = "";
   fout.className = "message";
   ok.textContent = paren.length === 1 ? "Ruil registreren" : `${paren.length} ruilen registreren`;
