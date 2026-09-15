@@ -8,12 +8,13 @@
 //   3. OPVOLGING  — hetzelfde, maar dan voor de hele beurs. Enkel voor de
 //      organisatie; de databank beslist dat, niet deze pagina.
 //
-// HET SYSTEEM VERPLAATST GEEN STICKERS. Een geregistreerde of zelfs voltooide
-// ruil laat "zoek ik" en "heb ik dubbel" ongemoeid. Elke verzamelaar houdt
-// zijn eigen lijst bij, want alleen hij weet wat er echt in de map zit. Wat
-// het portaal wél doet, is de afspraak onthouden en tonen wie ze al bevestigd
-// heeft. Bevestig je zelf, dan kleuren enkel JOUW betrokken stickers lichtrood
-// — bij de andere ruiler verandert er niets tot die zelf bevestigt.
+// HET SYSTEEM VERPLAATST GEEN STICKERS — TOT BEIDE KANTEN BEVESTIGEN. Een
+// geregistreerde ruil laat "zoek ik" en "heb ik dubbel" ongemoeid: enkel de
+// eigenaar weet zeker wat er echt in de map zit. Maar zodra BEIDE kanten
+// bevestigen dat de sticker effectief van hand wisselde, is er geen twijfel
+// meer, en werkt sql/023 (ruil_bevestigen()) de lijst van beide verzamelaars
+// automatisch bij — dan is er ook niets meer in te trekken. Vóór die tweede
+// bevestiging blijft alles manueel, net als vroeger.
 //
 // WAT JE VAN EEN ÁNDER GEZIN TE ZIEN KRIJGT, EN WANNEER — de databank bepaalt
 // dat, niet dit bestand:
@@ -1908,8 +1909,10 @@ function dossierBlok(rijen) {
     li.append(paar, ruilStatusChip(k));
 
     // Enkel voor je eigen kant een knop. Bij een ruil binnen het eigen gezin
-    // zijn beide kanten van jou en krijg je er dus twee.
-    if (k.r.status !== "GEWEIGERD") {
+    // zijn beide kanten van jou en krijg je er dus twee. Eenmaal toegepast
+    // (sql/023) is er niets meer om te bevestigen of in te trekken: de
+    // stickers zijn dan al echt verplaatst.
+    if (k.r.status !== "GEWEIGERD" && !k.r.toegepast) {
       const acties = document.createElement("div");
       acties.className = "afspraak__ruil-acties";
       acties.appendChild(bevestigKnop(k.r.id, k.ik));
@@ -1920,12 +1923,21 @@ function dossierBlok(rijen) {
   });
   blok.appendChild(lijst);
 
-  if (lopend.some((k) => k.ik.bevestigd)) {
+  // Enkel nog de rode herinnering voor wat de databank NIET zelf verwerkte:
+  // ruilen van vóór sql/023, of ruilen waar ik wel al bevestigde maar de
+  // andere kant nog niet (dan is er nog niets automatisch bijgewerkt).
+  if (lopend.some((k) => k.ik.bevestigd && !k.r.toegepast)) {
     const uitleg = document.createElement("p");
     uitleg.className = "form-meta form-meta--plat afspraak__herinnering";
     uitleg.textContent =
       "Jij bevestigde deze ruil — de betrokken stickers staan hierboven lichtrood. Vergeet ze niet zelf aan te passen bij je verzamelaar.";
     blok.appendChild(uitleg);
+  }
+  if (lopend.some((k) => k.r.toegepast)) {
+    const verwerkt = document.createElement("p");
+    verwerkt.className = "form-meta form-meta--plat afspraak__herinnering afspraak__herinnering--klaar";
+    verwerkt.textContent = "✅ Automatisch verwerkt in beide lijsten.";
+    blok.appendChild(verwerkt);
   }
 
   return blok;

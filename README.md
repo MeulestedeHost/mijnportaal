@@ -32,7 +32,8 @@ gebruiker die dat kind beheert.
    `015_wijk_en_altijd_naam.sql` → `016_ruilen_registreren.sql` →
    `017_statistieken.sql` → `018_favorieten.sql` →
    `019_stickers_updated_at.sql` → `020_favorieten_algemeen.sql` →
-   `021_ruiler_letter.sql` → `022_ruildossiers.sql`. Enkel `002`
+   `021_ruiler_letter.sql` → `022_ruildossiers.sql` →
+   `023_ruil_auto_toepassen.sql`. Enkel `002`
    en de blokken die het zelf aankondigen zijn destructief; `009` en later
    zijn dat niet.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
@@ -211,13 +212,13 @@ is en staat dus niet in de publieke bronbestanden.
 `ruilen.html` toont niet alleen wie wat heeft, maar laat een afspraak ook
 **registreren** (`016_ruilen_registreren.sql`, tabel `public.ruilen`).
 
-**Het systeem verplaatst nooit een sticker.** Een geregistreerde en zelfs een
-voltooide ruil laat `public.stickers` volledig ongemoeid: "zoek ik" en "heb ik
-dubbel" blijven staan zoals het kind ze zelf zette. Dat is een uitdrukkelijke
-keuze — een lijst die automatisch wordt bijgewerkt maar niet klopt met de map
-thuis is erger dan geen lijst, en op een beurs loopt het altijd net anders dan
-afgesproken. Het portaal onthoudt de afspraak; de collectie beheert de
-verzamelaar zelf.
+**Het systeem verplaatst geen sticker vóór beide kanten bevestigen.** Een
+geregistreerde ruil laat `public.stickers` ongemoeid: "zoek ik" en "heb ik
+dubbel" blijven staan zoals het kind ze zelf zette, want vóór die tweede
+bevestiging is er nog twijfel mogelijk over wat er precies gebeurde. Zodra
+beide kanten wél bevestigd hebben (status `VOLTOOID`), is die twijfel weg, en
+werkt de databank vanaf `023_ruil_auto_toepassen.sql` de lijst van beide
+verzamelaars zelf bij — zie "Automatisch verwerkt bij VOLTOOID" verderop.
 
 - **Registreren** — `ruil_registreren(eigen_kind, ander_kind, ik_krijg,
   ander_krijgt)`. Controleert opnieuw of de match nog bestaat en in beide
@@ -228,11 +229,14 @@ verzamelaar zelf.
   bestaande ruil terug.
 - **Bevestigen per kant** — `ruil_bevestigen(ruil_id, kind_id, ja/nee)`. Elke
   ruiler bevestigt voor zichzelf dat de sticker effectief van hand wisselde;
-  intrekken mag. Pas als beide kanten bevestigd hebben, is de status
-  `VOLTOOID`. De ruil blijft daarna in de historiek staan.
-- **Markering is per gebruiker** — bevestig jij, dan kleuren enkel *jouw*
-  betrokken stickers lichtrood, als herinnering om je eigen lijst na te kijken.
-  Bij de andere ruiler verandert er niets tot die zelf bevestigt.
+  intrekken mag zolang de ruil nog niet `VOLTOOID` is. Pas als beide kanten
+  bevestigd hebben, is de status `VOLTOOID` — en past `023` de lijst van beide
+  kanten meteen automatisch aan (zie verderop); intrekken kan dan niet meer.
+  De ruil blijft daarna in de historiek staan.
+- **Vóór VOLTOOID is markering per gebruiker** — bevestig jij als enige al,
+  dan is dat voorlopig enkel bij *jou* zichtbaar als een herinnering om je
+  eigen lijst na te kijken. Bij de andere ruiler verandert er niets tot die
+  zelf ook bevestigt.
 - **Opvolging** — `ruil_overzicht()` geeft alle ruilen van alle deelnemers
   terug, maar enkel aan wie in `public.beheerders` staat (`007`); voor alle
   anderen komt er geen enkele rij terug. De sectie "Opvolging voor de
@@ -273,6 +277,37 @@ Zolang `022` niet gedraaid is, registreert de pagina per paar met de functies
 uit `016` (niet alles-of-niets), en geven "zonder account" en weigeren een
 melding dat de migratie nog moet.
 
+### Automatisch verwerkt bij VOLTOOID (`023`)
+
+Zodra de tweede kant bevestigt, is er geen twijfel meer over wat er gebeurde —
+en werkt `ruil_bevestigen()` vanaf `023_ruil_auto_toepassen.sql` dan zelf de
+lijst van **beide** verzamelaars bij, in dezelfde transactie als die tweede
+bevestiging:
+
+- **Krijgen** verwijdert de ZOEKT-rij (geen rij = in het album) — exact
+  `bepaalInboeking()` in `js/inboeken.js`, geval `"uitZoek"`.
+- **Geven** verlaagt `aantal` van de RUILT-rij met één, of verwijdert de rij
+  helemaal als dat het laatste exemplaar was.
+- **Alles-of-niets.** Klopt een van de vier (twee keer krijgen, twee keer
+  geven) niet meer omdat een lijst intussen aangepast werd, dan faalt de hele
+  bevestiging met een duidelijke fout en blijft er niets veranderd — ook de
+  bevestiging zelf niet. Dezelfde aanpak als `ruil_registreren()`.
+- **`ruilen.toegepast`** (nieuwe kolom) staat pas na deze automatische
+  verwerking. Eenmaal gezet kan geen van beide kanten nog intrekken
+  (`ruil_bevestigen()` weigert dat expliciet), en toont `ruilen.html` de rode
+  "vergeet dit niet zelf aan te passen"-herinnering niet meer voor die ruil —
+  in de plaats komt "✅ Automatisch verwerkt in beide lijsten."
+- **Favorieten blijven ongemoeid**, ook als dat een reservering "over budget"
+  achterlaat — hetzelfde precedent als een handmatige aanpassing van `aantal`
+  in `018_favorieten.sql`.
+- **Niet retroactief.** Ruilen die al vóór `023` `VOLTOOID` waren, krijgen geen
+  `toegepast` en dus ook geen automatische aanpassing: de rode herinnering
+  blijft daar gewoon staan.
+
+`eenzijdige_ruilen` (ruilen zonder account) blijft buiten deze wijziging: die
+tabel raakt `public.stickers` bewust nooit, ongeacht deze migratie — er is
+niemand die kan bevestigen, dus geen moment van "geen twijfel meer".
+
 ## 8. FIFA Wereldreis
 
 Een wereldkaart bovenop dezelfde stickerlijst: elk land van het album staat op
@@ -288,15 +323,37 @@ zachte glow, speelse iconen (🏆🧩🔍🔁) in plaats van een kale tellerrij,
 korte ondertitel ("Tik op een icoon voor meer info") in plaats van een
 instructieblok.
 
+### Uitgezoomd één bol, ingezoomd de cluster van vijf
+
+Op wereldniveau overlappen een stuk of twintig clusters elkaar rond Europa —
+daarom toont `tekenLanden()` (`js/wereldreis.js`) onder zoomtrap
+`INGEZOOMD_VANAF` (3, van minZoom 1 tot maxZoom 6) per land maar **één bol**
+in plaats van de cluster. Die bol hergebruikt bewust dezelfde percentagetrap
+als het stickerenicoon voor zowel kleur als grootte — hoe minder compleet, hoe
+groter de bol — in plaats van een tweede, eigen maat te verzinnen: `gezocht`
+in `sql/010_wereldreis.sql` is toch al rechtstreeks het spiegelbeeld van
+hetzelfde percentage. Tikken op de bol opent dezelfde stickerspopup als het
+stickerenicoon in de cluster (`data-categorie="stickers"`, zie
+`landBolHtml()`). `js/wereldkaart.js` luistert op `zoomend` en hertekent enkel
+wanneer die drempel echt gekruist wordt — niet bij elke tik van het muiswiel,
+anders zou een openstaande popup steeds sluiten voor niets.
+
 ### Vijf categorieën, allemaal actief sinds fase 3
 
-Elk land heeft een compacte cluster van vijf iconen rond zijn middelpunt:
-🃏 Stickers (links, gekleurd naar verzamelpercentage met de glow), ⚽ Voetbal
-(boven), 🌍 Landinfo en 🗣️ Talen (onderaan) en 📸 Foto's (rechts). Op een
-telefoon blijft de cluster staan — enkel kleiner en dichter bijeen, niet
-gereduceerd tot één icoon zoals in fase 1/2. Enkel de ministip op het
-dashboard toont nog steeds alleen het stickerenicoon, gecentreerd: die kaart
-is toch niet klikbaar.
+Vanaf `INGEZOOMD_VANAF` heeft elk land een compacte cluster van vijf iconen
+rond zijn middelpunt: 🃏 Stickers (links, gekleurd naar verzamelpercentage met
+de glow), ⚽ Voetbal (boven), 🌍 Landinfo en 🗣️ Talen (onderaan) en 📸 Foto's
+(rechts). Op een telefoon blijft de cluster staan — enkel kleiner en dichter
+bijeen, niet gereduceerd tot één icoon zoals in fase 1/2. Enkel de ministip op
+het dashboard toont nog steeds alleen het stickerenicoon, gecentreerd: die
+kaart is toch niet klikbaar en zoomt sowieso niet.
+
+Het stickerenicoon is bovendien het enige met de klasse `wr-icoon--belangrijk`
+zolang het land niet compleet is (`land.procent < 100`): iets groter, want dat
+is het enige van de vijf met echt wisselende, actiegerichte gegevens — de
+andere vier zijn statische naslaginfo. De glow-animatie (hieronder) pulseert
+per icoon met een eigen `animation-delay`, zodat de vijf na elkaar oplichten
+in plaats van in koor.
 
 `CATEGORIEEN` in `js/wereldreis.js` beschrijft alle vijf: label, icoon,
 eventuele extra CSS-klasse (`klasseVoor`) en een `popup(land)`-functie. Een

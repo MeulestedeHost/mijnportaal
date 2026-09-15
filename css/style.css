@@ -574,6 +574,27 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
    latere fase. */
 .wr-icoon--wacht { opacity: 0.45; }
 
+/* Het belangrijkste icoon in de cluster: het stickerenicoon, zolang er nog
+   iets te vinden valt in dat land (js/wereldreis.js zet deze klasse enkel
+   dan). Groter formaat én hoogste z-index, zodat het boven zijn buren uit
+   komt in plaats van erdoor overlapt te worden. */
+.wr-icoon--belangrijk { width: 40px; height: 40px; font-size: 1.2rem; z-index: 7; }
+
+/* Uitgezoomd (onder INGEZOOMD_VANAF in js/wereldreis.js): één bol per land op
+   het middelpunt, i.p.v. de cluster van vijf — hergebruikt .wr-icoon en de
+   kleur van .wr-icoon--stickers.<trap>, maar zonder de clusteroffset en met
+   een eigen, grotere spreiding in grootte: hoe minder compleet, hoe groter de
+   bol, want daar valt nog iets te doen. De ondergrens (28px) houdt de bol ook
+   bij "compleet" nog comfortabel aantikbaar. */
+/* .wr-icoon.wr-bol (twee klassen) in plaats van .wr-bol alleen: moet ook op
+   een telefoon nog winnen van de mobiele .wr-icoon--stickers-offset
+   hieronder, die dezelfde specificiteit heeft maar later in de cascade komt. */
+.wr-icoon.wr-bol { top: 0; left: 0; }
+.wr-bol.wr-vol    { width: 28px; height: 28px; }
+.wr-bol.wr-hoog   { width: 32px; height: 32px; }
+.wr-bol.wr-midden { width: 36px; height: 36px; }
+.wr-bol.wr-laag   { width: 42px; height: 42px; }
+
 /* Glow: een pulserende ring die vanuit elk icoon naar buiten groeit en
    wegdooft — nodigt uit om te tikken. 'background: inherit' hergebruikt de
    eigen badgekleur van het icoon, dus geen aparte glow-kleur per categorie
@@ -597,6 +618,19 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
   0%   { transform: scale(0.9); opacity: 0.5; }
   70%, 100% { transform: scale(1.7); opacity: 0; }
 }
+
+/* Cyclisch na elkaar i.p.v. alle vijf tegelijk: elk icoon in de cluster krijgt
+   een eigen vertraging, zodat de glow als een golf door de groep trekt in
+   plaats van in koor te pulseren — aandacht trekken zonder chaos. Zelfde
+   selectorgewicht als de basisregel hierboven (".wr-kaart:not(...) .wr-icoon"
+   ervoor), anders wint deze niet in de cascade. De volgorde volgt de vaste
+   clusteropstelling: boven, links, rechts, dan de twee onderaan. */
+.wr-kaart:not(.wr-kaart--mini) .wr-icoon--voetbal::after  { animation-delay: 0s; }
+.wr-kaart:not(.wr-kaart--mini) .wr-icoon--stickers::after { animation-delay: 0.5s; }
+.wr-kaart:not(.wr-kaart--mini) .wr-icoon--fotos::after    { animation-delay: 1s; }
+.wr-kaart:not(.wr-kaart--mini) .wr-icoon--talen::after    { animation-delay: 1.5s; }
+.wr-kaart:not(.wr-kaart--mini) .wr-icoon--land::after     { animation-delay: 2s; }
+
 @media (prefers-reduced-motion: reduce) {
   .wr-icoon::after { animation: none !important; opacity: 0 !important; }
 }
@@ -731,6 +765,14 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
   .wr-icoon--fotos    { top: 5px; left: 27px; }
   .wr-icoon--talen    { top: 26px; left: -12px; }
   .wr-icoon--land     { top: 26px; left: 12px; }
+  .wr-icoon--belangrijk { width: 33px; height: 33px; font-size: 1rem; }
+
+  /* Uitgezoomd blijft de bol ook op een telefoon aantikbaar; iets krappere
+     spreiding dan op desktop, want hier is elke pixel schermbreedte kostbaar. */
+  .wr-bol.wr-vol    { width: 24px; height: 24px; }
+  .wr-bol.wr-hoog   { width: 27px; height: 27px; }
+  .wr-bol.wr-midden { width: 30px; height: 30px; }
+  .wr-bol.wr-laag   { width: 34px; height: 34px; }
   /* Enkel de grote kaart mag op een telefoon het scherm vullen; de minikaart
      op het dashboard houdt haar eigen hoogte. */
   .wr-kaart:not(.wr-kaart--mini):not(.wr-kaart--hero) { height: 60vh; min-height: 280px; }
@@ -1071,6 +1113,8 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .afspraak__stap--gedaan { color: var(--success); font-weight: 600; }
 .afspraak__acties { margin-bottom: 0.5rem; }
 .afspraak__herinnering { color: var(--danger); }
+/* sql/023: automatisch verwerkt, dus geen waarschuwing meer maar een geruststelling. */
+.afspraak__herinnering--klaar { color: var(--success); }
 /* Een dossier: meerdere ruilen onder één kop, elk met zijn eigen stand. */
 .afspraak__ruilen { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.75rem; }
 .afspraak__ruil { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }

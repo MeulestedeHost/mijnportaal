@@ -1,0 +1,12 @@
+# Regeleindes altijd LF in de repo, ongeacht of er op Windows of macOS/Linux
+# gecommit wordt — stopt de CRLF-conversiewaarschuwingen op Windows (waar
+# Git's systeeminstelling core.autocrlf=true staat) en houdt diffs schoon.
+* text=auto eol=lf
+
+# Binaire bestanden: nooit aan regeleinde-conversie onderwerpen.
+*.traineddata binary
+*.pdf binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.ico binary

@@ -18,12 +18,18 @@ import {
   ZICHTBARE_CATEGORIEEN,
   bewaarKeuze,
   leesKeuze,
+  INGEZOOMD_VANAF,
 } from "./wereldreis.js";
 import { landLabel } from "./landen-data.js";
 
 let kaart;
 let stippenLaag;
 let kinderen = [];
+let laatsteLanden = [];
+// Bijgehouden zodat een zoombeweging alleen hertekent wanneer de modus (bol
+// per land vs. cluster van vijf) echt wisselt — anders zou elke tik van het
+// muiswiel een openstaande popup sluiten voor niets.
+let ingezoomd = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   const paneel = document.getElementById("wr-paneel");
@@ -64,6 +70,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   await toon(kiezer.value);
+
+  // Enkel hertekenen wanneer het kruisen van INGEZOOMD_VANAF echt de modus
+  // doet omslaan — tekenLanden() leest kaart.getZoom() toch zelf opnieuw uit.
+  kaart.on("zoomend", () => {
+    const nu = kaart.getZoom() >= INGEZOOMD_VANAF;
+    if (nu === ingezoomd || laatsteLanden.length === 0) return;
+    ingezoomd = nu;
+    stippenLaag.remove();
+    stippenLaag = tekenLanden(kaart, laatsteLanden);
+  });
 
   // De hero neemt de volledige beschikbare hoogte in via calc(100vh - …), en
   // die hoogte verschuift op een telefoon zodra de adresbalk in- of uitschuift.
@@ -150,6 +166,8 @@ async function toon(kindId) {
   toonVoortgang(s);
   toonBuitenKaart(landen);
 
+  laatsteLanden = landen;
+  ingezoomd = kaart.getZoom() >= INGEZOOMD_VANAF;
   if (stippenLaag) stippenLaag.remove();
   stippenLaag = tekenLanden(kaart, landen);
 }
@@ -243,14 +261,15 @@ function tekenLegende() {
 
   // De uitleg bij de vijf iconen per land. Ze komt uit dezelfde lijst als de
   // iconen zelf (ZICHTBARE_CATEGORIEEN), zodat een latere, zesde categorie
-  // hier niets hoeft bij te schrijven.
+  // hier niets hoeft bij te schrijven. Vermeldt ook de bol bij uitzoomen: wie
+  // enkel bollen ziet, moet weten dat de vijf iconen niet verdwenen zijn.
   const uitleg = document.getElementById("wr-stiplegende");
   uitleg.textContent =
-    "Elk land heeft vijf iconen: " +
+    "Uitgezoomd toont elk land één bol — zoom in voor de vijf losse iconen: " +
     ZICHTBARE_CATEGORIEEN.map((c) => `${c.icoon} ${c.label}${c.actief ? "" : " (binnenkort)"}`).join(
       ", "
     ) +
-    ". Tik op een icoon voor de bijhorende info over dat land.";
+    ". Tik op een bol of icoon voor de bijhorende info over dat land.";
 }
 
 function zet(id, tekst) {

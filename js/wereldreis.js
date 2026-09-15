@@ -235,6 +235,14 @@ const WERELD = [
   [78, 180],
 ];
 
+// Vanaf deze zoomtrap toont een land weer zijn cluster van vijf iconen; eronder
+// krijgt elk land maar één bol (zie tekenLanden() en landBolHtml()). Europa
+// staat op wereldniveau vol — een stuk of twintig clusters overlappen elkaar
+// daar (zie de kaart-instellingen hieronder) — en dat is precies wat de ene
+// bol per land moet oplossen. js/wereldkaart.js gebruikt deze constante om te
+// weten wanneer een zoombeweging de kaart moet hertekenen.
+export const INGEZOOMD_VANAF = 3;
+
 // De kaart zelf. 'mini' schakelt alles uit waar je op een dashboardwidget niets
 // aan hebt: slepen, zoomen, knoppen. Wie de kaart écht wil gebruiken, klikt
 // door naar wereldreis.html.
@@ -288,9 +296,13 @@ export function maakKaart(element, { mini = false } = {}) {
 }
 
 // Zet de iconen op de kaart en geeft de laag terug, zodat de pagina ze bij een
-// andere verzamelaar in één keer kan vervangen.
+// andere verzamelaar in één keer kan vervangen. Ook gebruikt om enkel de
+// weergavemodus te hertekenen wanneer een zoombeweging INGEZOOMD_VANAF
+// kruist — kaart.getZoom() bepaalt dan telkens opnieuw welke modus geldt, dus
+// deze functie hoeft de modus niet als apart argument te krijgen.
 export function tekenLanden(kaart, landen, { mini = false } = {}) {
   const laag = L.layerGroup().addTo(kaart);
+  const ingezoomd = mini || kaart.getZoom() >= INGEZOOMD_VANAF;
 
   landen
     .filter((land) => land.opKaart)
@@ -298,7 +310,9 @@ export function tekenLanden(kaart, landen, { mini = false } = {}) {
       const marker = L.marker(land.punt, {
         icon: L.divIcon({
           className: "wr-marker",
-          html: stippenHtml(land, mini),
+          html: ingezoomd
+            ? stippenHtml(land, mini)
+            : `<span class="wr-stip-groep">${landBolHtml(land)}</span>`,
           iconSize: [0, 0],
           iconAnchor: [0, 0],
         }),
@@ -381,7 +395,18 @@ function stippenHtml(land, mini) {
       // (of het met een schermlezer bereikt) moet de code en de naam krijgen,
       // niet alleen de categorie.
       const aria = `${landLabel(land)} · ${tekst}`;
-      const klasse = ["wr-icoon", "wr-icoon--" + cat.id, cat.klasseVoor(land), cat.actief ? "" : "wr-icoon--wacht"]
+      // Het stickerenicoon is het enige met echt wisselende, actiegerichte
+      // gegevens (de andere vier zijn statische naslaginfo): zolang er nog
+      // iets te vinden valt in dit land, springt het net iets groter in het
+      // oog dan zijn buren.
+      const belangrijk = isStickers && land.procent < 100 ? "wr-icoon--belangrijk" : "";
+      const klasse = [
+        "wr-icoon",
+        "wr-icoon--" + cat.id,
+        cat.klasseVoor(land),
+        cat.actief ? "" : "wr-icoon--wacht",
+        belangrijk,
+      ]
         .filter(Boolean)
         .join(" ");
       const interactief = mini ? "" : ` role="button" tabindex="0"`;
@@ -389,6 +414,21 @@ function stippenHtml(land, mini) {
     })
     .join("");
   return `<span class="wr-stip-groep">${stippen}</span>`;
+}
+
+// Uitgezoomd: één bol per land i.p.v. de cluster van vijf. Kleur én grootte
+// volgen dezelfde percentagetrap als het stickerenicoon — een tweede, eigen
+// maat voor "grootte" zou hier niets toevoegen: gezocht/totaal in
+// sql/010_wereldreis.sql is toch al rechtstreeks het spiegelbeeld van
+// hetzelfde percentage. Hoe minder compleet, hoe groter de bol: dat land
+// verdient de aandacht. data-categorie="stickers" laat deze bol meeliften op
+// dezelfde klik- en toetsenbordafhandeling (opIcoon() in tekenLanden()
+// hierboven) en dezelfde popup als het stickerenicoon in de cluster — geen
+// aparte popup-variant nodig.
+function landBolHtml(land) {
+  const trap = trapVoor(land.procent);
+  const aria = `${landLabel(land)} · ${land.procent} % verzameld`;
+  return `<span class="wr-icoon wr-icoon--stickers wr-bol ${trap.klasse}" data-categorie="stickers" role="button" tabindex="0" title="${aria}" aria-label="${aria}"></span>`;
 }
 
 // ---------- popup ----------
