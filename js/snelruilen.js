@@ -49,6 +49,7 @@ import {
   teHerstellen,
   herstelMelding,
 } from "./ruilbundel.js";
+import { vlagVoor } from "./landen-data.js";
 
 const HISTORIEK_MAX = 20;
 
@@ -637,6 +638,10 @@ function kopVoor(sticker, code) {
   naam.append(maak("strong", "snelruil__code", code));
   if (sticker && sticker.naam) naam.append(" — " + sticker.naam);
   const land = maak("p", "snelruil__land", (sticker && sticker.land_naam) || "");
+  // Aan tafel gaat dit snel: de vlag zegt in één oogopslag welk land eraan
+  // komt, nog voor de naam gelezen is.
+  const vlag = sticker && vlagVoor(sticker.land_code, { naam: sticker.land_naam });
+  if (vlag) land.insertBefore(vlag, land.firstChild);
   return [naam, land];
 }
 

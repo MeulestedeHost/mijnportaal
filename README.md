@@ -719,10 +719,51 @@ dus de primaire identificatie), dan de Engelse albumnaam, dan de Nederlandse.
 `landLabel()` in [js/landen-data.js](js/landen-data.js) is de enige plek waar
 die volgorde vastligt.
 
-**Geen vlagemoji.** Bewust niet: Windows toont een vlagemoji niet als vlag maar
-als twee letters ("BE"), en op de vlaggen van Engeland en Schotland struikelt
-nog meer software. Een weergave die op de helft van de toestellen iets anders
-laat zien dan bedoeld, is geen herkenningspunt.
+**Geen vlagemoji, wél een vlag.** Een vlagemoji is bewust nooit gebruikt:
+Windows toont er geen vlag maar twee letters ("BE"), en op de vlaggen van
+Engeland en Schotland struikelt nog meer software. Een weergave die op de helft
+van de toestellen iets anders laat zien dan bedoeld, is geen herkenningspunt.
+
+Een gewone afbeelding heeft dat probleem niet, en voor een kind is de vlag
+veruit het snelste herkenningspunt — sneller dan de code en sneller dan de
+naam. Daarom staat naast de notatie hierboven overal ook de echte vlag:
+`vlagVoor(landCode)` in [js/landen-data.js](js/landen-data.js) geeft een
+`<img>` terug, `vlagUrl()` enkel het pad. De vlaggen liggen als SVG in
+[img/vlaggen/](img/vlaggen/) — dezelfde 48 bestanden die
+[print/landkaarten.html](print/landkaarten.html) gebruikt, dus één set voor
+scherm en papier. `PANINI` en `FWC` horen bij geen land en krijgen er geen:
+`vlagVoor()` geeft dan `null` en elke oproeper laat het element weg.
+
+Het pad wordt gerekend vanaf `import.meta.url` en niet als kale relatieve
+tekst: dezelfde module wordt ingeladen door de pagina's in de hoofdmap én door
+`print/ruilfiche.html`, een map dieper. Dat is dezelfde reden waarom de rest
+van het portaal `window.location.origin` gebruikt in plaats van een vaste host.
+
+Waar de vlaggen staan: de landkeuze op `kind.html`, beide
+landkoppen op de ruilpagina, de landenkeuze van Snelruilen, de staafgrafieken,
+toplijsten en inzichten van de statistiek, de lijst naast de wereldkaart, en op
+de kaart zelf. Uitgezoomd draagt elke bol de vlag van zijn land; de
+percentagekleur die eerst de vulling was, is dan de ring eromheen geworden, dus
+grootte én kleur zeggen nog exact hetzelfde als vroeger. Ingezoomd blijft de
+cluster van vijf iconen ongewijzigd — daar zit de vlag in de kop van de popup
+en groot in de landinfo-popup.
+
+De ruilfiche blijft bewust zonder vlag: dat blad is zwart-wit ontworpen
+(zie [css/print-ruilfiche.css](css/print-ruilfiche.css)) en wordt thuis
+afgedrukt.
+
+Twee dingen om te weten bij het onderhoud. Ten eerste het **gewicht**: samen
+zijn de 48 vlaggen ongeveer 860 kB, waarvan ruim 700 kB in vijf bestanden met
+een gedetailleerd wapenschild (`ECU`, `ESP`, `MEX`, `HAI`, `CRO`). Ze worden lui
+geladen (`loading="lazy"`), maar op de uitgezoomde wereldkaart staan alle 48
+tegelijk in beeld en komen ze dus allemaal binnen. Wordt dat ooit een probleem,
+dan is het vereenvoudigen van die vijf wapenschilden de enige knop die echt
+iets doet. Ten tweede **Leaflet**: `css/leaflet.css` zet
+`.leaflet-container .leaflet-marker-pane img { width: auto }` op élke afbeelding
+in een marker. Die selector weegt zwaarder dan een enkele klasse, en zonder
+tegengewicht valt de vlag in de bol terug op haar eigen verhouding — breder dan
+de cirkel, dus een ei. Daarom is de selector voor de vlag in de bol met opzet
+zwaar (`.wr-icoon.wr-bol--vlag img.landvlag--bol`).
 
 **Het paginanummer hoort bij het land, niet bij de sticker.** Waar landen in
 een lijst staan — de landkeuze op `kind.html` — staat de albumpagina erachter:
@@ -1267,7 +1308,8 @@ foto's zeggen daar weinig over.
   grafiekjes weegt niet op tegen de laadtijd.
 - `js/wereldreis.js` — FIFA Wereldreis: coördinaten, kleuren, lagen, kaart.
 - `js/landen-data.js` — de notatie `BEL - BELGIUM - België` (met `{ pagina:
-  true }` als `BEL - BELGIUM - België (p.56)`), de accentkleur per land, de drie
+  true }` als `BEL - BELGIUM - België (p.56)`), de vlag bij die notatie
+  (`vlagVoor()` / `vlagUrl()`, bestanden in `img/vlaggen/`), de accentkleur per land, de drie
   sorteervolgordes (code, albumvolgorde, alfabetisch Engels) en het zoeken op
   landen (`normaliseer()` / `landMatcht()`, accent- en hoofdletterongevoelig;
   `landMatchtMetPagina()` neemt ook het paginanummer mee, voor de landkeuze).

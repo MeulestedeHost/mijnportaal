@@ -29,7 +29,7 @@
 // wereldreis (.wr-tooltip-wrap / .wr-info-knop / .wr-tooltip): op een muis via
 // hover, op een touchscreen door het ℹ️-knopje aan te tikken.
 import { supabase, requireAuth } from "./supabase.js";
-import { landLabel, accentVoor } from "./landen-data.js";
+import { landLabel, accentVoor, vlagVoor } from "./landen-data.js";
 
 const GETAL = new Intl.NumberFormat("nl-BE");
 const KOMMA = new Intl.NumberFormat("nl-BE", {
@@ -350,6 +350,7 @@ function bovensteLanden(veld) {
     .slice(0, TOP_LANDEN)
     .map((land) => ({
       label: landLabel(land),
+      land,
       waarde: Number(land[veld]),
       kleur: accentVoor(land.land_code),
       titel: `${landLabel(land)}: ${GETAL.format(Number(land[veld]))}`,
@@ -511,6 +512,7 @@ async function tekenToplijsten() {
       label: r.code,
       bij: r.naam || "",
       kleur: accentVoor(r.land_code),
+      land: r,
       waarde: `${GETAL.format(r.zoekers)} ${r.zoekers === 1 ? "zoeker" : "zoekers"}`,
     })),
   });
@@ -524,6 +526,7 @@ async function tekenToplijsten() {
       label: r.code,
       bij: r.naam || "",
       kleur: accentVoor(r.land_code),
+      land: r,
       waarde: `${GETAL.format(r.verzamelaars)} ×`,
     })),
   });
@@ -649,7 +652,7 @@ function toplijstKop(icoon, titel, uitleg) {
   return kop;
 }
 
-function toplijstRegel({ plaats, label, bij, waarde, kleur }) {
+function toplijstRegel({ plaats, label, bij, waarde, kleur, land }) {
   const li = document.createElement("li");
   li.className = "stat-toplijst__regel";
 
@@ -666,6 +669,11 @@ function toplijstRegel({ plaats, label, bij, waarde, kleur }) {
     streep.style.backgroundColor = kleur;
     naam.appendChild(streep);
   }
+  // Bij een stickertoplijst hoort de vlag van het land waar die sticker bij
+  // hoort: "BEL12" alleen zegt een kind minder dan diezelfde code met de
+  // Belgische vlag ernaast.
+  const regelVlag = land && vlagVoor(land.land_code, { naam: land.land_naam });
+  if (regelVlag) naam.appendChild(regelVlag);
   const hoofd = document.createElement("strong");
   hoofd.textContent = label;
   naam.appendChild(hoofd);
@@ -717,6 +725,7 @@ function tekenInzichten() {
       icoon: "🌟",
       titel: "Meest populaire land",
       waarde: landLabel(best),
+      land: best,
       bij: `${KOMMA.format(best.vulling)} % van dit land is ingevuld`,
       uitleg:
         "Het land waarvan het grootste deel ingevuld is, over alle verzamelaars samen. Bewust een verhouding en geen aantal: een land met veel stickers in het album haalt anders altijd het hoogste totaal.",
@@ -726,6 +735,7 @@ function tekenInzichten() {
       icoon: "🧩",
       titel: "Moeilijkst te vinden land",
       waarde: landLabel(slechtst),
+      land: slechtst,
       bij: `${KOMMA.format(slechtst.vulling)} % ingevuld · ${GETAL.format(
         Number(slechtst.gezocht)
       )} keer gezocht`,
@@ -743,6 +753,7 @@ function tekenInzichten() {
       icoon: "📦",
       titel: "Land met de meeste dubbels",
       waarde: landLabel(meesteDubbels),
+      land: meesteDubbels,
       bij: `${GETAL.format(Number(meesteDubbels.dubbels))} dubbels in omloop`,
       uitleg:
         "Het land waarvan de verzamelaars samen de meeste dubbels hebben liggen, exemplaren meegerekend.",
@@ -789,7 +800,7 @@ function tekenInzichten() {
   kaarten.forEach((k) => doel.appendChild(inzichtKaart(k)));
 }
 
-function inzichtKaart({ icoon, titel, waarde, bij, uitleg, kleur }) {
+function inzichtKaart({ icoon, titel, waarde, bij, uitleg, kleur, land }) {
   const vak = document.createElement("article");
   vak.className = "stat-inzicht";
   if (kleur) vak.style.borderLeftColor = kleur;
@@ -804,7 +815,11 @@ function inzichtKaart({ icoon, titel, waarde, bij, uitleg, kleur }) {
 
   const w = document.createElement("p");
   w.className = "stat-inzicht__waarde";
-  w.textContent = waarde;
+  // Drie van deze kaarten hebben een land als antwoord ("Meest populaire
+  // land"); de andere een getal. Enkel de eerste soort krijgt een vlag.
+  const vlag = land && vlagVoor(land.land_code, { naam: land.land_naam });
+  if (vlag) w.appendChild(vlag);
+  w.appendChild(document.createTextNode(waarde));
   vak.appendChild(w);
 
   const b = document.createElement("p");
@@ -852,7 +867,11 @@ function staafGrafiek(id, { titel, uitleg, rijen }) {
 
     const label = document.createElement("span");
     label.className = "stat-staaf__label";
-    label.textContent = r.label;
+    // 'land' staat enkel op de rijen van de landengrafieken; de andere staven
+    // (per dag, per uur) hebben geen land en dus ook geen vlag.
+    const staafVlag = r.land && vlagVoor(r.land.land_code, { naam: r.land.land_naam });
+    if (staafVlag) label.appendChild(staafVlag);
+    label.appendChild(document.createTextNode(r.label));
 
     const spoor = document.createElement("span");
     spoor.className = "stat-staaf__spoor";

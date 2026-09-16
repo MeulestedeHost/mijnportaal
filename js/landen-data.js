@@ -10,10 +10,12 @@
 // Nederlandse. landLabel() hieronder is de enige plek waar die volgorde
 // vastligt — pas ze daar aan en elke pagina volgt.
 //
-// GEEN VLAGEMOJI. Bewust niet: Windows toont een vlagemoji niet als vlag maar
-// als twee letters ("BE"), en op de vlaggen van Engeland en Schotland struikelt
-// nog meer software. Een weergave die op de helft van de toestellen iets
-// anders toont dan bedoeld, is geen herkenningspunt maar een raadsel.
+// GEEN VLAGEMOJI, WEL EEN VLAG. Een vlagemoji is bewust nooit gebruikt:
+// Windows toont er geen vlag maar twee letters ("BE"), en op Engeland en
+// Schotland struikelt nog meer software. Dat probleem bestaat niet bij een
+// gewone afbeelding, en de vlag is voor een kind veruit het snelste
+// herkenningspunt — sneller dan de code en sneller dan de naam. Daarom staat
+// naast de notatie hierboven overal ook de echte vlag: zie vlagVoor().
 //
 // WAT HIER STAAT EN WAT NIET. De namen zelf en het paginanummer staan in de
 // databank (public.sticker_catalogus, zie sql/013_landen_engels_en_pagina.sql):
@@ -96,6 +98,67 @@ export function accentVoor(landCode) {
 export function lokaleNaamVoor(landCode) {
   const land = LANDEN[landCode];
   return land ? land.naamLokaal : null;
+}
+
+// ---------- vlaggen ----------
+
+// De vlaggen staan als SVG in img/vlaggen/<CODE>.svg — dezelfde bestanden die
+// print/landkaarten.html gebruikt, dus één set voor scherm én papier.
+//
+// HET PAD VIA import.meta.url. Niet "img/vlaggen/…" als kale relatieve tekst,
+// want dit bestand wordt niet alleen ingeladen door de pagina's in de hoofdmap
+// maar ook door print/ruilfiche.html, een map dieper. Een pad dat vanuit de
+// MODULE gerekend wordt, klopt vanaf elke pagina en op alle drie de domeinen —
+// dezelfde reden waarom de rest van het portaal window.location.origin
+// gebruikt in plaats van een vaste host.
+//
+// PANINI en FWC horen bij geen land en krijgen dus geen vlag: vlagVoor() geeft
+// dan null terug en elke oproeper hieronder laat het element gewoon weg.
+const ZONDER_VLAG = new Set(["PANINI", "FWC"]);
+
+export function vlagUrl(landCode) {
+  if (!landCode || ZONDER_VLAG.has(landCode) || !LANDEN[landCode]) return null;
+  return new URL(`../img/vlaggen/${landCode}.svg`, import.meta.url).href;
+}
+
+// Eén <img> in plaats van een <span> met een achtergrond: zo krijgt de vlag een
+// alt-tekst mee en leest een schermlezer "vlag van België" in plaats van niets.
+//
+// WAAROM loading="lazy". De landenlijst toont er 48 tegelijk. Veruit de meeste
+// vlaggen zijn een paar kilobyte, maar vijf ervan (Ecuador, Spanje, Mexico,
+// Haïti, Kroatië) dragen een gedetailleerd wapenschild en wegen samen zowat
+// 700 KB. Die mogen een uitklappende lijst niet laten haperen op de telefoon
+// van een kind; wat buiten beeld staat, wordt pas opgehaald bij het scrollen.
+//
+// De breedte staat in CSS (.landvlag), maar width/height staan er ook als
+// attribuut op: dat geeft de browser de verhouding 3:2 vóór het bestand
+// binnen is, zodat de regel niet verspringt zodra de vlag verschijnt.
+export function vlagVoor(landCode, { naam = "", klasse = "" } = {}) {
+  const url = vlagUrl(landCode);
+  if (!url) return null;
+
+  const img = document.createElement("img");
+  img.className = ["landvlag", klasse].filter(Boolean).join(" ");
+  img.src = url;
+  img.width = 30;
+  img.height = 20;
+  img.loading = "lazy";
+  img.decoding = "async";
+  // Zonder landnaam is de vlag pure versiering náást een label dat het land al
+  // noemt — dan is een lege alt juist correct: een schermlezer zegt het land
+  // anders twee keer.
+  img.alt = naam ? `Vlag van ${naam}` : "";
+  return img;
+}
+
+// Zet de vlag vooraan in een element en daarna het gewone landlabel. Dit is de
+// combinatie die bijna elke pagina nodig heeft; ze staat hier zodat de volgorde
+// (vlag, dan tekst) op één plek vastligt, net als landLabel() zelf.
+export function zetLandLabel(doel, land, opties = {}) {
+  const vlag = vlagVoor(land && land.land_code, { naam: land && land.land_naam });
+  if (vlag) doel.appendChild(vlag);
+  doel.appendChild(document.createTextNode(landLabel(land, opties)));
+  return doel;
 }
 
 // De vaste notatie. Verwacht een rij met land_code, land_naam en (optioneel)

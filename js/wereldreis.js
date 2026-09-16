@@ -35,7 +35,7 @@ import { voetbalVoor, confederatieNaam, RANKING_STAND } from "./voetbal-data.js"
 import { landInfoVoor } from "./land-data.js";
 import { talenVoor } from "./talen-data.js";
 import { laadFotos } from "./foto-data.js";
-import { landLabel, lokaleNaamVoor } from "./landen-data.js";
+import { landLabel, lokaleNaamVoor, vlagVoor, vlagUrl, zetLandLabel } from "./landen-data.js";
 
 // ---------- coördinaten ----------
 
@@ -472,7 +472,18 @@ function stippenHtml(land, mini) {
 function landBolHtml(land) {
   const trap = trapVoor(land.procent);
   const aria = `${landLabel(land)} · ${land.procent} % verzameld`;
-  return `<span class="wr-icoon wr-icoon--stickers wr-bol ${trap.klasse}" data-categorie="stickers" role="button" tabindex="0" title="${aria}" aria-label="${aria}"></span>`;
+  // De vlag vult de bol; de percentagekleur verhuist naar de ring eromheen
+  // (.wr-bol--vlag in css/style.css). Zo blijven grootte én kleur precies
+  // hetzelfde zeggen als vroeger, en herkent een kind zijn land nu al vanaf de
+  // uitgezoomde kaart in plaats van pas na een tik. Een land zonder vlag
+  // (PANINI, FWC) staat niet op de kaart, maar valt hier hoe dan ook terug op
+  // de gewone gekleurde bol.
+  const url = vlagUrl(land.land_code);
+  const vlag = url
+    ? `<img class="landvlag landvlag--bol" src="${url}" alt="" width="30" height="20" loading="lazy" decoding="async">`
+    : "";
+  const vlagKlasse = url ? " wr-bol--vlag" : "";
+  return `<span class="wr-icoon wr-icoon--stickers wr-bol ${trap.klasse}${vlagKlasse}" data-categorie="stickers" role="button" tabindex="0" title="${aria}" aria-label="${aria}">${vlag}</span>`;
 }
 
 // ---------- popup ----------
@@ -496,7 +507,7 @@ function bouwMiniPopup(land, cat) {
   // categorienaam wordt te lang voor een popup van 230 pixels breed.
   const naam = document.createElement("span");
   naam.className = "wr-popup__land";
-  naam.textContent = landLabel(land);
+  zetLandLabel(naam, land);
   titel.appendChild(naam);
   vak.appendChild(titel);
 
@@ -670,6 +681,14 @@ function landPopup(land) {
 
   const blok = document.createElement("div");
   blok.className = "wr-popup__blok";
+
+  // In deze popup is de vlag geen versiering maar inhoud, net als de hoofdstad
+  // en het inwonertal — vandaar groot en met een echte alt-tekst.
+  const vlag = vlagVoor(land.land_code, {
+    naam: land.land_naam,
+    klasse: "landvlag--groot",
+  });
+  if (vlag) blok.appendChild(vlag);
 
   const lijst = document.createElement("dl");
   lijst.className = "wr-popup__cijfers";

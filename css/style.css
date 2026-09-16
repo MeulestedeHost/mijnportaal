@@ -248,6 +248,40 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .land-cel { white-space: nowrap; }
 .land-streep { display: inline-block; width: 4px; height: 1em; border-radius: 2px; margin-right: 0.5rem; vertical-align: -0.15em; }
 
+/* De vlag vóór elke landcode (js/landen-data.js, vlagVoor()). Een kind herkent
+   zijn land aan de vlag lang voordat het "CIV" leest, dus staat ze overal waar
+   het portaal een land noemt: in lijsten, koppen, de landenkeuze, de statistiek
+   en op de wereldkaart.
+
+   MEESCHALEN MET DE TEKST, in em en niet in pixels: dezelfde klasse zit zowel
+   op een kop van 1.3rem als in een regel van 0.85rem, en een vlag die daar
+   even groot is als in een titel oogt fout. 1.5em breed geeft bij 3:2 precies
+   1em hoog — even hoog als de streep ernaast.
+
+   HET RANDJE. object-fit: cover snijdt een afwijkende verhouding (Zwitserland
+   is vierkant, Nepal-achtige uitzonderingen bestaan hier niet) netjes bij; de
+   dunne rand houdt de witte velden van Japan, Canada of Engeland zichtbaar op
+   een witte achtergrond. Zonder die rand lijkt de Japanse vlag een zwevende
+   rode stip. */
+.landvlag {
+  display: inline-block;
+  width: 1.5em;
+  height: 1em;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
+  margin-right: 0.45rem;
+  vertical-align: -0.15em;
+  /* Tot de SVG binnen is een neutraal vlak in plaats van het gebroken-
+     afbeeldingicoon: bij lazy loading is dat een zichtbaar moment. */
+  background: #eef0f3;
+  flex: none;
+}
+
+/* In de landinfo-popup is de vlag geen bijschrift maar het onderwerp: op een
+   eigen regel, gecentreerd boven de hoofdstad en het inwonertal. */
+.landvlag--groot { display: block; width: 4.5em; height: 3em; margin: 0 auto 0.5rem; }
+
 /* Land zo breed als er overblijft, volgorde net breed genoeg voor zijn eigen
    tekst — op een telefoon onder elkaar. Het aparte zoekveld dat hier vroeger
    tussen stond is weg: er wordt nu getypt ín de keuzelijst zelf, en dat maakt
@@ -594,6 +628,57 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .wr-bol.wr-hoog   { width: 32px; height: 32px; }
 .wr-bol.wr-midden { width: 36px; height: 36px; }
 .wr-bol.wr-laag   { width: 42px; height: 42px; }
+
+/* De vlag ín de bol (js/wereldreis.js, landBolHtml()). De bol droeg zijn
+   percentage in twee signalen: grootte én vulkleur. De grootte blijft; de
+   kleur verhuist van de vulling naar de rand, want de vulling is nu de vlag.
+   Er gaat dus niets verloren — de bol zegt nog altijd hoe ver dit land staat,
+   en zegt er nu bij wélk land het is, zonder dat een kind eerst moet tikken.
+
+   Het witte randje dat er eerst zat, wordt een buitenste ring via box-shadow:
+   zonder die scheiding loopt een gekleurde ring op een kaart met groene en
+   blauwe vlakken visueel in de ondergrond over. */
+/* overflow: hidden houdt de vlag binnen de cirkel, wat er ook met de
+   verhoudingen gebeurt — een vlag die over de rand steekt maakt van de bol
+   een ei. */
+.wr-bol--vlag { border-width: 3px; overflow: hidden; box-shadow: 0 0 0 1.5px #fff, 0 2px 6px rgba(0, 0, 0, 0.5); }
+.wr-bol--vlag.wr-vol    { border-color: var(--wr-vol); }
+.wr-bol--vlag.wr-hoog   { border-color: var(--wr-hoog); }
+.wr-bol--vlag.wr-midden { border-color: var(--wr-midden); }
+.wr-bol--vlag.wr-laag   { border-color: var(--wr-laag); }
+
+/* Vult de bol helemaal. z-index omdat de pulserende glow (.wr-icoon::after,
+   verderop) later in de DOM staat en de vlag anders met een kleurwaas
+   overschildert — over een vlakke bol viel dat niet op, over een vlag wel. */
+/* DE SELECTOR IS MET OPZET ZWAAR. Leaflet zet in css/leaflet.css
+   ".leaflet-container .leaflet-marker-pane img { width: auto; max-width: none }"
+   — bedoeld voor zijn eigen markerafbeeldingen, maar het raakt élke <img> in
+   een marker, dus ook deze vlag. Die selector weegt zwaarder dan ".landvlag--bol"
+   alleen, en het resultaat was een vlag op haar eigen verhouding: breder dan de
+   bol, dus een ei in plaats van een cirkel. Met de klasse van de bol en het
+   element erbij wint deze regel wél, ongeacht de volgorde van de stylesheets.
+
+   ABSOLUUT EN NIET ALS FLEX-ITEM. .wr-icoon is een flexbox, en daarin gaf
+   'flex: none' (uit .landvlag) samen met width: 100% opnieuw de eigen
+   verhouding. Losgemaakt van de flexregels valt inset: 0 precies samen met de
+   binnenkant van de rand, wat de verhouding van de vlag ook is; object-fit uit
+   .landvlag snijdt de rest bij.
+
+   z-index omdat de pulserende glow (.wr-icoon::after, hieronder) later in de
+   DOM staat en de vlag anders met een kleurwaas overschildert — over een vlakke
+   bol viel dat niet op, over een vlag wel. */
+.wr-icoon.wr-bol--vlag img.landvlag--bol {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  border-radius: 50%;
+  box-shadow: none;
+  background: none;
+}
 
 /* Glow: een pulserende ring die vanuit elk icoon naar buiten groeit en
    wegdooft — nodigt uit om te tikken. 'background: inherit' hergebruikt de

@@ -11,9 +11,10 @@
      daar standaard eigen marges en kop-/voetregels aan toe die de vlaggen tot
      tegen de paginarand zouden laten lopen mislukken.
 
-     De vlaggen komen uit print/vlaggen/<CODE>.svg (flagcdn.com, publieke
-     domeinsymbolen, hier lokaal bewaard zodat deze pagina zonder internet
-     werkt). Volgorde en Engelse albumnamen: exact de tabel die is aangeleverd
+     De vlaggen komen uit img/vlaggen/<CODE>.svg (flagcdn.com, publieke
+     domeinsymbolen, lokaal bewaard zodat deze pagina zonder internet werkt).
+     Ze stonden ooit in print/, maar het hele portaal toont ze nu naast elke
+     landcode — daarom liggen ze in img/ en wijst deze pagina er met ../ naar. Volgorde en Engelse albumnamen: exact de tabel die is aangeleverd
      voor het FIFA World Cup 2026-album. -->
 <style>
   @page { size: A4; margin: 0; }
@@ -132,7 +133,7 @@
       const vlagVak = document.createElement("div");
       vlagVak.className = "kaart__vlag";
       const img = document.createElement("img");
-      img.src = "vlaggen/" + code + ".svg";
+      img.src = "../img/vlaggen/" + code + ".svg";
       img.alt = naamNl;
       vlagVak.appendChild(img);
       div.appendChild(vlagVak);

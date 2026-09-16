@@ -56,7 +56,7 @@ export function haalCatalogus() {
       for (let van = 0; ; van += PAGINA) {
         const { data, error } = await supabase
           .from("sticker_catalogus")
-          .select("code,naam,land_naam")
+          .select("code,naam,land_code,land_naam")
           .order("code", { ascending: true })
           .range(van, van + PAGINA - 1);
         if (error) throw error;

@@ -21,7 +21,7 @@ import {
   INGEZOOMD_VANAF,
   MAX_ZOOM,
 } from "./wereldreis.js";
-import { landLabel } from "./landen-data.js";
+import { zetLandLabel } from "./landen-data.js";
 
 let kaart;
 let stippenLaag;
@@ -249,7 +249,9 @@ function toonBuitenKaart(landen) {
 
     const naam = document.createElement("span");
     naam.className = "sticker-item__nummer";
-    naam.textContent = landLabel(rij);
+    // PANINI en FWC hebben geen vlag en krijgen er dus geen; belandt hier ooit
+    // een echt land zonder coördinaten, dan staat ze er wel.
+    zetLandLabel(naam, rij);
 
     const cijfer = document.createElement("span");
     cijfer.className = "kind-item__cijfer " + trapVoor(rij.procent).klasse + " wr-tegel";

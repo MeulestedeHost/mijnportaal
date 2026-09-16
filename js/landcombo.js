@@ -22,7 +22,7 @@
 // SORTEREN DOET DE OPROEPER. zetLanden() krijgt de lijst in de volgorde waarin
 // ze getoond moet worden en filteren behoudt die volgorde altijd — zoeken mag
 // de door de gebruiker ingestelde sorteervolgorde nooit omgooien.
-import { landLabel, normaliseer, landMatchtMetPagina } from "./landen-data.js";
+import { zetLandLabel, normaliseer, landMatchtMetPagina } from "./landen-data.js";
 
 // Hoe lang losse aanslagen bij dezelfde zoekterm horen. Duizend milliseconden
 // is de klassieke waarde uit de type-ahead van een keuzelijst: lang genoeg om
@@ -65,7 +65,11 @@ export function maakLandcombo({ wortel, opKies, leegLabel = "Kies een land…" }
 
   function toonWaarde() {
     const land = landVoorCode(gekozen);
-    waardeEl.textContent = land ? landLabel(land, { pagina: true }) : leegLabel;
+    // Leegmaken vóór het opnieuw vullen, anders staat bij elk wisselen van land
+    // de vorige vlag er nog voor.
+    waardeEl.textContent = "";
+    if (land) zetLandLabel(waardeEl, land, { pagina: true });
+    else waardeEl.textContent = leegLabel;
     waardeEl.classList.toggle("landcombo__waarde--leeg", !land);
   }
 
@@ -79,8 +83,10 @@ export function maakLandcombo({ wortel, opKies, leegLabel = "Kies een land…" }
       optie.setAttribute("aria-selected", String(land.land_code === gekozen));
       optie.dataset.code = land.land_code;
       // Met paginanummer, want dat is precies waar deze lijst voor dient:
-      // het land terugvinden in het album dat naast de computer openligt.
-      optie.textContent = landLabel(land, { pagina: true });
+      // het land terugvinden in het album dat naast de computer openligt. De
+      // vlag ervoor maakt het bladeren door 48 regels een stuk sneller dan
+      // drie keer dezelfde soort tekst lezen.
+      zetLandLabel(optie, land, { pagina: true });
       lijst.appendChild(optie);
     });
 

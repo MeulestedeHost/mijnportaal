@@ -58,7 +58,7 @@ import {
 import { openSnelruilen } from "./snelruilen.js";
 import { ACTIES_EVENT, wachtOpMij } from "./acties.js";
 import {
-  landLabel,
+  zetLandLabel,
   accentVoor,
   vergelijkLanden,
   normaliseer,
@@ -1401,7 +1401,7 @@ function ruilKolom(kopTekst, rijen, kant, bundel, opKlik) {
     streep.className = "land-streep";
     streep.style.backgroundColor = accentVoor(land.land_code);
     naam.appendChild(streep);
-    naam.appendChild(document.createTextNode(landLabel(land)));
+    zetLandLabel(naam, land);
     blok.appendChild(naam);
 
     const lijst = document.createElement("ul");
@@ -1670,7 +1670,7 @@ function tekenPerLand(doel, rijen) {
     streep.className = "land-streep";
     streep.style.backgroundColor = accentVoor(land.land_code);
     titel.appendChild(streep);
-    titel.appendChild(document.createTextNode(landLabel(land)));
+    zetLandLabel(titel, land);
     sectie.appendChild(titel);
 
     // Per sticker: wie heeft ze dubbel, en wie zoekt ze. Dezelfde sticker kan
