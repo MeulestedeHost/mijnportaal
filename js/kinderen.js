@@ -52,3 +52,26 @@ export function isValidGeboortejaar(jaar) {
   const huidigJaar = new Date().getFullYear();
   return Number.isInteger(n) && n >= 1900 && n <= huidigJaar;
 }
+
+// Drie formulieren vragen dezelfde vier velden: de wizard (js/onboarding.js),
+// "Nieuwe verzamelaar" en "Verzamelaar bewerken" op het dashboard. De controle
+// en de omzetting naar een databankrij horen daarom hier en niet drie keer.
+// Geeft de foutmelding terug, of null als alles in orde is.
+export function valideerKind(voornaam, familienaam, geboortejaar, isVolwassen) {
+  if (!voornaam || !familienaam) return "Voornaam en familienaam zijn verplicht.";
+  if (isVolwassen) return null;
+  if (!isValidGeboortejaar(geboortejaar)) return "Voer een geldig geboortejaar in.";
+  return null;
+}
+
+// Een volwassene heeft geen geboortejaar: dat veld verdwijnt in het formulier
+// en wordt hier expliciet op null gezet, zodat een eerder ingevuld jaar niet
+// blijft hangen bij wie het vinkje aanzet.
+export function kindPayload(voornaam, familienaam, geboortejaar, isVolwassen) {
+  return {
+    voornaam,
+    familienaam,
+    geboortejaar: isVolwassen ? null : Number(geboortejaar),
+    is_volwassen: isVolwassen,
+  };
+}

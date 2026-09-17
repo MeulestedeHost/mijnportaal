@@ -1,4 +1,8 @@
-// dashboard.js — Dashboard: welkomstbericht, onboarding wizard, verzamelaarslijst
+// dashboard.js — Dashboard: verzamelaarslijst, aanwezigheid, cijfers
+//
+// Heeft dit gezin nog geen enkele verzamelaar, dan neemt js/onboarding.js het
+// hele scherm over met de inschrijfwizard. Dat blijft hier één regel: welke
+// stappen die wizard zet, hoort niet in het dashboard thuis.
 //
 // Een "verzamelaar" is een rij in public.kinderen. Volwassenen staan in
 // dezelfde tabel met is_volwassen = true en zonder geboortejaar: ze ruilen
@@ -7,9 +11,10 @@
 // De lijst is van het GEZIN, niet van één login: sinds sql/009 kunnen twee
 // ouders op dezelfde verzamelaars werken. Wie wat ziet, beslist RLS.
 import { requireAuth, supabase } from "./supabase.js";
-import { loadKinderen, addKind, updateKind, deleteKind, isValidGeboortejaar } from "./kinderen.js";
+import { loadKinderen, addKind, updateKind, deleteKind, valideerKind, kindPayload } from "./kinderen.js";
 import { toonOrganisatorKnop } from "./whatsapp.js";
 import { haalKomendeEvents, datumVoluit, uur } from "./beurs.js";
+import { startWizard } from "./onboarding.js";
 
 let user;
 let statistieken = new Map(); // kind_id -> { zoekt, dubbel, matches }
@@ -27,10 +32,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   await koppelAanGezin();
 
-  zetWelkomTitel();
-  wireOnboardingForm();
   wireKindForm();
-  wireVolwassenVinkjes();
+  wireVolwassenVinkje();
   document.getElementById("new-kind-btn").addEventListener("click", () => openKindForm());
 
   toonBeheerLink();
@@ -77,34 +80,16 @@ async function toonBeheerLink() {
 
 // Het geboortejaar is voor een volwassene niet relevant; het veld verdwijnt
 // dan in plaats van een verplicht vak te blijven dat niemand wil invullen.
-function wireVolwassenVinkjes() {
-  koppelVinkje("ob-volwassen", "ob-geboortejaar-groep", "ob-geboortejaar");
-  koppelVinkje("kind-volwassen", "kind-geboortejaar-groep", "kind-geboortejaar");
+function wireVolwassenVinkje() {
+  const vinkje = document.getElementById("kind-volwassen");
+  vinkje.addEventListener("change", pasVolwassenToe);
+  pasVolwassenToe();
 }
 
-function koppelVinkje(vinkjeId, groepId, veldId) {
-  const vinkje = document.getElementById(vinkjeId);
-  vinkje.addEventListener("change", () => pasVolwassenToe(vinkjeId, groepId, veldId));
-  pasVolwassenToe(vinkjeId, groepId, veldId);
-}
-
-function pasVolwassenToe(vinkjeId, groepId, veldId) {
-  const volwassen = document.getElementById(vinkjeId).checked;
-  document.getElementById(groepId).classList.toggle("hidden", volwassen);
-  if (volwassen) document.getElementById(veldId).value = "";
-  if (vinkjeId === "ob-volwassen") {
-    document.getElementById("ob-submit-btn").textContent = onboardingKnopTekst();
-  }
-}
-
-// Het onboardingformulier gaat over een kind: dat is het normale geval, en de
-// knop zegt dat ook. Vinkt iemand toch "volwassene" aan — een ouder die zelf
-// meespaart, of een kind dat zich zonder ouder aanmeldde — dan verandert het
-// opschrift mee, zodat de knop nooit iets anders belooft dan hij doet.
-function onboardingKnopTekst() {
-  return document.getElementById("ob-volwassen").checked
-    ? "Volwassene toevoegen"
-    : "Kind toevoegen";
+function pasVolwassenToe() {
+  const volwassen = document.getElementById("kind-volwassen").checked;
+  document.getElementById("kind-geboortejaar-groep").classList.toggle("hidden", volwassen);
+  if (volwassen) document.getElementById("kind-geboortejaar").value = "";
 }
 
 async function refreshKinderen() {
@@ -129,8 +114,12 @@ async function refreshKinderen() {
   await laadStatistieken();
   loading.classList.add("hidden");
 
+  // Nog geen verzamelaar: dan is dit geen dashboard maar een inschrijving, en
+  // neemt de wizard het over. Geen aparte controle op "eerste login" nodig —
+  // een lege lijst zegt hetzelfde en blijft kloppen voor de tweede ouder, die
+  // wél al verzamelaars ziet.
   if (kinderen.length === 0) {
-    onboarding.classList.remove("hidden");
+    await startWizard(user);
     return;
   }
 
@@ -342,55 +331,6 @@ async function laadStatistieken() {
   }
 }
 
-// De voornaam komt uit het Google-account. Wie met een magic link aanmeldt,
-// heeft geen naam in zijn account — en een e-mailadres als aanspreking voelt
-// eerder als een foutmelding dan als een welkom, dus dan blijft het "Welkom!".
-function zetWelkomTitel() {
-  const meta = user.user_metadata || {};
-  const voornaam = (meta.given_name || meta.full_name || meta.name || "").trim().split(/\s+/)[0];
-  if (voornaam) document.getElementById("welkom-titel").textContent = `Welkom, ${voornaam}`;
-}
-
-// Het formulier staat er van bij het begin, maar ingeklapt: zo zie je op een
-// telefoon eerst de twee stappen naast elkaar, in plaats van meteen vier
-// invulvakken waarvan niet duidelijk is waarvoor ze dienen.
-function wireOnboardingForm() {
-  const kaart = document.getElementById("onboarding-kaart");
-  document.getElementById("welkom-verzamelaar-btn").addEventListener("click", () => {
-    kaart.classList.remove("hidden");
-    kaart.scrollIntoView({ behavior: "smooth", block: "start" });
-    document.getElementById("ob-voornaam").focus({ preventScroll: true });
-  });
-
-  const form = document.getElementById("onboarding-form");
-  const messageEl = document.getElementById("onboarding-message");
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const voornaam = document.getElementById("ob-voornaam").value.trim();
-    const familienaam = document.getElementById("ob-familienaam").value.trim();
-    const geboortejaar = document.getElementById("ob-geboortejaar").value.trim();
-    const isVolwassen = document.getElementById("ob-volwassen").checked;
-    const validationError = validateKindInput(voornaam, familienaam, geboortejaar, isVolwassen);
-    if (validationError) {
-      showMessage(messageEl, validationError, "error");
-      return;
-    }
-    const btn = document.getElementById("ob-submit-btn");
-    btn.disabled = true;
-    btn.textContent = "Opslaan…";
-    try {
-      await addKind(user.id, bouwPayload(voornaam, familienaam, geboortejaar, isVolwassen));
-      form.reset();
-      pasVolwassenToe("ob-volwassen", "ob-geboortejaar-groep", "ob-geboortejaar");
-      await refreshKinderen();
-    } catch (err) {
-      showMessage(messageEl, "Fout bij opslaan: " + err.message, "error");
-    }
-    btn.disabled = false;
-    btn.textContent = onboardingKnopTekst();
-  });
-}
-
 function wireKindForm() {
   const form = document.getElementById("kind-form");
   document.getElementById("kind-cancel-btn").addEventListener("click", closeKindForm);
@@ -406,16 +346,16 @@ function wireKindForm() {
     const geboortejaar = document.getElementById("kind-geboortejaar").value.trim();
     const isVolwassen = document.getElementById("kind-volwassen").checked;
     const messageEl = document.getElementById("kind-form-message");
-    const validationError = validateKindInput(voornaam, familienaam, geboortejaar, isVolwassen);
-    if (validationError) {
-      showMessage(messageEl, validationError, "error");
+    const fout = valideerKind(voornaam, familienaam, geboortejaar, isVolwassen);
+    if (fout) {
+      showMessage(messageEl, fout, "error");
       return;
     }
     const btn = document.getElementById("kind-save-btn");
     btn.disabled = true;
     btn.textContent = "Opslaan…";
     try {
-      const payload = bouwPayload(voornaam, familienaam, geboortejaar, isVolwassen);
+      const payload = kindPayload(voornaam, familienaam, geboortejaar, isVolwassen);
       if (id) {
         await updateKind(id, payload);
       } else {
@@ -431,15 +371,6 @@ function wireKindForm() {
   });
 }
 
-function bouwPayload(voornaam, familienaam, geboortejaar, isVolwassen) {
-  return {
-    voornaam,
-    familienaam,
-    geboortejaar: isVolwassen ? null : Number(geboortejaar),
-    is_volwassen: isVolwassen,
-  };
-}
-
 function openKindForm(kind) {
   const container = document.getElementById("kind-form-container");
   document.getElementById("kind-form-title").textContent = kind
@@ -450,7 +381,7 @@ function openKindForm(kind) {
   document.getElementById("kind-familienaam").value = kind ? kind.familienaam : "";
   document.getElementById("kind-geboortejaar").value = kind && kind.geboortejaar ? kind.geboortejaar : "";
   document.getElementById("kind-volwassen").checked = Boolean(kind && kind.is_volwassen);
-  pasVolwassenToe("kind-volwassen", "kind-geboortejaar-groep", "kind-geboortejaar");
+  pasVolwassenToe();
 
   // Verwijderen hoort niet tussen de dagelijkse knoppen; het staat hier,
   // achter één extra stap, en enkel wanneer je een bestaande rij bewerkt.
@@ -466,7 +397,7 @@ function closeKindForm() {
   document.getElementById("kind-form").reset();
   document.getElementById("kind-id").value = "";
   document.getElementById("kind-delete-btn").classList.add("hidden");
-  pasVolwassenToe("kind-volwassen", "kind-geboortejaar-groep", "kind-geboortejaar");
+  pasVolwassenToe();
 }
 
 async function handleDeleteKind(id) {
@@ -479,13 +410,6 @@ async function handleDeleteKind(id) {
   } catch (err) {
     showMessage(document.getElementById("kind-form-message"), "Fout bij verwijderen: " + err.message, "error");
   }
-}
-
-function validateKindInput(voornaam, familienaam, geboortejaar, isVolwassen) {
-  if (!voornaam || !familienaam) return "Voornaam en familienaam zijn verplicht.";
-  if (isVolwassen) return null;
-  if (!isValidGeboortejaar(geboortejaar)) return "Voer een geldig geboortejaar in.";
-  return null;
 }
 
 function showMessage(el, text, type) {

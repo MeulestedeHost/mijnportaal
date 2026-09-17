@@ -411,15 +411,24 @@ staat: naam, datum, fase en het aantal dagen. `js/beurs-uitleg.js` zet dat getal
 in de uitleg; de HTML bevat al de standaardwaarde 14, zodat de zin ook zonder
 JavaScript of databank klopt.
 
-### Hoe heb je ons gevonden? (`026`)
+### Hoe heb je ons gevonden? (`026`, uitgebreid in `027`)
 
-Eén keuzelijst op `gezin.html`, **per gezin en niet per verzamelaar**: een gezin
+Eén keuzelijst — in stap 2 van de inschrijfwizard, en achteraf te wijzigen op
+`gezin.html` — **per gezin en niet per verzamelaar**: een gezin
 vindt de beurs één keer, en drie kinderen drie keer laten antwoorden geeft drie
 keer dezelfde stem. Overslaan mag. De organisatie ziet enkel de aantallen
 (`hoe_gevonden_statistiek()`), nooit welk gezin wat antwoordde. De sleutels
 staan in een `check` op `gezinnen.hoe_gevonden` en de opschriften in
 `js/hoe-gevonden.js` — komt er een keuze bij, dan hoort ze op allebei de
-plaatsen bij te komen.
+plaatsen bij te komen. Zo is `whatsapp` erbij gekomen (migratie `027`): de
+aankondiging gaat ook rond in groepen van de wijk en de klas, en onder
+'andere' verdween dat tussen de vrije toelichtingen.
+
+Cloudflare Pages en Supabase worden door dezelfde merge gedeployd, dus er is
+een ogenblik waarop de pagina al een keuze aanbiedt die de databank nog niet
+kent. `js/onboarding.js` vangt die ene fout op (`23514`) door opnieuw te
+bewaren zónder het antwoord: wijk en naam gaan niet verloren omdat een
+constraint achterloopt.
 
 ## 8. FIFA Wereldreis
 
@@ -833,11 +842,57 @@ operatie (`SELECT` / `INSERT` / `UPDATE` / `DELETE`):
 via de API ook geen rij kan aanmaken of ombuigen naar een kind dat niet van
 hem is.
 
-## Eerste login
+## Eerste login: de inschrijfwizard
 
-Na het klikken op de magic link controleert het dashboard of de gebruiker
-al kinderen heeft. Zo niet: een onboardingscherm vraagt het eerste kind toe
-te voegen. Daarna toont het dashboard de lijst met verzamelaars.
+Na het aanmelden controleert het dashboard of dit gezin al verzamelaars heeft.
+Zo niet, dan is dit geen dashboard maar een **inschrijving**, en neemt
+`js/onboarding.js` het hele scherm over met vier stappen:
+
+| Stap | Wat | Waar het landt |
+|---|---|---|
+| 1 Welkom | wat het portaal doet, en dat het ook de inschrijving voor de beurs is | — |
+| 2 Jouw gegevens | voornaam, naam, wijk, "hoe heb je ons gevonden?" | `gezin_leden` + `gezinnen` |
+| 3 Verzamelaars | het bestaande formulier, meermaals te gebruiken | `kinderen` |
+| 4 Controleren | samenvatting, een vinkje "komt mee" per verzamelaar, en waarom dat telt | `aanwezigheden` |
+
+**Waarom een wizard en geen dashboard met losse acties.** Een nieuw gezin moest
+vroeger zelf uitzoeken waar het begon: een kaart die naar `gezin.html` sprong,
+een kaart die een formulier openklapte, en de aanwezigheid ergens onderaan in
+een uitlegblok — precies de drie dingen die een ouder in die volgorde moet doen,
+maar alle drie tegelijk in beeld. Nu staat er per scherm één taak en één
+hoofdknop, en verdwijnen nieuws, statistieken, snelruilen en de openstaande
+acties tijdens de wizard (`[data-naast-wizard]`): voor een gezin zonder
+verzamelaars zijn die toch leeg.
+
+**Waarom de aanwezigheid in stap 4 staat en niet in stap 1.** Het vinkje hoort
+bij een verzamelaar, dus het kan pas bestaan ná stap 3. En de uitleg waarom het
+telt (drie fases, §7c) leest niemand vóór hij weet wat ruilen hier betekent —
+in stap 4 staat ze bij de vraag zelf. De vinkjes staan standaard **aan**: wie
+hier aanmeldt, komt zich inschrijven; wie toch niet komt, haalt er één uit.
+
+**Elke stap bewaart meteen.** "Volgende" in stap 2 schrijft je gegevens weg, en
+een verzamelaar staat in de databank zodra je hem toevoegt — anders kan stap 4
+geen vinkje per verzamelaar tonen en verlies je alles bij een wegvallende
+verbinding. "Vorige" is dus navigeren, geen ongedaan maken. Enkel de
+aanwezigheid wacht op "Opslaan".
+
+**Na "Opslaan" gaat de knop rechtstreeks naar de stickers, niet naar
+`gezin.html`.** Inschrijven is het middel, niet het doel — de gebruiker wil
+zoeken en dubbels registreren, en dat gebeurt op `kind.html`. De knop opent
+daarom de verzameling van het **eerste** kind dat in stap 3 werd toegevoegd
+(`kind.html?id=<id>`), met zijn naam in de knoptekst zodat bij meerdere
+verzamelaars duidelijk is welke er opent — de rest vind je op het dashboard.
+Dat id komt uit de rij die `addKind()` net teruggaf, dus geen extra opzoeking
+nodig. Zonder een aanwijsbaar eerste kind (kan hier niet gebeuren: stap 3 laat
+"Volgende" pas toe vanaf één verzamelaar) blijft de terugval naar
+`/dashboard.html` staan — nooit een blanco scherm.
+
+**Wanneer hij verschijnt.** Zolang `kinderen` leeg is — geen apart vinkje
+"onboarding gedaan". Een tweede ouder die via een uitnodiging in een bestaand
+gezin komt, ziet de wizard dus nooit: die lijst is al gevuld. Wie halverwege
+wegklikt en terugkomt, begint weer bij stap 1 met zijn antwoorden al ingevuld;
+wie na stap 3 wegklikt, heeft verzamelaars en krijgt het gewone dashboard, waar
+"🎫 Komt je verzamelaar mee?" bovenaan hetzelfde vinkje toont.
 
 ## Hoe een land geschreven wordt
 
@@ -1421,7 +1476,12 @@ foto's zeggen daar weinig over.
 - `js/landcombo.js` — de landkeuzelijst waarin je kan typen: knop met
   `role="combobox"` en een eigen `listbox` eronder, omdat een `<select>` zich
   niet laat filteren terwijl hij openstaat.
-- `js/dashboard.js` — dashboard: onboarding-wizard en kinderenlijst.
+- `js/dashboard.js` — dashboard: kinderenlijst, cijfers per verzamelaar en het
+  vinkje "komt mee" per beurs. Heeft het gezin nog geen enkele verzamelaar, dan
+  geeft het het scherm door aan `js/onboarding.js`.
+- `js/onboarding.js` — de inschrijfwizard voor wie voor het eerst aanmeldt:
+  welkom → jouw gegevens → verzamelaars → controleren, en daarna het
+  klaar-scherm. Zie "Eerste login: de inschrijfwizard".
 - `js/ruilen.js` — ruilkansen per verzamelaar, te bekijken *per ruiler* (twee
   kolommen: wat hij voor jou heeft, wat hij van jou wil) of *per land* (wie
   heeft en wie zoekt deze sticker), met live zoeken op ruiler, land en

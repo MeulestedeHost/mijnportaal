@@ -23,9 +23,9 @@
              ingelogde ouder er niet meer bij raken: js/auth.js stuurt hem van "/"
              normaal meteen terug naar het dashboard (het #nieuws-anker is daar de
              uitzondering op). -->
-        <a href="/#nieuws" class="btn btn--outline btn--sm">Nieuws</a>
-        <a href="/statistieken.html" class="btn btn--outline btn--sm">📊 Statistieken</a>
-        <button type="button" class="btn btn--outline btn--sm" data-snelruilen aria-label="Snelruilen"><span aria-hidden="true">⚡</span><span class="snelruil-knop__tekst">Snelruilen</span></button>
+        <a href="/#nieuws" class="btn btn--outline btn--sm" data-naast-wizard>Nieuws</a>
+        <a href="/statistieken.html" class="btn btn--outline btn--sm" data-naast-wizard>📊 Statistieken</a>
+        <button type="button" class="btn btn--outline btn--sm" data-snelruilen data-naast-wizard aria-label="Snelruilen"><span aria-hidden="true">⚡</span><span class="snelruil-knop__tekst">Snelruilen</span></button>
         <a href="/instellingen.html" class="btn btn--outline btn--sm hidden" id="beheer-link">Instellingen</a>
         <a href="/aanwezigheden.html" class="btn btn--outline btn--sm hidden" id="aanwezig-link">🎫 Aanwezigheden</a>
         <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
@@ -39,93 +39,222 @@
 
     <!-- Wat er op jou wacht: dezelfde lijst als 🔔 in de navigatiebalk
          (js/acties.js). Verborgen zolang er niets is. -->
-    <section class="card acties-blok hidden" id="acties-blok" aria-labelledby="acties-blok-titel">
+    <section class="card acties-blok hidden" id="acties-blok" data-naast-wizard aria-labelledby="acties-blok-titel">
       <h2 id="acties-blok-titel">🔔 Openstaande acties</h2>
       <div id="acties-blok-lijst"></div>
     </section>
 
-    <!-- Welkomstscherm: zichtbaar zolang het gezin nog geen enkele verzamelaar
-         heeft (js/dashboard.js). Dat is de toestand van wie voor het eerst
+    <!-- Inschrijfwizard: zichtbaar zolang het gezin nog geen enkele verzamelaar
+         heeft (js/onboarding.js). Dat is de toestand van wie voor het eerst
          aanmeldt; een tweede ouder die aan een bestaand gezin gekoppeld wordt,
-         slaat het terecht over. Een nieuwe stap = een extra <li> in
-         welkom-stappen, verder niets. -->
-    <div id="onboarding" class="welkom hidden">
-      <div class="welkom__kop">
-        <h1 id="welkom-titel">Welkom!</h1>
-        <p class="welkom__subtitel">
-          Je bent succesvol aangemeld bij het Panini Ruilportaal van vzw Meulestede.
-          Om te starten hebben we nog enkele gegevens nodig.
-        </p>
+         slaat de wizard terecht over.
+         Eén scherm per stap, en per scherm één taak: alle panelen staan hier,
+         maar er is er altijd juist één zichtbaar. Een stap bijzetten = een
+         paneel bijzetten en het nummer in de teller aanpassen. -->
+    <div id="onboarding" class="wizard hidden">
+      <div class="wizard__voortgang">
+        <p class="wizard__teller" id="wizard-teller" role="status" aria-live="polite">Stap 1 van 4</p>
+        <ol class="wizard__balk" id="wizard-balk">
+          <li class="wizard__bol wizard__bol--nu"><span class="wizard__bol-nr">1</span><span class="wizard__bol-naam">Welkom</span></li>
+          <li class="wizard__bol"><span class="wizard__bol-nr">2</span><span class="wizard__bol-naam">Jouw gegevens</span></li>
+          <li class="wizard__bol"><span class="wizard__bol-nr">3</span><span class="wizard__bol-naam">Verzamelaars</span></li>
+          <li class="wizard__bol"><span class="wizard__bol-nr">4</span><span class="wizard__bol-naam">Controleren</span></li>
+        </ol>
       </div>
 
-      <ol class="welkom-stappen">
-        <li class="welkom-stap">
-          <h2><span class="welkom-stap__nr">1</span> 👤 Vul je profiel aan</h2>
-          <p>Controleer en vul je gegevens als inschrijver aan: voornaam, naam,
-            wijk of gemeente, en hoe je ons gevonden hebt.</p>
-          <a href="/gezin.html#profiel" class="btn btn--outline welkom-stap__knop">Profiel aanvullen</a>
-        </li>
-        <li class="welkom-stap">
-          <h2><span class="welkom-stap__nr">2</span> ⚽ Voeg een verzamelaar toe</h2>
-          <p>Maak een verzamelaar aan voor elk kind dat stickers verzamelt. Je kan
-            later meerdere verzamelaars toevoegen.</p>
-          <button type="button" class="btn btn--primary welkom-stap__knop" id="welkom-verzamelaar-btn">Verzamelaar toevoegen</button>
-        </li>
-      </ol>
-
-      <section class="card hidden" id="onboarding-kaart" aria-labelledby="onboarding-kaart-titel">
-      <h2 id="onboarding-kaart-titel">⚽ Eerste verzamelaar</h2>
-      <p class="login-card__hint">
-        Jij beheert dit account; je staat zelf niet automatisch in de lijst en hoeft
-        dat ook niet te zijn. Verzamel je zelf ook mee — of ben jij het kind dat zich
-        net aanmeldde? Vink dan “volwassene” aan.
-      </p>
-      <form id="onboarding-form" novalidate>
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="ob-voornaam" class="form-label">Voornaam <span class="required">*</span></label>
-            <input type="text" id="ob-voornaam" class="form-input" required maxlength="100" />
-          </div>
-          <div class="form-group">
-            <label for="ob-familienaam" class="form-label">Familienaam <span class="required">*</span></label>
-            <input type="text" id="ob-familienaam" class="form-input" required maxlength="100" />
-          </div>
-          <div class="form-group" id="ob-geboortejaar-groep">
-            <label for="ob-geboortejaar" class="form-label">Geboortejaar <span class="required">*</span></label>
-            <input type="number" id="ob-geboortejaar" class="form-input" min="1900" max="2100" />
-          </div>
+      <!-- ---------- stap 1: welkom ---------- -->
+      <section class="card wizard__stap" id="wizard-stap-1" aria-labelledby="welkom-titel">
+        <h1 class="wizard__titel" id="welkom-titel">Welkom!</h1>
+        <p class="wizard__lead">
+          Je bent succesvol aangemeld bij het Panini Ruilportaal van vzw Meulestede.
+        </p>
+        <!-- js/onboarding.js zet hier de naam en de datum van de eerstvolgende
+             beurs in. Zonder databank of zonder gepland event blijft deze zin
+             staan, en die klopt dan ook. -->
+        <p class="wizard__lead" id="wizard-beurs">
+          Dit portaal dient ook als inschrijving voor de volgende Panini Ruilbeurs.
+        </p>
+        <p class="wizard__lead">Via dit portaal kan je:</p>
+        <ul class="wizard__lijst">
+          <li>verzamelingen beheren</li>
+          <li>stickers zoeken en dubbels registreren</li>
+          <li>automatisch ruilvoorstellen ontvangen</li>
+          <li>deelnemen aan de ruilbeurs</li>
+        </ul>
+        <p class="form-meta">
+          In drie korte stappen ben je klaar. Wie er naar de beurs meegaat, duid
+          je in de laatste stap aan — daar staat ook waarom dat telt.
+        </p>
+        <div class="wizard__knoppen">
+          <button type="button" class="btn btn--primary btn--wizard" data-wizard-verder="2">Volgende</button>
         </div>
-        <label class="checkbox-rij">
-          <input type="checkbox" id="ob-volwassen" />
-          <span>Dit is een volwassene — geboortejaar niet nodig</span>
-        </label>
-        <button type="submit" class="btn btn--primary" id="ob-submit-btn">Kind toevoegen</button>
-      </form>
-      <div id="onboarding-message" class="message" role="alert" aria-live="polite"></div>
       </section>
 
-      <section class="card welkom__uitleg">
-        <h2>Hoe werkt het?</h2>
-        <ol class="welkom__lijst">
-          <li>Vul eerst je profiel aan.</li>
-          <li>Voeg één of meer verzamelaars toe.</li>
-          <li>Duid aan welke stickers je zoekt of dubbel hebt.</li>
-          <li>Ontdek automatisch jouw beste ruilkansen.</li>
-        </ol>
+      <!-- ---------- stap 2: jouw gegevens ---------- -->
+      <section class="card wizard__stap hidden" id="wizard-stap-2" aria-labelledby="wizard-stap-2-titel">
+        <h1 class="wizard__titel" id="wizard-stap-2-titel">Jouw gegevens</h1>
+        <p class="wizard__lead">
+          Dit zijn jouw gegevens als inschrijver. De verzamelaars zelf voeg je in
+          de volgende stap toe.
+        </p>
+        <form id="wizard-gegevens-form" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="wz-voornaam" class="form-label">Jouw voornaam <span class="required">*</span></label>
+              <input type="text" id="wz-voornaam" class="form-input" required maxlength="100" autocomplete="given-name" />
+            </div>
+            <div class="form-group">
+              <label for="wz-familienaam" class="form-label">Jouw naam <span class="required">*</span></label>
+              <input type="text" id="wz-familienaam" class="form-input" required maxlength="100" autocomplete="family-name" />
+            </div>
+            <div class="form-group">
+              <label for="wz-wijk" class="form-label">Wijk of gemeente</label>
+              <input type="text" id="wz-wijk" class="form-input" maxlength="80"
+                     placeholder="bv. Muide, Ledeberg, of Destelbergen" autocomplete="address-level2" />
+              <p class="form-meta">
+                Andere gezinnen zien je voornaam en deze wijk bij een ruilkans, zodat
+                buren elkaar vinden. Laat je het leeg, dan staat er niets over jouw
+                gezin bij.
+              </p>
+            </div>
+          </div>
 
-        <h3>🎫 Aanwezigheid aanduiden</h3>
-        <p class="form-meta">
-          Ga je naar de ruilbeurs? Dan duid je op dit dashboard, onder
-          <em>Komt je verzamelaar mee?</em>, per verzamelaar aan wie er meegaat.
-          Dat blok verschijnt zodra je een verzamelaar hebt en er een beurs gepland is.
+          <!-- Verdwijnt zolang migratie 026 niet gedraaid is (js/onboarding.js). -->
+          <div id="wz-gevonden-kaart">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="wz-gevonden" class="form-label">Hoe heb je ons gevonden?</label>
+                <select id="wz-gevonden" class="form-input">
+                  <option value="">Liever niet zeggen</option>
+                </select>
+                <p class="form-meta">
+                  Eén vraag voor de organisatie: zo weten we welke aankondiging werkt.
+                  Overslaan mag, en we tellen enkel de aantallen.
+                </p>
+              </div>
+              <div class="form-group hidden" id="wz-gevonden-ander-groep">
+                <label for="wz-gevonden-ander" class="form-label">Vertel het ons kort</label>
+                <input type="text" id="wz-gevonden-ander" class="form-input" maxlength="120"
+                       placeholder="bv. via de sportclub" autocomplete="off" />
+              </div>
+            </div>
+          </div>
+
+          <div id="wizard-gegevens-message" class="message" role="alert" aria-live="polite"></div>
+          <div class="wizard__knoppen">
+            <button type="button" class="btn btn--outline btn--wizard" data-wizard-terug="1">Vorige</button>
+            <button type="submit" class="btn btn--primary btn--wizard" id="wz-gegevens-btn">Volgende</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ---------- stap 3: verzamelaars ---------- -->
+      <section class="card wizard__stap hidden" id="wizard-stap-3" aria-labelledby="wizard-stap-3-titel">
+        <h1 class="wizard__titel" id="wizard-stap-3-titel">Voeg je eerste verzamelaar toe</h1>
+        <p class="wizard__lead">
+          Maak een verzamelaar aan voor elk kind dat stickers verzamelt. Jij beheert
+          dit account en staat zelf niet automatisch in de lijst. Verzamel je zelf
+          mee — of ben jij het kind dat zich net aanmeldde? Vink dan “volwassene” aan.
         </p>
-        <p class="form-meta">
-          Waarom? In de dagen voor de beurs krijg je enkel ruilvoorstellen van
-          verzamelaars die ook zeiden dat ze komen — en zien zij jou enkel als jij
-          dat ook aanduidde. Op de beursdag zelf telt wie aan de inkom afgevinkt
-          werd. Buiten die periode zie je gewoon iedereen. Ruilen registreren
-          blijft altijd mogelijk.
+
+        <ul id="wz-verzamelaars" class="kinderen-list wizard__verzamelaars"></ul>
+
+        <form id="wizard-verzamelaar-form" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="wz-kind-voornaam" class="form-label">Voornaam <span class="required">*</span></label>
+              <input type="text" id="wz-kind-voornaam" class="form-input" required maxlength="100" />
+            </div>
+            <div class="form-group">
+              <label for="wz-kind-familienaam" class="form-label">Familienaam <span class="required">*</span></label>
+              <input type="text" id="wz-kind-familienaam" class="form-input" required maxlength="100" />
+            </div>
+            <div class="form-group" id="wz-kind-geboortejaar-groep">
+              <label for="wz-kind-geboortejaar" class="form-label">Geboortejaar <span class="required">*</span></label>
+              <input type="number" id="wz-kind-geboortejaar" class="form-input" min="1900" max="2100" />
+            </div>
+          </div>
+          <label class="checkbox-rij">
+            <input type="checkbox" id="wz-kind-volwassen" />
+            <span>Dit is een volwassene — geboortejaar niet nodig</span>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--outline" id="wz-kind-btn">＋ Verzamelaar toevoegen</button>
+          </div>
+        </form>
+
+        <div id="wizard-verzamelaar-message" class="message" role="alert" aria-live="polite"></div>
+        <div class="wizard__knoppen">
+          <button type="button" class="btn btn--outline btn--wizard" data-wizard-terug="2">Vorige</button>
+          <button type="button" class="btn btn--primary btn--wizard" data-wizard-verder="4">Volgende</button>
+        </div>
+      </section>
+
+      <!-- ---------- stap 4: controleren ---------- -->
+      <section class="card wizard__stap hidden" id="wizard-stap-4" aria-labelledby="wizard-stap-4-titel">
+        <h1 class="wizard__titel" id="wizard-stap-4-titel">Controleren</h1>
+
+        <div class="wizard__blok">
+          <h2 class="wizard__bloktitel">Inschrijver</h2>
+          <p class="wizard__samenvatting" id="wz-samen-inschrijver"></p>
+        </div>
+
+        <div class="wizard__blok" id="wz-samen-gevonden-blok">
+          <h2 class="wizard__bloktitel">Hoe gevonden?</h2>
+          <p class="wizard__samenvatting" id="wz-samen-gevonden"></p>
+        </div>
+
+        <div class="wizard__blok">
+          <h2 class="wizard__bloktitel">Verzamelaars</h2>
+          <ul class="wizard__samenvatting-lijst" id="wz-samen-verzamelaars"></ul>
+        </div>
+
+        <!-- Staat er geen beurs in de kalender, dan blijft dit blok weg: een
+             vinkje "komt mee" zonder beurs om naartoe te komen zegt niets. -->
+        <div class="wizard__blok hidden" id="wz-aanwezig-blok">
+          <h2 class="wizard__bloktitel" id="wz-aanwezig-titel">Wie komt mee naar de beurs?</h2>
+          <div id="wz-aanwezig-events"></div>
+        </div>
+
+        <div class="wizard__blok wizard__blok--uitleg" id="wz-waarom">
+          <h2 class="wizard__bloktitel">Waarom vragen we dit?</h2>
+          <p class="form-meta" id="wz-waarom-voor">
+            Voor de beurs zie je enkel ruilvoorstellen van verzamelaars die hebben
+            aangeduid dat ze aanwezig zullen zijn — en zien zij jou enkel als jij
+            dat ook aanduidde.
+          </p>
+          <p class="form-meta">
+            Tijdens de beurs worden enkel verzamelaars getoond die aan de inkom zijn
+            aangemeld.
+          </p>
+          <p class="form-meta">
+            Na de beurs verdwijnen die beperkingen automatisch en kan iedereen
+            opnieuw met elkaar ruilen. Een ruil registreren kan altijd, ook met
+            iemand die niets aanduidde.
+          </p>
+        </div>
+
+        <div id="wizard-opslaan-message" class="message" role="alert" aria-live="polite"></div>
+        <div class="wizard__knoppen">
+          <button type="button" class="btn btn--outline btn--wizard" data-wizard-terug="3">Vorige</button>
+          <button type="button" class="btn btn--primary btn--wizard" id="wz-opslaan-btn">Opslaan</button>
+        </div>
+      </section>
+
+      <!-- ---------- klaar ---------- -->
+      <!-- js/onboarding.js vult de tekst en de knop in: welke verzamelaar
+           opent, hangt af van wie er als eerste werd toegevoegd. De tekst
+           hieronder is enkel de terugval voor het ogenblik vóór dat script
+           draait, en voor het geval er onverwacht geen verzamelaar te vinden
+           is — nooit een blanco scherm. -->
+      <section class="card wizard__stap hidden" id="wizard-klaar" aria-labelledby="wizard-klaar-titel">
+        <h1 class="wizard__titel" id="wizard-klaar-titel">✅ Je account is klaar voor gebruik.</h1>
+        <p class="wizard__lead" id="wizard-klaar-tekst">
+          Je kan nu de stickers van je verzamelaar(s) invullen.
         </p>
+        <div class="wizard__knoppen">
+          <a href="/dashboard.html" class="btn btn--primary btn--wizard" id="wizard-klaar-knop">Naar mijn dashboard</a>
+        </div>
       </section>
     </div>
 
@@ -235,6 +364,8 @@
   <script type="module" src="/js/snelruilen.js"></script>
   <script type="module" src="/js/acties.js"></script>
   <script type="module" src="/js/kinderen.js"></script>
+  <!-- js/onboarding.js (de inschrijfwizard) hangt aan dashboard.js: die weet
+       als enige of dit gezin al een verzamelaar heeft. -->
   <script type="module" src="/js/dashboard.js"></script>
   <script type="module" src="/js/wereldreis-widget.js"></script>
 </body>
