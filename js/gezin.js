@@ -11,6 +11,7 @@
 // Wat de pagina toont is presentatie; wie wat mag, beslist RLS in sql/009.
 import { supabase, requireAuth } from "./supabase.js";
 import { normaliseerTelefoon, toonTelefoon, toonOrganisatorKnop } from "./whatsapp.js";
+import { HOE_GEVONDEN, ANDERE } from "./hoe-gevonden.js";
 
 const MIGRATIE_HINT =
   "De gezinsfuncties bestaan nog niet in de database — draai sql/009_gezin_en_whatsapp.sql in Supabase.";
@@ -44,6 +45,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("naam-form").addEventListener("submit", bewaarNaam);
   document.getElementById("wijk-form").addEventListener("submit", bewaarWijk);
   document.getElementById("contact-form").addEventListener("submit", bewaarContact);
+  document.getElementById("gevonden-form").addEventListener("submit", bewaarGevonden);
+  document.getElementById("gevonden-keuze").addEventListener("change", toonAnderVeld);
   toonOrganisatorKnop("organisator-knop", "💬 WhatsApp de organisator");
 });
 
@@ -86,6 +89,7 @@ function teken() {
   vulNaamFormulier();
   vulWijkFormulier();
   vulContactFormulier();
+  vulGevondenFormulier();
 
   // Zolang er nog plaats is, blijft het formulier staan; anders zou je een
   // knop aanbieden die de database toch weigert.
@@ -205,6 +209,38 @@ function vulWijkFormulier() {
 function vulContactFormulier() {
   document.getElementById("contact-telefoon").value = gezin ? toonTelefoon(gezin.telefoon) : "";
   document.getElementById("contact-delen").checked = Boolean(gezin && gezin.telefoon_delen);
+}
+
+// De keuzelijst bestaat pas na sql/026. Ontbreekt de kolom, dan blijft de hele
+// kaart weg in plaats van een veld te tonen dat niets bewaart.
+function vulGevondenFormulier() {
+  const kaart = document.getElementById("gevonden-kaart");
+  if (!gezin || !("hoe_gevonden" in gezin)) {
+    kaart.classList.add("hidden");
+    return;
+  }
+
+  const keuze = document.getElementById("gevonden-keuze");
+  if (keuze.options.length <= 1) {
+    HOE_GEVONDEN.forEach(([waarde, opschrift]) => {
+      const optie = document.createElement("option");
+      optie.value = waarde;
+      optie.textContent = opschrift;
+      keuze.appendChild(optie);
+    });
+  }
+
+  keuze.value = gezin.hoe_gevonden || "";
+  document.getElementById("gevonden-ander").value = gezin.hoe_gevonden_ander || "";
+  toonAnderVeld();
+  kaart.classList.remove("hidden");
+}
+
+// Het tekstveld hoort enkel bij "Andere": altijd tonen maakt van één vraag er
+// twee, en dan vult niemand er nog één in.
+function toonAnderVeld() {
+  const anders = document.getElementById("gevonden-keuze").value === ANDERE;
+  document.getElementById("gevonden-ander-groep").classList.toggle("hidden", !anders);
 }
 
 // ---------- acties ----------
@@ -329,6 +365,38 @@ async function bewaarWijk(e) {
     await laadAlles();
     teken();
     toonMelding(messageEl, "Opgeslagen.", "success");
+  } catch (err) {
+    toonMelding(messageEl, foutTekst(err), "error");
+  }
+  knop.disabled = false;
+  knop.textContent = "Opslaan";
+}
+
+async function bewaarGevonden(e) {
+  e.preventDefault();
+  const messageEl = document.getElementById("gevonden-message");
+  const keuze = document.getElementById("gevonden-keuze").value;
+  const toelichting = document.getElementById("gevonden-ander").value.trim();
+
+  const knop = document.getElementById("gevonden-btn");
+  knop.disabled = true;
+  knop.textContent = "Opslaan…";
+  try {
+    const gezinId = await verzekerGezin();
+    const { error } = await supabase
+      .from("gezinnen")
+      .update({
+        hoe_gevonden: keuze || null,
+        // De toelichting hoort bij "Andere". Kiest iemand achteraf iets anders,
+        // dan verdwijnt ze mee — anders blijft er een zin staan bij een antwoord
+        // waar hij niets mee te maken heeft.
+        hoe_gevonden_ander: keuze === ANDERE && toelichting ? toelichting : null,
+      })
+      .eq("id", gezinId);
+    if (error) throw error;
+    await laadAlles();
+    teken();
+    toonMelding(messageEl, "Bedankt, dat helpt ons vooruit.", "success");
   } catch (err) {
     toonMelding(messageEl, foutTekst(err), "error");
   }

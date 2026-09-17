@@ -57,6 +57,7 @@ import {
 } from "./ruilbundel.js";
 import { openSnelruilen } from "./snelruilen.js";
 import { ACTIES_EVENT, wachtOpMij } from "./acties.js";
+import { haalEvent, wanneer, datumVoluit, uur } from "./beurs.js";
 import {
   zetLandLabel,
   accentVoor,
@@ -176,6 +177,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // het anker uit de link (#ruil-te-bevestigen).
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: "start" });
   void toonBeheer();
+  void toonAanwezigheidsMelding();
 });
 
 // ---------- gegevens ----------
@@ -345,6 +347,7 @@ function koppelFilters() {
       return;
     }
     teken();
+    void toonAanwezigheidsMelding();
   });
 
   document.getElementById("ruil-zoek").addEventListener("input", (e) => {
@@ -378,41 +381,78 @@ function rijMatcht(rij) {
 
 // ---------- beursvenster ----------
 
+// De drie fases komen uit de databank (js/beurs.js → public.huidig_event), niet
+// uit een berekening hier: get_matches() filtert op diezelfde klok, en een
+// pagina die zelf rekent gaat vroeg of laat iets anders beweren dan wat ze toont.
+let huidigEvent = null;
+
 async function toonVenster() {
   const el = document.getElementById("ruil-venster");
-  let start;
-  let einde;
-  try {
-    const { data, error } = await supabase
-      .from("instellingen")
-      .select("beurs_start,beurs_einde")
-      .eq("id", 1)
-      .single();
-    if (error) throw error;
-    start = new Date(data.beurs_start);
-    einde = new Date(data.beurs_einde);
-  } catch (err) {
-    el.textContent = "Het beursvenster kon niet opgehaald worden.";
+  huidigEvent = await haalEvent();
+
+  if (!huidigEvent.start || !huidigEvent.einde) {
+    el.className = "ruil-venster ruil-venster--open";
+    el.textContent =
+      "Er staat momenteel geen ruilbeurs gepland. Ruilen kan gewoon verder: je ziet iedereen met wie je kan ruilen.";
     return;
   }
 
-  const nu = new Date();
-  const opmaak = new Intl.DateTimeFormat("nl-BE", { dateStyle: "full", timeStyle: "short" });
-  const uur = new Intl.DateTimeFormat("nl-BE", { timeStyle: "short" });
-
+  const wanneerTekst = wanneer(huidigEvent);
   el.className = "ruil-venster ruil-venster--open";
-  if (nu < start) {
-    el.textContent = `De ruilbeurs begint op ${opmaak.format(start)} en sluit om ${uur.format(
-      einde
-    )}. Je ziet nu al de voornaam — en de wijk, als die is ingevuld — van wie elke sticker heeft: woon je in dezelfde buurt, dan kan je nu al onderling ruilen. E-mail en WhatsApp komen erbij zodra de beurs voorbij is.`;
-  } else if (nu < einde) {
-    el.textContent = `De ruilbeurs is bezig — nog tot ${uur.format(
-      einde
-    )}. Je ziet de voornaam en de wijk van wie elke sticker heeft; e-mail en WhatsApp komen erbij zodra de beurs voorbij is.`;
+
+  if (huidigEvent.fase === "tijdens") {
+    el.textContent = `${huidigEvent.naam} is bezig — nog tot ${uur(
+      huidigEvent.einde
+    )}. Je ziet enkel verzamelaars die aan de inkom aangemeld zijn: wie hier vandaag rondloopt. E-mail en WhatsApp komen terug zodra de beurs gedaan is.`;
+  } else if (huidigEvent.fase === "voor") {
+    el.textContent = `${huidigEvent.naam}: ${wanneerTekst}. Je ziet nu enkel verzamelaars die aangeduid hebben dat ze komen — zo plan je je ruilronde met wie er effectief zal zijn. E-mail en WhatsApp komen terug zodra de beurs gedaan is.`;
+  } else if (huidigEvent.start > new Date()) {
+    el.textContent = `${huidigEvent.naam}: ${wanneerTekst}. Je ziet voorlopig iedereen met wie je kan ruilen, met voornaam en wijk. Vanaf de aanloop naar de beurs blijven enkel de verzamelaars over die aangeduid hebben dat ze komen.`;
   } else {
-    el.textContent = `De ruilbeurs van ${opmaak.format(
-      start
+    el.textContent = `${huidigEvent.naam} van ${datumVoluit(
+      huidigEvent.start
     )} is voorbij, maar ruilen kan gewoon verder: je ziet nu ook het e-mailadres (en eventueel WhatsApp) van wie je nog kan ruilen.`;
+  }
+}
+
+// Waarom zie ik er zo weinig? Zonder deze melding is een gefilterde lijst niet
+// te onderscheiden van een lege lijst, en dat is precies het soort stille
+// verdwijning waar een kind niets van begrijpt.
+//
+// Enkel de TEGENPARTIJ wordt gefilterd (sql/025): wie zelf niets aanduidde,
+// ziet nog altijd alles wat er te zien valt. De melding legt uit wat hij mist.
+async function toonAanwezigheidsMelding() {
+  const el = document.getElementById("ruil-aanwezig");
+  if (!el || !huidigEvent) return;
+
+  if (huidigEvent.fase === "open" || !huidigEvent.id) {
+    el.classList.add("hidden");
+    return;
+  }
+
+  let komt = false;
+  try {
+    const { data, error } = await supabase
+      .from("aanwezigheden")
+      .select("komt")
+      .eq("event_id", huidigEvent.id)
+      .eq("kind_id", actiefKindId)
+      .maybeSingle();
+    if (error) throw error;
+    komt = Boolean(data && data.komt);
+  } catch (err) {
+    el.classList.add("hidden");
+    return;
+  }
+
+  const naam = (actiefKind() || {}).voornaam || "deze verzamelaar";
+  el.classList.remove("hidden");
+  el.className = "ruil-venster ruil-aanwezig";
+  if (komt) {
+    el.textContent = `${naam} staat genoteerd voor ${huidigEvent.naam}. Je ziet hieronder de verzamelaars die er ook zullen zijn.`;
+  } else {
+    el.className = "ruil-venster ruil-aanwezig ruil-aanwezig--let-op";
+    el.textContent = `${naam} staat nog niet genoteerd voor ${huidigEvent.naam}. Duid dat aan op het dashboard, anders zien de anderen jou niet in hun ruilplanner.`;
   }
 }
 

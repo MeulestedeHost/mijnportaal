@@ -1568,3 +1568,51 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
      schuift ze vanzelf terug. */
   .stat-cijfer:focus-within { grid-column: 1 / -1; }
 }
+
+/* ============================================================
+   Aanwezigheid per ruilbeurs (sql/025)
+   ============================================================ */
+
+/* Op de ruilpagina, onder het beursvenster: waarom de lijst korter is dan
+   gewoonlijk. Blauw als het in orde is, oranje als er iets van jou verwacht
+   wordt — nooit rood, want er is niets stuk. */
+.ruil-aanwezig { background: var(--cf-blue-light); border-color: #cbdff7; color: var(--cf-blue-dark); font-weight: 600; }
+.ruil-aanwezig--let-op { background: #fff6e8; border-color: #f3d9b0; color: #8a5200; }
+
+/* Op het dashboard: een vinkje per verzamelaar per komende beurs. */
+.aanwezig-blok .aanwezig-event + .aanwezig-event { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+.aanwezig-event__titel { font-size: 1rem; margin-bottom: 0.5rem; }
+.aanwezig-lijst { list-style: none; }
+/* De vinkjes staan dicht bij elkaar: het is één vraag met meerdere antwoorden,
+   geen reeks losse instellingen. De marge van .checkbox-rij is daarvoor te
+   ruim. */
+.aanwezig-lijst .checkbox-rij { margin-bottom: 0.35rem; }
+
+/* ============================================================
+   Aanwezighedenpagina (organisatie)
+   ============================================================ */
+
+.aanwezig-balk { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+.aanwezig-balk__zoek { flex: 1 1 220px; }
+.aanwezig-telling { font-size: 0.9rem; color: var(--text-muted); }
+
+/* Een tabel met een kolom per event groeit in de breedte mee met het aantal
+   edities. Op een telefoon schuift ze horizontaal in plaats van de pagina mee
+   te sleuren. */
+.aanwezig-tabel-wrap { overflow-x: auto; }
+.aanwezig-tabel { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.aanwezig-tabel th, .aanwezig-tabel td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+.aanwezig-tabel th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--text-muted); white-space: nowrap; }
+.aanwezig-tabel th.aanwezig-kol { text-align: center; }
+.aanwezig-tabel td.aanwezig-kol { text-align: center; }
+.aanwezig-tabel tbody tr:hover { background: var(--cf-blue-light); }
+.aanwezig-tabel__naam { font-weight: 600; }
+.aanwezig-tabel__ouder { color: var(--text-muted); }
+.aanwezig-tabel input[type='checkbox'] { width: 1.15rem; height: 1.15rem; accent-color: var(--success); }
+
+/* Een afgelopen event kan niet meer afgevinkt worden: dan staat er een teken
+   in plaats van een vinkje, zodat de historiek leesbaar blijft zonder te doen
+   alsof ze nog bewerkbaar is. */
+.aanwezig-vast { color: var(--success); font-weight: 700; }
+.aanwezig-leeg { color: var(--text-muted); }
+.aanwezig-gepland { color: var(--cf-blue-dark); font-weight: 700; }

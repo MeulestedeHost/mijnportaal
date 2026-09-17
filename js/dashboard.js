@@ -9,9 +9,11 @@
 import { requireAuth, supabase } from "./supabase.js";
 import { loadKinderen, addKind, updateKind, deleteKind, isValidGeboortejaar } from "./kinderen.js";
 import { toonOrganisatorKnop } from "./whatsapp.js";
+import { haalKomendeEvents, datumVoluit, uur } from "./beurs.js";
 
 let user;
 let statistieken = new Map(); // kind_id -> { zoekt, dubbel, matches }
+let aanwezigheid = new Map(); // "event_id|kind_id" -> true zolang "wij komen"
 
 document.addEventListener("DOMContentLoaded", async () => {
   const onboarding = document.getElementById("onboarding");
@@ -63,7 +65,10 @@ async function toonBeheerLink() {
   try {
     const { data, error } = await supabase.rpc("is_beheerder");
     if (error) throw error;
-    if (data) document.getElementById("beheer-link").classList.remove("hidden");
+    if (data) {
+      document.getElementById("beheer-link").classList.remove("hidden");
+      document.getElementById("aanwezig-link").classList.remove("hidden");
+    }
   } catch (err) {
     /* functie bestaat nog niet (sql/007) — link blijft gewoon verborgen */
   }
@@ -130,10 +135,121 @@ async function refreshKinderen() {
 
   mainDashboard.classList.remove("hidden");
   // Volwassenen onderaan: de kinderen zijn de hoofdmoot van de beurs.
-  kinderen
+  const gesorteerd = kinderen
     .slice()
-    .sort((a, b) => Number(a.is_volwassen) - Number(b.is_volwassen))
-    .forEach((kind) => kinderenUl.appendChild(bouwKindRij(kind)));
+    .sort((a, b) => Number(a.is_volwassen) - Number(b.is_volwassen));
+  gesorteerd.forEach((kind) => kinderenUl.appendChild(bouwKindRij(kind)));
+
+  // Los van de rest: staat sql/025 er nog niet, dan blijft het blok verborgen
+  // en merkt het dashboard er niets van.
+  void toonAanwezigheid(gesorteerd);
+}
+
+// ---------- komt je verzamelaar mee? ----------
+
+// WAAROM DIT HIER STAAT EN NIET OP DE RUILPAGINA. Het is een gegeven van de
+// verzamelaar, geen ruilhandeling — en dit is de enige pagina waar je al je
+// verzamelaars naast elkaar ziet. Eén vinkje per kind per beurs.
+//
+// De keuze telt pas echt vanaf filter_dagen_vooraf dagen voor de beurs
+// (sql/025); daarvoor verandert er voor niemand iets. Dat staat er ook bij:
+// een vinkje waarvan je niet weet wat het doet, zet je niet.
+async function toonAanwezigheid(kinderen) {
+  const blok = document.getElementById("aanwezig-blok");
+  if (!blok) return;
+
+  const events = await haalKomendeEvents();
+  if (!events.length) return;
+
+  await laadAanwezigheid(events);
+
+  const uitleg = document.getElementById("aanwezig-uitleg");
+  uitleg.textContent =
+    "Duid aan wie er meegaat. In de aanloop naar de beurs zien andere " +
+    "verzamelaars enkel wie aangeduid heeft dat hij komt — en zie jij enkel hen.";
+
+  const houder = document.getElementById("aanwezig-events");
+  houder.textContent = "";
+  events.forEach((ev) => houder.appendChild(bouwEventBlok(ev, kinderen)));
+  blok.classList.remove("hidden");
+}
+
+async function laadAanwezigheid(events) {
+  aanwezigheid = new Map();
+  try {
+    const { data, error } = await supabase
+      .from("aanwezigheden")
+      .select("event_id,kind_id,komt")
+      .in("event_id", events.map((e) => e.id));
+    if (error) throw error;
+    (data || []).forEach((rij) => {
+      if (rij.komt) aanwezigheid.set(`${rij.event_id}|${rij.kind_id}`, true);
+    });
+  } catch (err) {
+    /* nog geen tabel (sql/025) of niets aangeduid — alles staat gewoon uit */
+  }
+}
+
+function bouwEventBlok(ev, kinderen) {
+  const groep = document.createElement("div");
+  groep.className = "aanwezig-event";
+
+  const titel = document.createElement("h3");
+  titel.className = "aanwezig-event__titel";
+  titel.textContent = `${ev.naam} — ${datumVoluit(ev.start)}, ${uur(ev.start)}–${uur(ev.einde)}`;
+  groep.appendChild(titel);
+
+  const lijst = document.createElement("ul");
+  lijst.className = "aanwezig-lijst";
+  kinderen.forEach((kind) => lijst.appendChild(bouwAanwezigRij(ev, kind)));
+  groep.appendChild(lijst);
+  return groep;
+}
+
+function bouwAanwezigRij(ev, kind) {
+  const li = document.createElement("li");
+  const label = document.createElement("label");
+  label.className = "checkbox-rij";
+
+  const vinkje = document.createElement("input");
+  vinkje.type = "checkbox";
+  vinkje.checked = aanwezigheid.has(`${ev.id}|${kind.id}`);
+  vinkje.addEventListener("change", () => zetAanwezigheid(ev, kind, vinkje));
+
+  const tekst = document.createElement("span");
+  tekst.textContent = `${kind.voornaam} ${kind.familienaam} komt mee`;
+
+  label.append(vinkje, tekst);
+  li.appendChild(label);
+  return li;
+}
+
+// Het vinkje gaat meteen naar de databank: een aparte opslaan-knop op een
+// lijstje vinkjes is precies het soort knop dat niemand indrukt.
+async function zetAanwezigheid(ev, kind, vinkje) {
+  const melding = document.getElementById("aanwezig-message");
+  const aan = vinkje.checked;
+  vinkje.disabled = true;
+  try {
+    const { error } = await supabase.rpc("aanwezigheid_zetten", {
+      p_kind_id: kind.id,
+      p_event_id: ev.id,
+      p_komt: aan,
+    });
+    if (error) throw error;
+    if (aan) aanwezigheid.set(`${ev.id}|${kind.id}`, true);
+    else aanwezigheid.delete(`${ev.id}|${kind.id}`);
+    melding.textContent = aan
+      ? `${kind.voornaam} staat genoteerd voor ${ev.naam}.`
+      : `${kind.voornaam} staat niet meer genoteerd voor ${ev.naam}.`;
+    melding.className = "message message--show message--success";
+  } catch (err) {
+    vinkje.checked = !aan; // terug naar wat de databank effectief weet
+    melding.textContent = "Kon dit niet bewaren: " + err.message;
+    melding.className = "message message--show message--error";
+  } finally {
+    vinkje.disabled = false;
+  }
 }
 
 function bouwKindRij(kind) {

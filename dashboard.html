@@ -27,6 +27,7 @@
         <a href="/statistieken.html" class="btn btn--outline btn--sm">📊 Statistieken</a>
         <button type="button" class="btn btn--outline btn--sm" data-snelruilen aria-label="Snelruilen"><span aria-hidden="true">⚡</span><span class="snelruil-knop__tekst">Snelruilen</span></button>
         <a href="/instellingen.html" class="btn btn--outline btn--sm hidden" id="beheer-link">Instellingen</a>
+        <a href="/aanwezigheden.html" class="btn btn--outline btn--sm hidden" id="aanwezig-link">🎫 Aanwezigheden</a>
         <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
       </div>
     </div>
@@ -89,6 +90,16 @@
           <a href="/gezin.html" class="btn btn--outline">👪 Ons gezin</a>
         </div>
       </div>
+
+      <!-- Wie gaat er mee naar de volgende ruilbeurs? Wordt gevuld zodra er een
+           event in de kalender staat (sql/025); zonder events blijft dit blok
+           verborgen. -->
+      <section class="card aanwezig-blok hidden" id="aanwezig-blok" aria-labelledby="aanwezig-titel">
+        <h2 id="aanwezig-titel">🎫 Komt je verzamelaar mee?</h2>
+        <p class="form-meta" id="aanwezig-uitleg"></p>
+        <div id="aanwezig-events"></div>
+        <div id="aanwezig-message" class="message" role="status" aria-live="polite"></div>
+      </section>
 
       <div id="kind-form-container" class="card hidden">
         <h2 id="kind-form-title">Nieuwe verzamelaar</h2>

@@ -15,6 +15,7 @@
       </a>
       <div class="navbar__actions">
         <a href="/dashboard.html" class="btn btn--outline btn--sm">← Dashboard</a>
+        <a href="/aanwezigheden.html" class="btn btn--outline btn--sm">🎫 Aanwezigheden</a>
         <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
       </div>
     </div>
@@ -38,31 +39,89 @@
         <h1>Instellingen</h1>
       </div>
 
+      <!-- De ruilbeurzen staan buiten het instellingenformulier: elke rij wordt
+           apart bewaard, en de historiek mag niet verdwijnen omdat iemand op
+           "wijzigingen ongedaan maken" klikt. -->
+      <section class="card" id="inst-events-kaart">
+        <h2>Ruilbeurzen</h2>
+        <p class="form-meta">
+          Elke ruilbeurs staat hier apart, ook de voorbije: die lijst is de historiek van
+          de aanwezigheden en hoort dus nooit leeggemaakt te worden. De eerstvolgende beurs
+          bepaalt in welke fase het portaal staat — zie <a href="/aanwezigheden.html">Aanwezigheden</a>
+          voor wie er komt (<code>sql/025_events_en_aanwezigheid.sql</code>).
+        </p>
+        <p class="form-meta">
+          De voornaam van het andere kind — en zijn wijk of gemeente, indien ingevuld —
+          staat er altijd bij zolang er geen beurs in aantocht is: zo kunnen buren
+          onderling ruilen zonder op de beursdag te wachten
+          (<code>sql/015_wijk_en_altijd_naam.sql</code>). Het <strong>e-mailadres</strong>
+          en, indien gedeeld, het <strong>WhatsApp-nummer</strong> verdwijnen samen met de
+          niet-aanwezigen zodra de aanloop naar een beurs begint, en komen terug zodra die
+          beurs gedaan is. Die grens ligt in de database, dus ook wie de API rechtstreeks
+          aanspreekt komt er niet omheen.
+        </p>
+
+        <div class="aanwezig-tabel-wrap">
+          <table class="aanwezig-tabel" id="inst-events">
+            <thead>
+              <tr>
+                <th>Naam</th>
+                <th>Start</th>
+                <th>Einde</th>
+                <th>Actie</th>
+              </tr>
+            </thead>
+            <tbody id="inst-events-rijen"></tbody>
+          </table>
+        </div>
+
+        <h3 class="aanwezig-event__titel">Ruilbeurs toevoegen</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="inst-ev-naam" class="form-label">Naam <span class="required">*</span></label>
+            <input type="text" id="inst-ev-naam" class="form-input" maxlength="80"
+                   placeholder="Ruilbeurs oktober" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="inst-ev-start" class="form-label">Start <span class="required">*</span></label>
+            <input type="datetime-local" id="inst-ev-start" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label for="inst-ev-einde" class="form-label">Einde <span class="required">*</span></label>
+            <input type="datetime-local" id="inst-ev-einde" class="form-input" />
+          </div>
+        </div>
+        <button type="button" class="btn btn--primary" id="inst-ev-toevoegen">Ruilbeurs toevoegen</button>
+        <p id="inst-status" class="inst-status"></p>
+        <div id="inst-events-message" class="message" role="alert" aria-live="polite"></div>
+      </section>
+
       <form id="inst-form" novalidate>
         <section class="card">
-          <h2>Wanneer staat de ruilmodule open?</h2>
+          <h2>Filter op aanwezigen</h2>
           <p class="form-meta">
-            De voornaam van het andere kind — en zijn wijk of gemeente, indien ingevuld —
-            staat er altijd bij, ook vóór dit venster: zo kunnen buren al onderling ruilen
-            zonder op de beursdag te wachten (<code>sql/015_wijk_en_altijd_naam.sql</code>).
-            Dit venster bepaalt enkel wanneer daar een <strong>e-mailadres</strong> en,
-            indien gedeeld, een <strong>WhatsApp-nummer</strong> bij komen: dat gebeurt
-            zodra het venster voorbij is (<code>sql/014_na_beurs_contact.sql</code>). Die
-            grens ligt in de database, dus ook wie de API rechtstreeks aanspreekt komt er
-            niet omheen.
+            Zoveel dagen vóór een ruilbeurs tonen de ruilplanner, de ruilvoorstellen, de
+            beste ruilkansen en ⚡ Snelruilen enkel nog verzamelaars die aangeduid hebben
+            dat ze komen. Op de beursdag zelf wordt dat: enkel wie aan de inkom aangemeld
+            is. Zodra de beurs voorbij is, doet weer iedereen mee en zijn e-mail en
+            WhatsApp opnieuw zichtbaar.
+          </p>
+          <p class="form-meta">
+            Korter is veiliger: wie te vroeg filtert, laat het portaal wekenlang leeg
+            ogen voor gezinnen die nog niets aanduidden.
           </p>
 
           <div class="form-grid">
             <div class="form-group">
-              <label for="inst-start" class="form-label">Start <span class="required">*</span></label>
-              <input type="datetime-local" id="inst-start" class="form-input" required />
-            </div>
-            <div class="form-group">
-              <label for="inst-einde" class="form-label">Einde <span class="required">*</span></label>
-              <input type="datetime-local" id="inst-einde" class="form-input" required />
+              <label for="inst-filter-dagen" class="form-label">Aantal dagen vooraf</label>
+              <select id="inst-filter-dagen" class="form-input">
+                <option value="7">7 dagen</option>
+                <option value="14">14 dagen</option>
+                <option value="21">21 dagen</option>
+                <option value="30">30 dagen</option>
+              </select>
             </div>
           </div>
-          <p id="inst-status" class="inst-status"></p>
         </section>
 
         <section class="card">

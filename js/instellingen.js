@@ -1,27 +1,37 @@
-// instellingen.js — Beheerpagina: beursvenster, glansstickers, WhatsApp van de
-// organisatie, en de twee getallen achter de statistiekenpagina (prijs van een
-// sticker en aantal stickers per pakje).
+// instellingen.js — Beheerpagina: de ruilbeurzen, de aanwezigheidsfilter,
+// glansstickers, WhatsApp van de organisatie, en de twee getallen achter de
+// statistiekenpagina (prijs van een sticker en aantal stickers per pakje).
+//
+// SINDS sql/025 STAAN DE BEURSDATA NIET MEER HIER. Er was één venster op de
+// singleton-rij; nu is er een lijst public.events, en die wordt per rij bewaard
+// in plaats van met het grote formulier mee. Reden: "wijzigingen ongedaan
+// maken" mag nooit een voorbije beursdag wissen — dat is historiek.
 //
 // De pagina is geen beveiliging: ze verbergt hooguit knoppen. Wie mag
 // opslaan, beslist RLS op public.instellingen (policy instellingen_update,
-// die public.is_beheerder() aanroept). Iemand zonder beheerdersrecht die de
-// API rechtstreeks aanspreekt, krijgt daar nul rijen bijgewerkt.
+// die public.is_beheerder() aanroept) en op public.events. Iemand zonder
+// beheerdersrecht die de API rechtstreeks aanspreekt, krijgt nul rijen bij.
 import { supabase, requireAuth } from "./supabase.js";
 import { normaliseerTelefoon, toonTelefoon } from "./whatsapp.js";
+import { haalEvent, vergeetEvent, wanneer } from "./beurs.js";
 
 // De kolommen die deze pagina beheert, op één plek: ze worden bij het laden
 // opgehaald en na het opslaan opnieuw teruggevraagd, en die twee lijsten
 // mogen niet uit elkaar lopen.
 const KOLOMMEN =
-  "beurs_start,beurs_einde,toon_glans,whatsapp_nummer,whatsapp_bericht," +
-  "stickerwaarde,stickers_per_pakje";
-// Apart, want zolang sql/024 niet gedraaid is, bestaat deze kolom niet — en
-// dan mag hij het laden en opslaan van al de rest niet meesleuren.
+  "toon_glans,whatsapp_nummer,whatsapp_bericht,stickerwaarde,stickers_per_pakje";
+// Apart, want zolang sql/024 respectievelijk sql/025 niet gedraaid is, bestaan
+// deze kolommen niet — en dan mogen ze het laden en opslaan van al de rest niet
+// meesleuren.
 const KAART_KOLOM = "kaart_ingezoomd_vanaf";
+const FILTER_KOLOM = "filter_dagen_vooraf";
 let metKaartKolom = true;
+let metFilterKolom = true;
 
 function kolommen() {
-  return metKaartKolom ? `${KOLOMMEN},${KAART_KOLOM}` : KOLOMMEN;
+  return [KOLOMMEN, metKaartKolom ? KAART_KOLOM : null, metFilterKolom ? FILTER_KOLOM : null]
+    .filter(Boolean)
+    .join(",");
 }
 
 let origineel = null;
@@ -68,6 +78,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("inst-form").addEventListener("submit", bewaar);
   document.getElementById("inst-reset-btn").addEventListener("click", vulFormulier);
+  document.getElementById("inst-ev-toevoegen").addEventListener("click", voegEventToe);
+
+  // Los van het instellingenformulier: bestaat public.events nog niet
+  // (sql/025), dan verdwijnt de kaart en blijft de rest gewoon werken.
+  void tekenEvents();
 
   // Los van de rest van de pagina: version.json bestaat pas na de eerste
   // Cloudflare-build met het aangepaste buildcommando (zie README.md), en
@@ -123,29 +138,36 @@ function escapeHtml(tekst) {
   return div.innerHTML;
 }
 
+// Twee kolommen zijn optioneel (sql/024 en sql/025). Welke van de twee
+// ontbreekt zegt PostgREST niet met zoveel woorden, dus laten we ze één voor
+// één vallen tot het lukt — de rest van de pagina hoort niet stil te vallen
+// omdat er één migratie achterloopt.
 async function laadInstellingen() {
-  let { data, error } = await supabase
-    .from("instellingen")
-    .select(kolommen())
-    .eq("id", 1)
-    .single();
-  if (error && metKaartKolom) {
-    metKaartKolom = false;
-    ({ data, error } = await supabase
+  let laatste = null;
+  for (let poging = 0; poging < 3; poging++) {
+    const { data, error } = await supabase
       .from("instellingen")
       .select(kolommen())
       .eq("id", 1)
-      .single());
+      .single();
+    if (!error) {
+      document.getElementById("inst-kaart-zoom").disabled = !metKaartKolom;
+      document.getElementById("inst-filter-dagen").disabled = !metFilterKolom;
+      origineel = data;
+      vulFormulier();
+      return;
+    }
+    laatste = error;
+    if (metFilterKolom) metFilterKolom = false;
+    else if (metKaartKolom) metKaartKolom = false;
+    else break;
   }
-  if (error) throw error;
-  document.getElementById("inst-kaart-zoom").disabled = !metKaartKolom;
-  origineel = data;
-  vulFormulier();
+  throw laatste;
 }
 
 function vulFormulier() {
-  document.getElementById("inst-start").value = naarInvoerveld(origineel.beurs_start);
-  document.getElementById("inst-einde").value = naarInvoerveld(origineel.beurs_einde);
+  document.getElementById("inst-filter-dagen").value =
+    origineel.filter_dagen_vooraf == null ? "14" : String(origineel.filter_dagen_vooraf);
   document.getElementById("inst-glans").checked = Boolean(origineel.toon_glans);
   document.getElementById("inst-wa-nummer").value = toonTelefoon(origineel.whatsapp_nummer);
   document.getElementById("inst-wa-bericht").value = origineel.whatsapp_bericht || "";
@@ -157,50 +179,86 @@ function vulFormulier() {
     origineel.stickers_per_pakje == null ? "5" : String(origineel.stickers_per_pakje);
   document.getElementById("inst-kaart-zoom").value =
     origineel.kaart_ingezoomd_vanaf == null ? "10" : String(origineel.kaart_ingezoomd_vanaf);
-  toonVensterStatus();
+  void toonVensterStatus();
   document.getElementById("inst-message").className = "message";
 }
 
-// <input type="datetime-local"> werkt met lokale tijd zonder zone. De database
-// bewaart timestamptz. Heen en weer rekenen doen we via de browser, die op de
-// beurs sowieso in de Belgische zone staat.
-function naarInvoerveld(iso) {
-  const d = new Date(iso);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours()
-  )}:${pad(d.getMinutes())}`;
-}
+// ---------- de ruilbeurzen ----------
+//
+// <input type="datetime-local"> werkt met lokale tijd zonder zone; de database
+// bewaart timestamptz. Heen en weer rekenen doet de browser, die op de beurs
+// sowieso in de Belgische zone staat.
 
-function toonVensterStatus() {
-  const el = document.getElementById("inst-status");
-  const start = new Date(origineel.beurs_start);
-  const einde = new Date(origineel.beurs_einde);
-  const nu = new Date();
-  const opmaak = new Intl.DateTimeFormat("nl-BE", { dateStyle: "full", timeStyle: "short" });
-
-  if (nu < start) {
-    el.textContent = `Nu opgeslagen: van ${opmaak.format(start)} tot ${opmaak.format(
-      einde
-    )} — de ruilmodule staat nog dicht.`;
-    el.className = "inst-status";
-  } else if (nu < einde) {
-    el.textContent = `De ruilmodule staat NU open, tot ${opmaak.format(einde)}.`;
-    el.className = "inst-status inst-status--open";
-  } else {
-    el.textContent = `Nu opgeslagen: van ${opmaak.format(start)} tot ${opmaak.format(
-      einde
-    )} — dat venster is voorbij.`;
-    el.className = "inst-status";
+// Voorbije beurzen staan bovenaan noch onderaan buiten beeld: ze blijven in de
+// lijst staan, want dat is de historiek waar de aanwezigheden aan hangen.
+// Verwijderen kan wel, maar enkel met een waarschuwing die zegt wat er mee
+// verdwijnt.
+async function tekenEvents() {
+  const body = document.getElementById("inst-events-rijen");
+  let rijen = [];
+  try {
+    const { data, error } = await supabase
+      .from("events")
+      .select("id,naam,start,einde")
+      .order("start", { ascending: true });
+    if (error) throw error;
+    rijen = data || [];
+  } catch (err) {
+    document.getElementById("inst-events-kaart").classList.add("hidden");
+    return;
   }
+
+  const nu = new Date();
+  const opmaak = new Intl.DateTimeFormat("nl-BE", { dateStyle: "medium", timeStyle: "short" });
+  body.textContent = "";
+
+  if (!rijen.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.className = "aanwezig-leeg";
+    td.colSpan = 4;
+    td.textContent = "Er staat nog geen ruilbeurs in de kalender.";
+    tr.appendChild(td);
+    body.appendChild(tr);
+    return;
+  }
+
+  rijen.forEach((ev) => {
+    const start = new Date(ev.start);
+    const einde = new Date(ev.einde);
+    const tr = document.createElement("tr");
+
+    const naam = document.createElement("td");
+    naam.className = "aanwezig-tabel__naam";
+    naam.textContent = ev.naam + (einde <= nu ? " (voorbij)" : "");
+    const van = document.createElement("td");
+    van.textContent = opmaak.format(start);
+    const tot = document.createElement("td");
+    tot.textContent = opmaak.format(einde);
+
+    const acties = document.createElement("td");
+    const weg = document.createElement("button");
+    weg.type = "button";
+    weg.className = "btn btn--outline btn--sm";
+    weg.textContent = "Verwijderen";
+    weg.addEventListener("click", () => verwijderEvent(ev));
+    acties.appendChild(weg);
+
+    tr.append(naam, van, tot, acties);
+    body.appendChild(tr);
+  });
 }
 
-async function bewaar(e) {
-  e.preventDefault();
-  const messageEl = document.getElementById("inst-message");
-  const startTekst = document.getElementById("inst-start").value;
-  const eindeTekst = document.getElementById("inst-einde").value;
+async function voegEventToe() {
+  const messageEl = document.getElementById("inst-events-message");
+  const naam = document.getElementById("inst-ev-naam").value.trim();
+  const startTekst = document.getElementById("inst-ev-start").value;
+  const eindeTekst = document.getElementById("inst-ev-einde").value;
 
+  if (!naam) {
+    toonMelding(messageEl, "Geef de ruilbeurs een naam.", "error");
+    return;
+  }
   if (!startTekst || !eindeTekst) {
     toonMelding(messageEl, "Vul een start- en einddatum in.", "error");
     return;
@@ -215,6 +273,96 @@ async function bewaar(e) {
   // melding te tonen in plaats van een databasefout.
   if (einde <= start) {
     toonMelding(messageEl, "Het einde moet na de start liggen.", "error");
+    return;
+  }
+
+  const knop = document.getElementById("inst-ev-toevoegen");
+  knop.disabled = true;
+  try {
+    const { data, error } = await supabase
+      .from("events")
+      .insert({ naam, start: start.toISOString(), einde: einde.toISOString(), updated_by: userId })
+      .select("id");
+    if (error) throw error;
+    // RLS weigert stil: geen recht betekent nul rijen, geen fout.
+    if (!data || data.length === 0) {
+      throw new Error("De database heeft niets toegevoegd — je account heeft geen beheerdersrecht.");
+    }
+    document.getElementById("inst-ev-naam").value = "";
+    document.getElementById("inst-ev-start").value = "";
+    document.getElementById("inst-ev-einde").value = "";
+    await naEventWijziging(messageEl, `${naam} staat in de kalender.`);
+  } catch (err) {
+    toonMelding(messageEl, "Kon de ruilbeurs niet toevoegen: " + err.message, "error");
+  } finally {
+    knop.disabled = false;
+  }
+}
+
+async function verwijderEvent(ev) {
+  const messageEl = document.getElementById("inst-events-message");
+  const nu = new Date();
+  const voorbij = new Date(ev.einde) <= nu;
+  const waarschuwing = voorbij
+    ? `"${ev.naam}" is een voorbije ruilbeurs. Verwijderen wist ook wie er toen aanwezig was, en dat is niet terug te halen. Toch verwijderen?`
+    : `"${ev.naam}" verwijderen? Wie al aanduidde dat hij komt, verliest die aanduiding.`;
+  if (!window.confirm(waarschuwing)) return;
+
+  try {
+    const { error } = await supabase.from("events").delete().eq("id", ev.id);
+    if (error) throw error;
+    await naEventWijziging(messageEl, `${ev.naam} is verwijderd.`);
+  } catch (err) {
+    toonMelding(messageEl, "Kon de ruilbeurs niet verwijderen: " + err.message, "error");
+  }
+}
+
+// Een event bijmaken of weghalen kan de fase verzetten, dus de status eronder
+// mag niet het antwoord van daarnet blijven tonen.
+async function naEventWijziging(messageEl, tekst) {
+  vergeetEvent();
+  await tekenEvents();
+  await toonVensterStatus();
+  toonMelding(messageEl, tekst, "success");
+}
+
+// In welke fase staat het portaal nu, en wat betekent dat? De fase komt uit de
+// databank (public.huidig_event), niet uit een berekening hier: de filter in
+// get_matches() rekent met diezelfde klok.
+async function toonVensterStatus() {
+  const el = document.getElementById("inst-status");
+  const ev = await haalEvent();
+
+  if (!ev.start) {
+    el.textContent = "Er staat geen ruilbeurs gepland: iedereen doet mee en alle contactgegevens zijn zichtbaar.";
+    el.className = "inst-status";
+    return;
+  }
+
+  if (ev.fase === "tijdens") {
+    el.textContent = `${ev.naam} is NU bezig. De ruilmodules tonen enkel verzamelaars die aan de inkom aangemeld zijn.`;
+    el.className = "inst-status inst-status--open";
+  } else if (ev.fase === "voor") {
+    el.textContent = `Aanloop naar ${ev.naam} (${wanneer(ev)}). De ruilmodules tonen enkel verzamelaars die aangeduid hebben dat ze komen; e-mail en WhatsApp zijn verborgen.`;
+    el.className = "inst-status inst-status--open";
+  } else {
+    const volgt = ev.start > new Date();
+    el.textContent = volgt
+      ? `Volgende ruilbeurs: ${ev.naam} (${wanneer(ev)}). De filter staat nog uit — iedereen doet mee.`
+      : `Laatste ruilbeurs: ${ev.naam} (${wanneer(ev)}). Die is voorbij: iedereen doet mee en de contactgegevens zijn zichtbaar.`;
+    el.className = "inst-status";
+  }
+}
+
+async function bewaar(e) {
+  e.preventDefault();
+  const messageEl = document.getElementById("inst-message");
+
+  // Dezelfde keuzes als de CHECK op de tabel (sql/025). Een waarde die daar
+  // niet in staat, komt enkel van een aangepaste keuzelijst.
+  const filterDagen = Number(document.getElementById("inst-filter-dagen").value);
+  if (metFilterKolom && ![7, 14, 21, 30].includes(filterDagen)) {
+    toonMelding(messageEl, "Kies 7, 14, 21 of 30 dagen.", "error");
     return;
   }
 
@@ -257,14 +405,13 @@ async function bewaar(e) {
     const { data, error } = await supabase
       .from("instellingen")
       .update({
-        beurs_start: start.toISOString(),
-        beurs_einde: einde.toISOString(),
         toon_glans: document.getElementById("inst-glans").checked,
         whatsapp_nummer: waNummer,
         whatsapp_bericht: waBericht || null,
         stickerwaarde: waarde,
         stickers_per_pakje: pakje,
         ...(metKaartKolom ? { [KAART_KOLOM]: kaartZoom } : {}),
+        ...(metFilterKolom ? { [FILTER_KOLOM]: filterDagen } : {}),
         updated_by: userId, // wie de beurs verzette, is achteraf de eerste vraag
       })
       .eq("id", 1)

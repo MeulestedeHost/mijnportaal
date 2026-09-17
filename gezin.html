@@ -137,6 +137,34 @@
         <div id="wijk-message" class="message" role="alert" aria-live="polite"></div>
       </section>
 
+      <!-- Verdwijnt zolang sql/026 niet gedraaid is (js/gezin.js). -->
+      <section class="card hidden" id="gevonden-kaart">
+        <h2>Hoe heb je ons gevonden?</h2>
+        <p class="form-meta">
+          Eén vraag voor de organisatie: zo weten we welke aankondiging werkt en waar we
+          volgende keer op inzetten. Eén antwoord per gezin, en overslaan mag — het
+          verandert niets aan het ruilen. We tellen enkel de aantallen; wie wat antwoordde,
+          komt nergens te staan.
+        </p>
+        <form id="gevonden-form" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="gevonden-keuze" class="form-label">Hoe heb je ons gevonden?</label>
+              <select id="gevonden-keuze" class="form-input">
+                <option value="">Liever niet zeggen</option>
+              </select>
+            </div>
+            <div class="form-group hidden" id="gevonden-ander-groep">
+              <label for="gevonden-ander" class="form-label">Vertel het ons kort</label>
+              <input type="text" id="gevonden-ander" class="form-input" maxlength="120"
+                     placeholder="bv. via de sportclub" autocomplete="off" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn--outline" id="gevonden-btn">Opslaan</button>
+        </form>
+        <div id="gevonden-message" class="message" role="alert" aria-live="polite"></div>
+      </section>
+
       <section class="card">
         <h2>Bereikbaar na de ruilbeurs</h2>
         <p class="form-meta">

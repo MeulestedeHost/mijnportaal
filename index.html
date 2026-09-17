@@ -18,12 +18,31 @@
 
   <main class="container main">
     <section class="hero" id="landing-hero">
-      <h1>Welkom bij Panini Ruilportaal Meulestede</h1>
-      <p class="hero__subtitle">
-        Beheer de Panini-verzamelingen van je kinderen en zie in één oogopslag
-        welke stickers gezocht worden of beschikbaar zijn om te ruilen.Je krijgt ook te zien bij wie je moet zijn op de dag zelf. 
-      </p>
-      <a href="/login.html" class="btn btn--primary btn--lg">Aanmelden</a>
+     <section class="hero" id="landing-hero">
+  <p class="hero__eyebrow">2de editie · vzw Meulestede</p>
+
+  <h1>Panini Ruilbeurs Meulestede</h1>
+
+  <p class="hero__event">
+    <strong>zondag 11 oktober 2026, 14 tot 17 uur</strong><br>
+    CC Meulestede, op de binnenkoer · Meulesteedsesteenweg 515, 9000 Gent
+  </p>
+
+  <p class="hero__subtitle">
+    Schrijf je hier in voor de ruilbeurs en beheer meteen de
+    Panini-verzamelingen van je kinderen. Duid aan welke stickers je zoekt
+    en welke je dubbel hebt. Op de dag zelf zie je wie een match heeft
+    voor jouw verzameling, zodat je gericht kan ruilen. Na de beurs kan je digitaal verder ruilen. 
+    De contact gegevens zullen dan zichtbaar zijn. 
+  </p>
+
+  <p class="hero__note">
+    Inschrijven is gratis en verplicht om deel te nemen aan de tombola
+    van 16 uur. De voorwaarde is wel dat je dit platform gebruikt. 
+  </p>
+
+  <a href="/login.html" class="btn btn--primary btn--lg">Inschrijven of aanmelden</a>
+</section>
     </section>
 
     <!-- Statisch, geen JavaScript: enkel een link naar het PDF-bestand in
@@ -91,6 +110,18 @@
               <li>🎁 Je <strong>legt 10 stickers in voor de tombola</strong>. De trekking gaat door om <strong>16u</strong>.</li>
               <li>📄 Druk je <strong>ruilfiche</strong> af als backup, voor het geval het systeem het toch zou laten afweten.</li>
             </ul>
+            <!-- Het aantal dagen en de datum komen uit de databank
+                 (js/beurs-uitleg.js → public.beurs_info). De tekst hieronder is
+                 de terugval: hij klopt met de standaardinstelling, zodat de
+                 pagina ook zonder JavaScript of databank iets zinnigs zegt. -->
+            <p id="beurs-aanwezigheid">
+              🗓️ <strong>Duid in het portaal aan dat je komt.</strong> Vanaf
+              <strong><span id="beurs-filter-dagen">14</span> dagen</strong> voor de beurs
+              tonen de ruilplanner, de ruilvoorstellen, de beste ruilkansen en ⚡ Snelruilen
+              enkel nog verzamelaars die aangeduid hebben dat ze komen — op de beursdag zelf
+              enkel wie aan de inkom aangemeld is. Zo plan je je ruilronde met mensen die er
+              effectief zullen zijn. Na de beurs doet iedereen weer mee.
+            </p>
           </div>
           <div class="nieuws-item__knoppen">
             <a
@@ -224,5 +255,6 @@
   <!-- Vult enkel de deelknoppen onder de nieuwsberichten in; raakt de rest van
        de pagina niet aan. -->
   <script type="module" src="/js/nieuws.js"></script>
+  <script type="module" src="/js/beurs-uitleg.js"></script>
 </body>
 </html>

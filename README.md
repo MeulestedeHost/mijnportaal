@@ -330,6 +330,92 @@ Zolang `023` niet gedraaid is, werkt de databank zoals na `022`: niets
 verwerkt, geen reservering. De teksten op de pagina beschrijven wel al de
 nieuwe werking.
 
+## 7c. Meerdere ruilbeurzen en aanwezigheid (`025`)
+
+Tot `025` was er één ruilbeurs: twee kolommen op de singleton-rij van
+`instellingen` (`beurs_start` / `beurs_einde`). Er zijn er nu meer — 6 september
+2026 is geweest, 11 oktober staat klaar — en **niet elke verzamelaar komt naar
+elke beurs**. Wie thuisblijft, hoort niet in de ruilplanner van iemand die wél
+gaat: dan loop je op de beursdag achter namen aan die er niet zijn.
+
+### Drie fases, allemaal uit de kalender
+
+Er is geen schakelaar die de organisator omzet. Er is een lijst `events` en één
+getal: `instellingen.filter_dagen_vooraf` (7, 14, 21 of 30 — een vaste keuze,
+want een vrij getal nodigt uit tot 1 of 365 en allebei breken ze het portaal op
+een manier die pas weken later opvalt). `huidig_event()` leidt daar de fase uit
+af:
+
+| Fase | Wanneer | Wie zie je | E-mail / WhatsApp |
+|---|---|---|---|
+| `open` | geen beurs in aantocht | iedereen | zichtbaar, zodra er ooit een beurs afgelopen is |
+| `voor` | vanaf `filter_dagen_vooraf` dagen vóór de start | wie aanduidde dat hij komt | verborgen |
+| `tijdens` | van start tot einde | wie aan de inkom aangemeld is | verborgen |
+
+Na het einde valt alles terug op `open`: iedereen doet weer mee en de
+contactgegevens komen terug — tot de aanloop naar het volgende event begint.
+Zichtbaarheid van personen en zichtbaarheid van contactgegevens lopen dus
+gelijk. Eén begrip, geen tweede kalender.
+
+`beurs_voorbij()` verandert daardoor van betekenis tegenover `014`. Vroeger:
+"`now()` ligt na `beurs_einde`". Nu: "de fase is `open` én er is ooit een beurs
+afgelopen". Zonder die herdefinitie zouden de e-mailadressen verdwijnen op het
+moment dat de organisator de vólgende beurs in de kalender zet, en dat is
+precies het omgekeerde van wat `014` bedoelde.
+
+### Eén filterpunt
+
+De ruilplanner, de ruilvoorstellen, de beste ruilkansen, de ruilerkaarten, de
+algemene favorieten op de stickerpagina en de ruilerkeuze van ⚡ Snelruilen
+halen hun verzamelaars **allemaal uit `get_matches()`**. Eén CTE (`zichtbaar`)
+dekt dus alle zes de schermen, en de filter zit in de databank — wie de API
+rechtstreeks aanspreekt, komt er niet omheen.
+
+Wat bewust **niet** meefiltert:
+
+- **Je eigen gezin.** Broer en zus ruilen thuis; die hebben geen beurs nodig.
+- **Je eigen verzamelaar.** Enkel de tegenpartij verdwijnt. Wie zelf niets
+  aanduidde, krijgt dus geen lege pagina zonder uitleg maar de gewone lijst plus
+  een melding op `ruilen.html` (`#ruil-aanwezig`). Een gefilterde lijst is
+  anders niet te onderscheiden van een lege lijst.
+- **`mijn_ruilen()` en `ruil_overzicht()`.** Een lopende afspraak met iemand die
+  niet komt, moet je nog altijd kunnen bevestigen of weigeren.
+- **`ruil_registreren()`.** Die controleert de lijsten, niet de aanwezigheid.
+  Wie aan tafel staat maar nog niet afgevinkt is, kan gewoon ruilen.
+  Aanwezigheid stuurt *wie je voorgesteld krijgt*, niet *wat mag*.
+- **Favorieten.** Die blijven staan. Een ruiler die er even niet is, verdwijnt
+  uit beeld en komt na de beurs vanzelf terug.
+
+### Wie duidt wat aan
+
+De **ouder** zet "komt mee" op het dashboard, één vinkje per verzamelaar per
+komende beurs (`aanwezigheid_zetten`). De **organisatie** vinkt aan de inkom af
+op `aanwezigheden.html` (`aanmelden_zetten`, enkel voor beheerders). Aanmelden
+zet `komt` mee aan — wie binnenstapt, komt — maar het vinkje uithalen betekent
+"toch niet binnengekomen", niet "komt niet".
+
+Beide lopen via `security definer`-functies en niet via een policy, net als bij
+`ruilen` (`016`): een policy kan niet uit elkaar houden wie `komt` zet en wie
+`aangemeld_op` zet, want dat is een kolomverschil en RLS werkt per rij.
+
+### De startpagina
+
+`index.html` draait zonder login en mag `events` en `instellingen` dus niet
+lezen. `beurs_info()` (uitvoerbaar voor `anon`) geeft enkel wat op de affiche
+staat: naam, datum, fase en het aantal dagen. `js/beurs-uitleg.js` zet dat getal
+in de uitleg; de HTML bevat al de standaardwaarde 14, zodat de zin ook zonder
+JavaScript of databank klopt.
+
+### Hoe heb je ons gevonden? (`026`)
+
+Eén keuzelijst op `gezin.html`, **per gezin en niet per verzamelaar**: een gezin
+vindt de beurs één keer, en drie kinderen drie keer laten antwoorden geeft drie
+keer dezelfde stem. Overslaan mag. De organisatie ziet enkel de aantallen
+(`hoe_gevonden_statistiek()`), nooit welk gezin wat antwoordde. De sleutels
+staan in een `check` op `gezinnen.hoe_gevonden` en de opschriften in
+`js/hoe-gevonden.js` — komt er een keuze bij, dan hoort ze op allebei de
+plaatsen bij te komen.
+
 ## 8. FIFA Wereldreis
 
 Een wereldkaart bovenop dezelfde stickerlijst: elk land van het album staat op
@@ -675,6 +761,37 @@ dat dezelfde **openstaande** afspraak twee keer bestaat. Voltooide ruilen
 vallen erbuiten: dezelfde twee stickers later opnieuw ruilen is een nieuwe
 afspraak.
 
+**events** (sinds `025`)
+
+| Kolom | Type | Omschrijving |
+|---|---|---|
+| id | uuid | primaire sleutel |
+| naam | text | "Ruilbeurs oktober" — wat op het scherm komt |
+| start / einde | timestamptz | het venster van die beursdag |
+| updated_at / updated_by | | wie de datum verzette, is achteraf de eerste vraag |
+
+Eén rij per beursdag, voorbije edities inbegrepen: die lijst *is* de historiek
+waar de aanwezigheden aan hangen.
+
+**aanwezigheden** (sinds `025`)
+
+| Kolom | Type | Omschrijving |
+|---|---|---|
+| id | uuid | primaire sleutel |
+| event_id | uuid | verwijst naar `events.id` (`on delete cascade`) |
+| kind_id | uuid | verwijst naar `kinderen.id`, **`on delete set null`** |
+| komt / komt_op | boolean / timestamptz | de ouder duidde aan dat hij meegaat |
+| aangemeld_op / aangemeld_door | timestamptz / uuid | de organisatie vinkte af aan de inkom |
+
+Twee tijdstempels en geen twee vinkjes: `komt` is een keuze die heen en weer
+mag, `aangemeld_op` is een gebeurtenis, en dan wil je ook weten wanneer.
+Afvinken zet hem terug op `null`.
+
+`kind_id` gaat op `null` in plaats van de rij mee te nemen: verdwijnt een
+verzamelaar, dan blijft het aantal aanwezigen van die beursdag kloppen zonder
+dat er een naam achterblijft. De unieke index op `(event_id, kind_id)` is
+daarom partieel — geanonimiseerde rijen mogen met meerdere naast elkaar staan.
+
 ## Row Level Security
 
 RLS staat aan op zowel `kinderen` als `stickers`, met een policy per
@@ -687,6 +804,18 @@ operatie (`SELECT` / `INSERT` / `UPDATE` / `DELETE`):
   (`kinderen.user_id = auth.uid()`). Zo kan een gebruiker nooit stickers
   van andermans kinderen zien of bewerken, ook al kent hij het uuid van de
   sticker.
+
+- **events** (sinds `025`) — `SELECT` voor elke ingelogde gebruiker (wanneer de
+  beurs doorgaat is geen geheim), en `INSERT`/`UPDATE`/`DELETE` enkel voor
+  `is_beheerder()`. De startpagina is niet ingelogd en gaat langs
+  `beurs_info()`, de enige functie die ook `anon` mag uitvoeren.
+
+- **aanwezigheden** (sinds `025`) — enkel een `SELECT`-policy, voor je eigen
+  gezin (via `gezin_van_kind()`). Schrijven loopt via `aanwezigheid_zetten()`
+  (de ouder) en `aanmelden_zetten()` (de organisatie), om dezelfde reden als
+  bij `ruilen`: een policy kan geen onderscheid maken tussen wie `komt` mag
+  zetten en wie `aangemeld_op` mag zetten — dat is een kolomverschil, en RLS
+  werkt per rij.
 
 - **ruilen** (sinds `016`) — enkel een `SELECT`-policy: lezen mag wie via
   `gezin_van_kind()` aan één van beide kanten van de ruil zit. Er is bewust
@@ -1298,9 +1427,20 @@ foto's zeggen daar weinig over.
   om een code te typen en meteen te zien of de verzamelaar hem zoekt en/of
   dubbel heeft (Controleren), of hem meteen in te boeken (Inboeken). Zie
   "Snelruilen aan de ruiltafel".
-- `js/gezin.js` — tweede volwassene toevoegen, gsm-nummer van het gezin.
+- `js/gezin.js` — tweede volwassene toevoegen, gsm-nummer van het gezin, en
+  "Hoe heb je ons gevonden?" (`026`).
 - `js/whatsapp.js` — nummers normaliseren naar E.164 en wa.me-links bouwen.
-- `js/instellingen.js` — beheerpagina: beursvenster, glans, organisatornummer,
+- `js/beurs.js` — welk event staat centraal en in welke fase zitten we
+  (`huidig_event()`). Eén bron voor dashboard, ruilpagina en beheerpagina, met
+  terugval op het oude venster zolang `025` niet gedraaid is.
+- `js/beurs-uitleg.js` — het aantal dagen in de uitleg op de startpagina, via
+  `beurs_info()` (de enige RPC die `anon` mag uitvoeren).
+- `js/hoe-gevonden.js` — de negen keuzes achter "Hoe heb je ons gevonden?",
+  gedeeld door `gezin.js` en `aanwezigheden.js` zodat ze het nooit oneens zijn.
+- `js/aanwezigheden.js` — organisatiepagina: een kolom per ruilbeurs, afvinken
+  aan de inkom, tellingen per editie.
+- `js/instellingen.js` — beheerpagina: de lijst ruilbeurzen, het aantal dagen
+  dat de aanwezigheidsfilter vooraf aangaat, glans, organisatornummer,
   stickerwaarde en pakjesgrootte.
 - `js/statistieken.js` — statistiekenpagina: cijferkaarten met tooltips,
   staafdiagrammen (gewone elementen op procentbreedte) en lijngrafieken (met de
