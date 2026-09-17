@@ -1,0 +1,8 @@
+# Enkel hier zodat de Supabase-GitHubkoppeling deze map herkent.
+#
+# Bij een merge naar main voert Supabase de nieuwe bestanden in
+# supabase/migrations/ uit op de productiedatabank. Auth, API en seed uit dit
+# bestand worden bij een productiedeploy genegeerd; storage buckets en edge
+# functions niet — daarom staat hier bewust niets anders dan het project-id.
+# Wie hier ooit [storage.buckets] of [functions] toevoegt: dat gaat mee live.
+project_id = "mijnportaal"

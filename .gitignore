@@ -2,3 +2,7 @@
 # (README.md, sectie "Cloudflare Pages") en bestaat dus enkel in de
 # build-omgeving daar, nooit in git.
 version.json
+
+# Lokale werkbestanden van de Supabase CLI, als die ooit gebruikt wordt.
+supabase/.temp/
+supabase/.branches/

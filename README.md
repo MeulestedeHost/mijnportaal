@@ -33,9 +33,14 @@ gebruiker die dat kind beheert.
    `017_statistieken.sql` → `018_favorieten.sql` →
    `019_stickers_updated_at.sql` → `020_favorieten_algemeen.sql` →
    `021_ruiler_letter.sql` → `022_ruildossiers.sql` →
-   `023_ruil_auto_toepassen.sql`. Enkel `002`
+   `023_ruil_auto_toepassen.sql` → `024_kaart_zoomdrempel.sql` →
+   `025_events_en_aanwezigheid.sql` → `026_hoe_gevonden.sql`. Enkel `002`
    en de blokken die het zelf aankondigen zijn destructief; `009` en later
    zijn dat niet.
+4b. Sinds de Supabase-GitHubkoppeling (Project Settings → Integrations)
+   draaien migraties ná `026` niet meer hier: die staan in
+   `supabase/migrations/` en Supabase voert ze automatisch uit bij een merge
+   naar `main`. Zie `supabase/README.md`.
 5. Authentication → Providers → zorg dat "Email" ingeschakeld staat.
    Wachtwoord-authenticatie is niet nodig: deze app gebruikt Magic Links en
    (optioneel) Google — zie §5.

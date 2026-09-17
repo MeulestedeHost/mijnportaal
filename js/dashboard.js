@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   await koppelAanGezin();
 
+  zetWelkomTitel();
   wireOnboardingForm();
   wireKindForm();
   wireVolwassenVinkjes();
@@ -341,7 +342,26 @@ async function laadStatistieken() {
   }
 }
 
+// De voornaam komt uit het Google-account. Wie met een magic link aanmeldt,
+// heeft geen naam in zijn account — en een e-mailadres als aanspreking voelt
+// eerder als een foutmelding dan als een welkom, dus dan blijft het "Welkom!".
+function zetWelkomTitel() {
+  const meta = user.user_metadata || {};
+  const voornaam = (meta.given_name || meta.full_name || meta.name || "").trim().split(/\s+/)[0];
+  if (voornaam) document.getElementById("welkom-titel").textContent = `Welkom, ${voornaam}`;
+}
+
+// Het formulier staat er van bij het begin, maar ingeklapt: zo zie je op een
+// telefoon eerst de twee stappen naast elkaar, in plaats van meteen vier
+// invulvakken waarvan niet duidelijk is waarvoor ze dienen.
 function wireOnboardingForm() {
+  const kaart = document.getElementById("onboarding-kaart");
+  document.getElementById("welkom-verzamelaar-btn").addEventListener("click", () => {
+    kaart.classList.remove("hidden");
+    kaart.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("ob-voornaam").focus({ preventScroll: true });
+  });
+
   const form = document.getElementById("onboarding-form");
   const messageEl = document.getElementById("onboarding-message");
   form.addEventListener("submit", async (e) => {

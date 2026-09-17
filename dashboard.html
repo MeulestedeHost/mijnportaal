@@ -44,17 +44,41 @@
       <div id="acties-blok-lijst"></div>
     </section>
 
-    <div id="onboarding" class="card hidden">
-      <h1>Welkom!</h1>
+    <!-- Welkomstscherm: zichtbaar zolang het gezin nog geen enkele verzamelaar
+         heeft (js/dashboard.js). Dat is de toestand van wie voor het eerst
+         aanmeldt; een tweede ouder die aan een bestaand gezin gekoppeld wordt,
+         slaat het terecht over. Een nieuwe stap = een extra <li> in
+         welkom-stappen, verder niets. -->
+    <div id="onboarding" class="welkom hidden">
+      <div class="welkom__kop">
+        <h1 id="welkom-titel">Welkom!</h1>
+        <p class="welkom__subtitel">
+          Je bent succesvol aangemeld bij het Panini Ruilportaal van vzw Meulestede.
+          Om te starten hebben we nog enkele gegevens nodig.
+        </p>
+      </div>
+
+      <ol class="welkom-stappen">
+        <li class="welkom-stap">
+          <h2><span class="welkom-stap__nr">1</span> 👤 Vul je profiel aan</h2>
+          <p>Controleer en vul je gegevens als inschrijver aan: voornaam, naam,
+            wijk of gemeente, en hoe je ons gevonden hebt.</p>
+          <a href="/gezin.html#profiel" class="btn btn--outline welkom-stap__knop">Profiel aanvullen</a>
+        </li>
+        <li class="welkom-stap">
+          <h2><span class="welkom-stap__nr">2</span> ⚽ Voeg een verzamelaar toe</h2>
+          <p>Maak een verzamelaar aan voor elk kind dat stickers verzamelt. Je kan
+            later meerdere verzamelaars toevoegen.</p>
+          <button type="button" class="btn btn--primary welkom-stap__knop" id="welkom-verzamelaar-btn">Verzamelaar toevoegen</button>
+        </li>
+      </ol>
+
+      <section class="card hidden" id="onboarding-kaart" aria-labelledby="onboarding-kaart-titel">
+      <h2 id="onboarding-kaart-titel">⚽ Eerste verzamelaar</h2>
       <p class="login-card__hint">
-        Voeg hier het <strong>eerste kind</strong> toe. Jij bent de ouder die dit
-        account beheert; je staat zelf niet automatisch in de lijst en hoeft dat ook
-        niet te zijn.
-      </p>
-      <p class="login-card__hint">
-        Verzamel je zelf ook mee — of ben jij het kind dat zich net aanmeldde? Vink dan
-        “volwassene” aan, of voeg jezelf later toe met
-        <em>＋ Verzamelaar toevoegen</em>.
+        Jij beheert dit account; je staat zelf niet automatisch in de lijst en hoeft
+        dat ook niet te zijn. Verzamel je zelf ook mee — of ben jij het kind dat zich
+        net aanmeldde? Vink dan “volwassene” aan.
       </p>
       <form id="onboarding-form" novalidate>
         <div class="form-grid">
@@ -78,6 +102,31 @@
         <button type="submit" class="btn btn--primary" id="ob-submit-btn">Kind toevoegen</button>
       </form>
       <div id="onboarding-message" class="message" role="alert" aria-live="polite"></div>
+      </section>
+
+      <section class="card welkom__uitleg">
+        <h2>Hoe werkt het?</h2>
+        <ol class="welkom__lijst">
+          <li>Vul eerst je profiel aan.</li>
+          <li>Voeg één of meer verzamelaars toe.</li>
+          <li>Duid aan welke stickers je zoekt of dubbel hebt.</li>
+          <li>Ontdek automatisch jouw beste ruilkansen.</li>
+        </ol>
+
+        <h3>🎫 Aanwezigheid aanduiden</h3>
+        <p class="form-meta">
+          Ga je naar de ruilbeurs? Dan duid je op dit dashboard, onder
+          <em>Komt je verzamelaar mee?</em>, per verzamelaar aan wie er meegaat.
+          Dat blok verschijnt zodra je een verzamelaar hebt en er een beurs gepland is.
+        </p>
+        <p class="form-meta">
+          Waarom? In de dagen voor de beurs krijg je enkel ruilvoorstellen van
+          verzamelaars die ook zeiden dat ze komen — en zien zij jou enkel als jij
+          dat ook aanduidde. Op de beursdag zelf telt wie aan de inkom afgevinkt
+          werd. Buiten die periode zie je gewoon iedereen. Ruilen registreren
+          blijft altijd mogelijk.
+        </p>
+      </section>
     </div>
 
     <div id="main-dashboard" class="hidden">

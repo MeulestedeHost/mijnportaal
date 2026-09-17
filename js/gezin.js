@@ -41,6 +41,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   paneel.classList.remove("hidden");
   teken();
 
+  // Het welkomstscherm linkt naar #profiel. De browser springt naar een anker
+  // bij het laden, toen het paneel nog verborgen stond — dus hier nog eens.
+  if (window.location.hash === "#profiel") {
+    document.getElementById("profiel").scrollIntoView({ block: "start" });
+  }
+
   document.getElementById("uitnodig-form").addEventListener("submit", nodigUit);
   document.getElementById("naam-form").addEventListener("submit", bewaarNaam);
   document.getElementById("wijk-form").addEventListener("submit", bewaarWijk);
