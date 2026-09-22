@@ -130,38 +130,45 @@ async function refreshKinderen() {
     .sort((a, b) => Number(a.is_volwassen) - Number(b.is_volwassen));
   gesorteerd.forEach((kind) => kinderenUl.appendChild(bouwKindRij(kind)));
 
-  // Los van de rest: staat sql/025 er nog niet, dan blijft het blok verborgen
-  // en merkt het dashboard er niets van.
-  void toonAanwezigheid(gesorteerd);
+  // Los van de rest: staat sql/025 er nog niet, dan blijft er in elke tegel
+  // gewoon geen aanwezigheidsrij verschijnen.
+  void vulAanwezigheid(gesorteerd);
 }
 
 // ---------- komt je verzamelaar mee? ----------
 
-// WAAROM DIT HIER STAAT EN NIET OP DE RUILPAGINA. Het is een gegeven van de
-// verzamelaar, geen ruilhandeling — en dit is de enige pagina waar je al je
-// verzamelaars naast elkaar ziet. Eén vinkje per kind per beurs.
+// WAAROM DIT PER TEGEL STAAT EN NIET IN ÉÉN APART BLOK. Het is een gegeven
+// van de verzamelaar, geen ruilhandeling, en hoort dus bij zijn tegel — samen
+// met Stickers en Bewerken — in plaats van in een lijst die per evenement
+// groepeert en zo elke verzamelaar herhaalt. Eén vinkje per kind per beurs.
 //
 // De keuze telt pas echt vanaf filter_dagen_vooraf dagen voor de beurs
 // (sql/025); daarvoor verandert er voor niemand iets. Dat staat er ook bij:
 // een vinkje waarvan je niet weet wat het doet, zet je niet.
-async function toonAanwezigheid(kinderen) {
-  const blok = document.getElementById("aanwezig-blok");
-  if (!blok) return;
-
+async function vulAanwezigheid(kinderen) {
   const events = await haalKomendeEvents();
   if (!events.length) return;
 
   await laadAanwezigheid(events);
 
   const uitleg = document.getElementById("aanwezig-uitleg");
-  uitleg.textContent =
-    "Duid aan wie er meegaat. In de aanloop naar de beurs zien andere " +
-    "verzamelaars enkel wie aangeduid heeft dat hij komt — en zie jij enkel hen.";
+  if (uitleg) {
+    uitleg.textContent =
+      "Duid per verzamelaar aan wie er meegaat. In de aanloop naar de beurs " +
+      "zien andere verzamelaars enkel wie aangeduid heeft dat hij komt — en " +
+      "zie jij enkel hen.";
+    uitleg.classList.remove("hidden");
+  }
 
-  const houder = document.getElementById("aanwezig-events");
-  houder.textContent = "";
-  events.forEach((ev) => houder.appendChild(bouwEventBlok(ev, kinderen)));
-  blok.classList.remove("hidden");
+  // Zelfde volgorde als bij het aanmaken van de tegels, dus kind i hoort bij
+  // plek i — eenvoudiger dan elke tegel een data-attribuut te geven.
+  const plekken = document.querySelectorAll("#kinderen-ul .kind-item__aanwezig");
+  kinderen.forEach((kind, i) => {
+    const plek = plekken[i];
+    if (!plek) return;
+    events.forEach((ev) => plek.appendChild(bouwAanwezigRij(ev, kind)));
+    plek.classList.remove("hidden");
+  });
 }
 
 async function laadAanwezigheid(events) {
@@ -180,24 +187,8 @@ async function laadAanwezigheid(events) {
   }
 }
 
-function bouwEventBlok(ev, kinderen) {
-  const groep = document.createElement("div");
-  groep.className = "aanwezig-event";
-
-  const titel = document.createElement("h3");
-  titel.className = "aanwezig-event__titel";
-  titel.textContent = `${ev.naam} — ${datumVoluit(ev.start)}, ${uur(ev.start)}–${uur(ev.einde)}`;
-  groep.appendChild(titel);
-
-  const lijst = document.createElement("ul");
-  lijst.className = "aanwezig-lijst";
-  kinderen.forEach((kind) => lijst.appendChild(bouwAanwezigRij(ev, kind)));
-  groep.appendChild(lijst);
-  return groep;
-}
-
+// Geen naam meer in de tekst: het vinkje staat al in de tegel van dat kind.
 function bouwAanwezigRij(ev, kind) {
-  const li = document.createElement("li");
   const label = document.createElement("label");
   label.className = "checkbox-rij";
 
@@ -207,11 +198,10 @@ function bouwAanwezigRij(ev, kind) {
   vinkje.addEventListener("change", () => zetAanwezigheid(ev, kind, vinkje));
 
   const tekst = document.createElement("span");
-  tekst.textContent = `${kind.voornaam} ${kind.familienaam} komt mee`;
+  tekst.textContent = `Komt mee naar ${ev.naam} — ${datumVoluit(ev.start)}, ${uur(ev.start)}–${uur(ev.einde)}`;
 
   label.append(vinkje, tekst);
-  li.appendChild(label);
-  return li;
+  return label;
 }
 
 // Het vinkje gaat meteen naar de databank: een aparte opslaan-knop op een
@@ -244,7 +234,7 @@ async function zetAanwezigheid(ev, kind, vinkje) {
 
 function bouwKindRij(kind) {
   const li = document.createElement("li");
-  li.className = "kind-item";
+  li.className = "kind-item kind-item--kaart";
 
   const info = document.createElement("div");
   info.className = "kind-item__info";
@@ -264,6 +254,11 @@ function bouwKindRij(kind) {
 
   info.appendChild(bouwCijfers(kind.id));
 
+  // Gevuld door vulAanwezigheid() zodra de events geladen zijn — leeg en
+  // verborgen blijft het gewoon staan als er geen aankomende beurs is.
+  const aanwezigPlek = document.createElement("div");
+  aanwezigPlek.className = "kind-item__aanwezig hidden";
+
   const actions = document.createElement("div");
   actions.className = "kind-item__actions";
 
@@ -274,16 +269,19 @@ function bouwKindRij(kind) {
   stickerBtn.href = `/kind.html?id=${encodeURIComponent(kind.id)}`;
   stickerBtn.textContent = "Stickers →";
 
+  const wereldreisBtn = document.createElement("a");
+  wereldreisBtn.className = "btn btn--outline btn--sm";
+  wereldreisBtn.href = `/wereldreis.html?kind=${encodeURIComponent(kind.id)}`;
+  wereldreisBtn.textContent = "🌍 Wereldreis";
+
   const editBtn = document.createElement("button");
   editBtn.type = "button";
   editBtn.className = "btn btn--outline btn--sm";
   editBtn.textContent = "Bewerken";
   editBtn.addEventListener("click", () => openKindForm(kind));
 
-  actions.appendChild(stickerBtn);
-  actions.appendChild(editBtn);
-  li.appendChild(info);
-  li.appendChild(actions);
+  actions.append(stickerBtn, wereldreisBtn, editBtn);
+  li.append(info, aanwezigPlek, actions);
   return li;
 }
 

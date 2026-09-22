@@ -2,22 +2,23 @@
 //
 // Een mini-wereldkaart, het aantal voltooide landen, een voortgangsbalk en een
 // knop naar de grote kaart. Meer niet: het dashboard gaat over je verzamelaars,
-// de wereldreis heeft een eigen pagina.
+// de wereldreis heeft een eigen pagina. Bij meerdere kinderen geen keuzelijst —
+// dat kiezen gebeurt al via de knop in de tegel van elke verzamelaar (zie
+// js/dashboard.js) — maar de kaart van wie het laatst zijn stickers opende op
+// dit toestel (leesLaatstBekekenKind in js/kinderen.js).
 //
 // De widget staat los van js/dashboard.js en hangt zichzelf aan het dashboard
 // vast. Zo blijft dashboard.js over onboarding en verzamelaars gaan, en kan de
 // wereldreis in fase 2 en 3 groeien zonder dat bestand te raken. Gaat er iets
 // mis — de migratie sql/010 nog niet gedraaid, Leaflet niet geladen — dan
 // verdwijnt de widget geruisloos in plaats van het dashboard mee te slepen.
-import { loadKinderen } from "./kinderen.js";
+import { loadKinderen, leesLaatstBekekenKind } from "./kinderen.js";
 import {
   laadLanden,
   samenvatting,
   maakKaart,
   tekenLanden,
   balk,
-  bewaarKeuze,
-  leesKeuze,
 } from "./wereldreis.js";
 
 let kaart;
@@ -46,17 +47,11 @@ async function start(widget) {
   }
   if (kinderen.length === 0) return;
 
-  vulKiezer();
   widget.classList.remove("hidden");
   kaart = maakKaart(document.getElementById("wr-widget-kaart"), { mini: true });
 
-  const kiezer = document.getElementById("wr-widget-kind");
-  kiezer.addEventListener("change", () => {
-    bewaarKeuze(kiezer.value);
-    ververs(kiezer.value);
-  });
-
-  await ververs(kiezer.value);
+  const gekozen = leesLaatstBekekenKind(kinderen);
+  await ververs(gekozen);
 }
 
 // #main-dashboard begint verborgen en krijgt zijn klasse pas weg als de
@@ -83,27 +78,6 @@ function wachtOpDashboard(dashboard) {
   });
 }
 
-function vulKiezer() {
-  const kiezer = document.getElementById("wr-widget-kind");
-  kiezer.innerHTML = "";
-  kinderen
-    .slice()
-    .sort((a, b) => Number(a.is_volwassen) - Number(b.is_volwassen))
-    .forEach((kind) => {
-      const optie = document.createElement("option");
-      optie.value = kind.id;
-      optie.textContent = kind.voornaam;
-      kiezer.appendChild(optie);
-    });
-
-  const gekozen = leesKeuze(kinderen);
-  kiezer.value = gekozen;
-  bewaarKeuze(gekozen);
-  // Bij één verzamelaar valt er niets te kiezen; de naam staat dan al in de
-  // knop eronder.
-  kiezer.classList.toggle("hidden", kinderen.length < 2);
-}
-
 async function ververs(kindId) {
   let landen;
   try {
@@ -114,6 +88,12 @@ async function ververs(kindId) {
     document.getElementById("wr-widget").classList.add("hidden");
     return;
   }
+
+  // Geen keuzelijst meer — dus moet de kop wel zeggen van wie de kaart is.
+  const wie = document.getElementById("wr-widget-wie");
+  const kind = kinderen.find((k) => k.id === kindId);
+  wie.textContent = kind ? `Kaart van ${kind.voornaam}` : "";
+  wie.classList.toggle("hidden", kinderen.length < 2);
 
   const s = samenvatting(landen);
   document.getElementById("wr-widget-voltooid").textContent = `${s.voltooid} / ${s.landen}`;

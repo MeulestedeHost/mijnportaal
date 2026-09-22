@@ -23,7 +23,7 @@
 // wijzigingen" blijft bestaan om nú te schrijven in plaats van straks, en
 // "Ongedaan maken" draait de laatste klik terug via een undo-stapel.
 import { supabase, requireAuth } from "./supabase.js";
-import { getKind } from "./kinderen.js";
+import { getKind, bewaarLaatstBekekenKind } from "./kinderen.js";
 import {
   accentVoor,
   vergelijkLanden,
@@ -161,6 +161,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   try {
     const kind = await getKind(kindId);
+    bewaarLaatstBekekenKind(kindId);
     document.getElementById("kind-naam").textContent = `${kind.voornaam} ${kind.familienaam}`;
     document.getElementById("kind-geboortejaar").textContent = kind.is_volwassen
       ? "Volwassen verzamelaar"

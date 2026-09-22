@@ -47,6 +47,33 @@ export async function deleteKind(id) {
   if (error) throw error;
 }
 
+// Welke verzamelaar het laatst open stond op dit toestel. De Wereldreis-
+// widget op het dashboard gebruikt dit om zonder keuzelijst meteen de juiste
+// kaart te tonen. Toestel-voorkeur, geen gezinsgegeven — vandaar localStorage
+// en geen kolom in de databank (zelfde afweging als wereldreis.js §welke
+// verzamelaar).
+const LAATST_BEKEKEN_SLEUTEL = "kind.laatst-bekeken";
+
+export function bewaarLaatstBekekenKind(kindId) {
+  try {
+    localStorage.setItem(LAATST_BEKEKEN_SLEUTEL, kindId);
+  } catch (err) {
+    /* privémodus of opslag vol: dan valt de widget terug op de eerste */
+  }
+}
+
+export function leesLaatstBekekenKind(kinderen) {
+  if (!kinderen.length) return null;
+  let bewaard = null;
+  try {
+    bewaard = localStorage.getItem(LAATST_BEKEKEN_SLEUTEL);
+  } catch (err) {
+    /* zie hierboven */
+  }
+  const gevonden = kinderen.find((k) => k.id === bewaard);
+  return gevonden ? gevonden.id : kinderen[0].id;
+}
+
 export function isValidGeboortejaar(jaar) {
   const n = Number(jaar);
   const huidigJaar = new Date().getFullYear();

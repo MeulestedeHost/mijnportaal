@@ -24,10 +24,10 @@
              normaal meteen terug naar het dashboard (het #nieuws-anker is daar de
              uitzondering op). -->
         <a href="/#nieuws" class="btn btn--outline btn--sm" data-naast-wizard>Nieuws</a>
-        <a href="/statistieken.html" class="btn btn--outline btn--sm" data-naast-wizard>📊 Statistieken</a>
-        <button type="button" class="btn btn--outline btn--sm" data-snelruilen data-naast-wizard aria-label="Snelruilen"><span aria-hidden="true">⚡</span><span class="snelruil-knop__tekst">Snelruilen</span></button>
-        <a href="/instellingen.html" class="btn btn--outline btn--sm hidden" id="beheer-link">Instellingen</a>
-        <a href="/aanwezigheden.html" class="btn btn--outline btn--sm hidden" id="aanwezig-link">🎫 Aanwezigheden</a>
+        <a href="/statistieken.html" class="btn btn--outline btn--sm" data-naast-wizard>Statistieken</a>
+        <button type="button" class="btn btn--outline btn--sm" data-snelruilen data-naast-wizard aria-label="Snelruilen"><span class="snelruil-knop__icoon" aria-hidden="true">⚡</span><span class="snelruil-knop__tekst">Snelruilen</span></button>
+        <a href="/aanwezigheden.html" class="btn btn--outline btn--sm hidden" id="aanwezig-link">Aanwezigheden</a>
+        <a href="/instellingen.html" class="btn btn--outline btn--sm hidden" id="beheer-link" aria-label="Instellingen"><span aria-hidden="true">⚙️</span></a>
         <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
       </div>
     </div>
@@ -269,16 +269,6 @@
         </div>
       </div>
 
-      <!-- Wie gaat er mee naar de volgende ruilbeurs? Wordt gevuld zodra er een
-           event in de kalender staat (sql/025); zonder events blijft dit blok
-           verborgen. -->
-      <section class="card aanwezig-blok hidden" id="aanwezig-blok" aria-labelledby="aanwezig-titel">
-        <h2 id="aanwezig-titel">🎫 Komt je verzamelaar mee?</h2>
-        <p class="form-meta" id="aanwezig-uitleg"></p>
-        <div id="aanwezig-events"></div>
-        <div id="aanwezig-message" class="message" role="status" aria-live="polite"></div>
-      </section>
-
       <div id="kind-form-container" class="card hidden">
         <h2 id="kind-form-title">Nieuwe verzamelaar</h2>
         <form id="kind-form" novalidate>
@@ -312,6 +302,12 @@
         <div id="kind-form-message" class="message" role="alert" aria-live="polite"></div>
       </div>
 
+      <!-- Aanwezigheid staat nu per verzamelaar in zijn eigen tegel (js/dashboard.js
+           vult .kind-item__aanwezig zodra sql/025 een aankomend event heeft);
+           deze twee blijven gedeeld, want één melding of uitlegregel volstaat. -->
+      <p class="form-meta hidden" id="aanwezig-uitleg"></p>
+      <div id="aanwezig-message" class="message" role="status" aria-live="polite"></div>
+
       <ul id="kinderen-ul" class="kinderen-list"></ul>
       <p id="stats-hint" class="form-meta hidden"></p>
       <!-- Staat er geen nummer in de instellingen, dan blijft deze regel
@@ -326,7 +322,9 @@
       <section class="card wr-widget hidden" id="wr-widget">
         <div class="wr-widget__kop">
           <h2>🌍 FIFA Wereldreis</h2>
-          <select id="wr-widget-kind" class="form-input wr-widget__kiezer" aria-label="Verzamelaar"></select>
+          <!-- Geen keuzelijst meer: js/wereldreis-widget.js kiest zelf de
+               verzamelaar die het laatst zijn stickers opende op dit toestel. -->
+          <p class="form-meta hidden" id="wr-widget-wie"></p>
         </div>
 
         <div class="wr-widget__inhoud">

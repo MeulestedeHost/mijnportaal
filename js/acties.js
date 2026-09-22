@@ -81,7 +81,8 @@ function naarRuilen(kindId, anker) {
 
 export function berekenActies(rijen) {
   const teDoen = [];
-  const info = [];
+  const infoMij = [];
+  const infoAnder = [];
 
   const herstel = teHerstellen();
   if (herstel) {
@@ -99,28 +100,30 @@ export function berekenActies(rijen) {
 
   const eigen = eigenBundel();
   if (eigen && eigen.ruiler && eigen.ruilen.length) {
-    info.push({
+    infoMij.push({
       tekst: `Ruil met ${ruilerLabel(eigen.ruiler)} klaar om te registreren (${aantalRuilen(eigen.ruilen.length)})`,
       href: naarRuilen(eigen.eigenKindId),
     });
   }
+  // Wacht op de ANDERE kant — geen actie voor jou, dus achter de opklaprij
+  // (inhoudVan) in plaats van naast wat jij zelf moet doen.
   perDossier(rijen.filter(wachtOpAnder)).forEach((d) => {
-    info.push({
+    infoAnder.push({
       tekst: `${d[0].ander_kind} moet nog bevestigen (${aantalRuilen(d.length)})`,
       href: naarRuilen(d[0].eigen_kind_id, "ruil-afspraken"),
     });
   });
 
-  return { teDoen, info };
+  return { teDoen, infoMij, infoAnder };
 }
 
 // ---------- tekenen ----------
 
 function teken() {
   if (afspraken === null) return;
-  const { teDoen, info } = berekenActies(afspraken);
-  tekenBel(teDoen, info);
-  tekenBlok(teDoen, info);
+  const { teDoen, infoMij, infoAnder } = berekenActies(afspraken);
+  tekenBel(teDoen, infoMij, infoAnder);
+  tekenBlok(teDoen, infoMij, infoAnder);
 }
 
 function lijst(items, klasse) {
@@ -138,16 +141,30 @@ function lijst(items, klasse) {
   return ul;
 }
 
-function inhoudVan(teDoen, info) {
-  if (!teDoen.length && !info.length) {
+// Wat bij ANDEREN openstaat, is voor jou geen actie — dat verdient niet
+// dezelfde plek als je eigen bevestigingen, maar mag niet verdwijnen. Vandaar
+// een opklaprij in plaats van een derde lijst die er altijd al staat.
+function opklapAnder(items) {
+  const details = document.createElement("details");
+  details.className = "acties__opklap";
+  const kop = document.createElement("summary");
+  kop.className = "acties__opklap-kop";
+  kop.textContent = `Openstaande meldingen bij anderen (${items.length})`;
+  details.append(kop, lijst(items, "acties__lijst--info"));
+  return details;
+}
+
+function inhoudVan(teDoen, infoMij, infoAnder) {
+  const delen = [];
+  if (teDoen.length) delen.push(lijst(teDoen, "acties__lijst--te-doen"));
+  if (infoMij.length) delen.push(lijst(infoMij, "acties__lijst--info"));
+  if (!teDoen.length && !infoMij.length && !infoAnder.length) {
     const leeg = document.createElement("p");
     leeg.className = "acties__leeg";
     leeg.textContent = "Niets dat op jou wacht.";
-    return [leeg];
+    delen.push(leeg);
   }
-  const delen = [];
-  if (teDoen.length) delen.push(lijst(teDoen, "acties__lijst--te-doen"));
-  if (info.length) delen.push(lijst(info, "acties__lijst--info"));
+  if (infoAnder.length) delen.push(opklapAnder(infoAnder));
   return delen;
 }
 
@@ -197,7 +214,7 @@ function bouwBel() {
   return { knop, aantal, paneel };
 }
 
-function tekenBel(teDoen, info) {
+function tekenBel(teDoen, infoMij, infoAnder) {
   if (!bel) return;
   const { knop, aantal, paneel } = bel;
   aantal.textContent = String(teDoen.length);
@@ -207,15 +224,15 @@ function tekenBel(teDoen, info) {
   const kop = document.createElement("p");
   kop.className = "acties-paneel__kop";
   kop.textContent = "🔔 Openstaande acties";
-  paneel.append(kop, ...inhoudVan(teDoen, info));
+  paneel.append(kop, ...inhoudVan(teDoen, infoMij, infoAnder));
 }
 
-function tekenBlok(teDoen, info) {
+function tekenBlok(teDoen, infoMij, infoAnder) {
   const blok = document.getElementById("acties-blok");
   const doel = document.getElementById("acties-blok-lijst");
   if (!blok || !doel) return;
   doel.textContent = "";
-  const leeg = !teDoen.length && !info.length;
+  const leeg = !teDoen.length && !infoMij.length && !infoAnder.length;
   blok.classList.toggle("hidden", leeg);
-  if (!leeg) doel.append(...inhoudVan(teDoen, info));
+  if (!leeg) doel.append(...inhoudVan(teDoen, infoMij, infoAnder));
 }
