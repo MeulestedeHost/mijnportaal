@@ -37,13 +37,46 @@
         <button type="button" class="btn btn--primary btn--sm" data-scanner>📷 Scan stickers</button>
       </div>
       <p class="form-meta">
-        Kies een land, vink aan wat je zoekt en zet met + en − hoeveel je er dubbel hebt.
+        Zoek een sticker, of kies een land en bladder met ◀ ▶ door het album. Vink aan wat je zoekt
+        en zet met + en − hoeveel je er dubbel hebt.
         Weet je al welke sticker je zoekt? Typ dan meteen de code, de speler of het land in het
-        zoekveld eronder: staat hij al in de lijst hieronder, dan licht hij daar meteen op; hoort
+        zoekveld bovenaan: staat hij al in de lijst hieronder, dan licht hij daar meteen op; hoort
         hij bij een ander land, dan spring je er met één klik naartoe.
         Alles wordt <strong>vanzelf bewaard</strong> — je hoeft niets af te sluiten, ook niet
         als je van land wisselt of de pagina sluit.
       </p>
+
+      <!-- De eerste weg naar een sticker: niet eerst het land, maar meteen de
+           sticker, de speler of het team. Zoekt over alle landen heen.
+           Hoort de treffer al bij het land dat hieronder open staat, dan licht
+           hij daar rechtstreeks op in de checklist (bouwChip/pasZoekMarkeringToe
+           in js/stickers.js) — geen apart "zoeken binnen dit land"-veldje meer
+           nodig, want dat deed precies hetzelfde in het klein. Is de zoekterm
+           eenduidig (een volledige code als GER15, of een land als ALG of
+           Algerije), dan gaat het land meteen open en springt de pagina naar de
+           sticker. Enkel wie nog moet kiezen, krijgt de lijst eronder; die
+           aanklikken (of Enter) zet het land goed en springt naar de sticker. -->
+      <div class="form-group stickerzoek">
+        <label for="sticker-globaalzoek" class="form-label">Zoek een sticker of speler</label>
+        <input
+          type="search"
+          id="sticker-globaalzoek"
+          class="form-input"
+          placeholder="Zoek op stickercode, speler, team of land"
+          autocomplete="off"
+          role="combobox"
+          aria-expanded="false"
+          aria-autocomplete="list"
+          aria-controls="sticker-globaalresultaten"
+        />
+        <ul
+          id="sticker-globaalresultaten"
+          class="zoekresultaten hidden"
+          role="listbox"
+          aria-label="Zoekresultaten"
+        ></ul>
+        <p id="sticker-globaalmeer" class="zoekresultaten__meer hidden" aria-live="polite"></p>
+      </div>
 
       <div class="landkiezer">
         <!-- Geen <select>: een browser laat zijn keuzelijst niet filteren
@@ -81,6 +114,12 @@
           </div>
         </div>
 
+        <!-- Vorige/volgende land, in de volgorde van "Volgorde" (js/stickers.js). -->
+        <div class="landkiezer__stap">
+          <button type="button" class="btn btn--outline" data-land-stap="-1" aria-label="Vorig land" title="Vorig land">◀</button>
+          <button type="button" class="btn btn--outline" data-land-stap="1" aria-label="Volgend land" title="Volgend land">▶</button>
+        </div>
+
         <div class="form-group landkiezer__sortering">
           <label for="sticker-sortering" class="form-label">Volgorde</label>
           <select id="sticker-sortering" class="form-input">
@@ -88,38 +127,6 @@
             <option value="code">Code (A-Z)</option>
           </select>
         </div>
-      </div>
-
-      <!-- De tweede weg naar een sticker: niet eerst het land, maar meteen de
-           sticker, de speler of het team. Zoekt over alle landen heen.
-           Hoort de treffer al bij het land dat hieronder open staat, dan licht
-           hij daar rechtstreeks op in de checklist (bouwChip/pasZoekMarkeringToe
-           in js/stickers.js) — geen apart "zoeken binnen dit land"-veldje meer
-           nodig, want dat deed precies hetzelfde in het klein. Is de zoekterm
-           eenduidig (een volledige code als GER15, of een land als ALG of
-           Algerije), dan gaat het land meteen open en springt de pagina naar de
-           sticker. Enkel wie nog moet kiezen, krijgt de lijst eronder; die
-           aanklikken (of Enter) zet het land goed en springt naar de sticker. -->
-      <div class="form-group stickerzoek">
-        <label for="sticker-globaalzoek" class="form-label">Of zoek een sticker of speler</label>
-        <input
-          type="search"
-          id="sticker-globaalzoek"
-          class="form-input"
-          placeholder="Zoek op stickercode, speler, team of land"
-          autocomplete="off"
-          role="combobox"
-          aria-expanded="false"
-          aria-autocomplete="list"
-          aria-controls="sticker-globaalresultaten"
-        />
-        <ul
-          id="sticker-globaalresultaten"
-          class="zoekresultaten hidden"
-          role="listbox"
-          aria-label="Zoekresultaten"
-        ></ul>
-        <p id="sticker-globaalmeer" class="zoekresultaten__meer hidden" aria-live="polite"></p>
       </div>
 
       <p id="sticker-teller" class="sticker-teller"></p>

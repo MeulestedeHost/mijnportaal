@@ -184,6 +184,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     opKies: () => void wisselLand(),
   });
 
+  // Vorige/volgende land: dezelfde weg als een keuze in de lijst, dus ook
+  // dezelfde volgorde (Albumvolgorde of Code) en dezelfde wissel via wisselLand().
+  for (const knop of document.querySelectorAll("[data-land-stap]")) {
+    knop.addEventListener("click", () => {
+      const code = landcombo.buur(Number(knop.dataset.landStap));
+      if (!code || code === landcombo.waarde()) return;
+      landcombo.zetWaarde(code);
+      void wisselLand();
+    });
+  }
+
   try {
     const toonGlans = await glansstickersAan();
     catalogus = await laadCatalogus();

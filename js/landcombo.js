@@ -303,6 +303,16 @@ export function maakLandcombo({ wortel, opKies, leegLabel = "Kies een land…" }
       gekozen = code || "";
       toonWaarde();
     },
+    // De code van het land vóór (-1) of na (+1) het gekozen land, in de
+    // getoonde volgorde. Klemt af aan de uiteinden; zonder keuze begint
+    // "volgende" bij het eerste land. Leeg als er niets te kiezen valt.
+    buur(stap) {
+      if (landen.length === 0) return "";
+      const nu = landen.findIndex((l) => l.land_code === gekozen);
+      if (nu === -1) return stap > 0 ? landen[0].land_code : "";
+      const doel = Math.min(Math.max(nu + stap, 0), landen.length - 1);
+      return landen[doel].land_code;
+    },
     focus() {
       knop.focus();
     },

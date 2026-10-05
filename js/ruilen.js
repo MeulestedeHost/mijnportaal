@@ -1883,9 +1883,31 @@ function tekenAfspraken() {
 
   lijst.textContent = "";
   kaart.classList.toggle("hidden", dossiers.length === 0 && losse.length === 0);
-  dossiers.forEach((rijen) => lijst.appendChild(dossierBlok(rijen)));
-  losse.forEach((rijen) => lijst.appendChild(eenzijdigBlok(rijen)));
+
+  // dossierBlok() en eenzijdigBlok() zetten "afspraak--voltooid" zelf al op het
+  // element — hergebruiken in plaats van hier opnieuw uit te rekenen wat
+  // voltooid is.
+  const blokken = [...dossiers.map(dossierBlok), ...losse.map(eenzijdigBlok)];
+  const actief = blokken.filter((b) => !b.classList.contains("afspraak--voltooid"));
+  const voltooid = blokken.filter((b) => b.classList.contains("afspraak--voltooid"));
+
+  actief.forEach((b) => lijst.appendChild(b));
+  if (voltooid.length) lijst.appendChild(opklapVoltooid(voltooid));
+
   tekenTeBevestigen();
+}
+
+// Een voltooide ruil (of een eenzijdige, die meteen als afgerond geldt) is
+// geschiedenis, geen actiepunt — vandaar ingeklapt, net als bij 🔔 Openstaande
+// acties. Wat nog loopt (geregistreerd, geweigerd, vervallen) blijft zichtbaar.
+function opklapVoltooid(blokken) {
+  const details = document.createElement("details");
+  details.className = "afspraak-opklap";
+  const kop = document.createElement("summary");
+  kop.className = "afspraak-opklap__kop";
+  kop.textContent = `Bekijk voltooide en bevestigde ruilen (${blokken.length})`;
+  details.append(kop, ...blokken);
+  return details;
 }
 
 // mijn_ruilen() draait elke rij naar het eigen gezin toe, maar bij een ruil
