@@ -194,6 +194,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       void wisselLand();
     });
   }
+  bijwerkenLandStap();
 
   try {
     const toonGlans = await glansstickersAan();
@@ -204,6 +205,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!toonGlans) catalogus = catalogus.filter((s) => !s.glans);
     verzamelLanden();
     vulLandcombo();
+    // Meteen het eerste land van de gekozen volgorde (albumpagina 1, of het
+    // eerste in het alfabet): zo is er bij het openen al iets om door te
+    // bladeren. ververs() hieronder tekent de checklist.
+    landcombo.zetWaarde(landcombo.buur(1));
+    huidigLand = landcombo.waarde();
   } catch (err) {
     toonMelding("Stickerlijst kon niet geladen worden: " + err.message, "error");
   }
@@ -306,6 +312,16 @@ function verzamelLanden() {
 // album. Bij een sticker niet — zie omschrijving() hieronder.
 function vulLandcombo() {
   landcombo.zetLanden(landen.slice().sort((a, b) => vergelijkLanden(a, b, sorteerwijze)));
+  bijwerkenLandStap();
+}
+
+// ◀ en ▶ zijn niet bruikbaar aan het eerste, respectievelijk laatste land.
+function bijwerkenLandStap() {
+  const nu = landcombo.waarde();
+  for (const knop of document.querySelectorAll("[data-land-stap]")) {
+    const doel = landcombo.buur(Number(knop.dataset.landStap));
+    knop.disabled = !doel || doel === nu;
+  }
 }
 
 function wisselSortering() {
@@ -342,6 +358,7 @@ async function wisselLand() {
 // dat is de lat waartegen "nog niet bewaard" gemeten wordt.
 function kiesLand() {
   huidigLand = landcombo.waarde();
+  bijwerkenLandStap();
 
   // De accentkleur van het land staat op de kaart die de checklist bevat;
   // alles erin erft ze via var(--land-accent). Zo hoeft de kleur niet per chip
