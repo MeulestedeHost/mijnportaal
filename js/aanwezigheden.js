@@ -2,8 +2,9 @@
 //
 // Eén tabel met een kolom per ruilbeurs. Een komende beurs krijgt er twee —
 // "gepland" (wat de ouder aanduidde) en "aangemeld" (wat de organisatie aan de
-// inkom afvinkt) — een afgelopen beurs maar één, want daar valt niets meer aan
-// te veranderen.
+// inkom afvinkt) — een afgelopen beurs maar één: wie er was. Die blijft
+// afvinkbaar, zodat ook een beurs van vóór dit systeem (6 september) achteraf
+// ingevuld kan worden; aanmelden_zetten() weigert een voorbije beurs niet.
 //
 // WAAROM ÉÉN VINKJE PER VERZAMELAAR EN NIET PER GEZIN. Aan de inkom staat een
 // gezin samen, maar het gebeurt dat één kind thuisblijft. Wie per gezin afvinkt,
@@ -67,6 +68,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   teken();
+  initGasten();
   // Twee bijzaken: ze mogen de tabel nooit tegenhouden, en de tweede bestaat
   // pas na sql/026.
   void tekenStatistiek();
@@ -113,11 +115,12 @@ function maak(tag, klasse, tekst) {
 function tekenKop() {
   const rij = document.getElementById("aanw-kop");
   rij.textContent = "";
-  rij.append(maak("th", "", "Verzamelaar"), maak("th", "", "Ouder"), maak("th", "", "Wijk"));
+  rij.append(maak("th", "", "Verzamelaar"), maak("th", "", "Ouder"), maak("th", "", "Wijk / gemeente"));
 
   events.forEach((ev) => {
     if (ev.voorbij) {
-      // Een afgelopen beurs heeft aan één kolom genoeg: wie er was, was er.
+      // Een afgelopen beurs heeft aan één kolom genoeg: wie er was, was er —
+      // en die kolom is een vinkje, voor wie achteraf nog moet invullen.
       rij.append(maak("th", "aanwezig-kol", `${datumKort(ev.start)} aanwezig`));
     } else {
       rij.append(
@@ -180,11 +183,7 @@ function bouwRij(v) {
   events.forEach((ev) => {
     const s = stand(v, ev);
     if (ev.voorbij) {
-      tr.appendChild(
-        s.aangemeld
-          ? maak("td", "aanwezig-kol aanwezig-vast", "✓")
-          : maak("td", "aanwezig-kol aanwezig-leeg", "–")
-      );
+      tr.appendChild(bouwVinkje(v, ev, s.aangemeld));
       return;
     }
     tr.appendChild(
@@ -301,5 +300,166 @@ async function tekenHoeGevonden() {
     houder.appendChild(ul);
   } catch (err) {
     /* geen toelichtingen: dan staat er gewoon niets */
+  }
+}
+
+// ---------- snel een gezin toevoegen (gasten, sql/029) ----------
+//
+// Een gast is enkel een regel op de presentielijst van één beurs — geen
+// verzamelaar in het portaal, want die hangt vast aan een ouder-account. Met
+// een e-mailadres sturen we dezelfde inlogmail als op de loginpagina; de ouder
+// maakt daarna zelf zijn gezin en verzamelaars aan. De mail wordt bewust vanuit
+// dit scherm verstuurd: de organisatie ziet meteen of het gelukt is, en een
+// foutief adres hoeft niet eerst een gast te blokkeren.
+
+function initGasten() {
+  const keuze = document.getElementById("gast-event");
+  if (!keuze) return;
+
+  if (!events.length) {
+    document.getElementById("aanw-gast-kaart").classList.add("hidden");
+    return;
+  }
+
+  events.forEach((ev) => {
+    const optie = document.createElement("option");
+    optie.value = ev.id;
+    optie.textContent = `${ev.naam} — ${datumKort(ev.start)}${ev.voorbij ? " (voorbij)" : ""}`;
+    keuze.appendChild(optie);
+  });
+  // De beurs waar het nu over gaat: de eerstvolgende, anders de laatste.
+  keuze.value = (events.find((ev) => !ev.voorbij) || events[events.length - 1]).id;
+
+  keuze.addEventListener("change", () => void tekenGasten());
+  document.getElementById("gast-toevoegen").addEventListener("click", voegGastToe);
+  void tekenGasten();
+}
+
+function gastMelding(tekst, type) {
+  const el = document.getElementById("gast-message");
+  el.textContent = tekst;
+  el.className = "message message--show message--" + type;
+}
+
+async function tekenGasten() {
+  const body = document.getElementById("gast-rijen");
+  body.textContent = "";
+  let rijen = [];
+  try {
+    const { data, error } = await supabase.rpc("gasten_overzicht", {
+      p_event_id: document.getElementById("gast-event").value,
+    });
+    if (error) throw error;
+    rijen = data || [];
+  } catch (err) {
+    // Nog geen tabel (sql/029): dan blijft het formulier weg in plaats van te falen.
+    document.getElementById("aanw-gast-kaart").classList.add("hidden");
+    return;
+  }
+
+  if (!rijen.length) {
+    const tr = maak("tr");
+    const td = maak("td", "aanwezig-leeg", "Nog niemand toegevoegd voor deze beurs.");
+    td.colSpan = 5;
+    tr.appendChild(td);
+    body.appendChild(tr);
+    return;
+  }
+
+  rijen.forEach((g) => {
+    const tr = maak("tr");
+    const mail = g.email
+      ? `${g.email} — ${g.heeft_account ? "heeft een account" : g.uitgenodigd ? "uitgenodigd" : "nog niet uitgenodigd"}`
+      : "";
+    const weg = maak("button", "btn btn--outline btn--sm", "Verwijderen");
+    weg.type = "button";
+    weg.addEventListener("click", () => verwijderGast(g));
+    const acties = maak("td");
+    acties.appendChild(weg);
+    tr.append(
+      maak("td", "aanwezig-tabel__naam", g.ouder),
+      maak("td", "", (g.kinderen || []).join(", ")),
+      maak("td", "aanwezig-tabel__ouder", g.gemeente || ""),
+      maak("td", "aanwezig-tabel__ouder", mail),
+      acties
+    );
+    body.appendChild(tr);
+  });
+}
+
+async function voegGastToe() {
+  const ouder = document.getElementById("gast-ouder").value.trim();
+  const email = document.getElementById("gast-email").value.trim().toLowerCase();
+  const gemeente = document.getElementById("gast-gemeente").value.trim();
+  const kinderen = [1, 2, 3]
+    .map((i) => document.getElementById(`gast-kind-${i}`).value.trim())
+    .filter(Boolean);
+
+  if (!ouder) return gastMelding("Vul de naam van de ouder in.", "error");
+  if (!kinderen.length) return gastMelding("Vul minstens één verzamelaar in.", "error");
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return gastMelding("Dat e-mailadres klopt niet.", "error");
+  }
+
+  const knop = document.getElementById("gast-toevoegen");
+  knop.disabled = true;
+  try {
+    const { data: gebruiker } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from("gasten")
+      .insert({
+        event_id: document.getElementById("gast-event").value,
+        ouder,
+        gemeente: gemeente || null,
+        email: email || null,
+        kinderen,
+        created_by: gebruiker?.user?.id ?? null,
+      })
+      .select("id");
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error("De database heeft niets bewaard — je account heeft geen beheerdersrecht.");
+    }
+
+    let tekst = `${ouder} met ${kinderen.join(", ")} staat op de lijst.`;
+    let type = "success";
+    if (email) {
+      const { error: mailFout } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/dashboard.html` },
+      });
+      if (mailFout) {
+        // De gast staat er al; enkel de mail faalde. Niet terugdraaien — de
+        // organisatie kan het adres nog nakijken en zelf een link doorgeven.
+        tekst += ` De uitnodiging kon niet verstuurd worden: ${mailFout.message}`;
+        type = "error";
+      } else {
+        await supabase.from("gasten").update({ uitgenodigd: true }).eq("id", data[0].id);
+        tekst += ` Een inloglink is gemaild naar ${email}.`;
+      }
+    }
+
+    ["gast-ouder", "gast-email", "gast-gemeente", "gast-kind-1", "gast-kind-2", "gast-kind-3"].forEach(
+      (id) => (document.getElementById(id).value = "")
+    );
+    document.getElementById("gast-ouder").focus();
+    gastMelding(tekst, type);
+    await tekenGasten();
+  } catch (err) {
+    gastMelding("Kon niet toevoegen: " + err.message, "error");
+  } finally {
+    knop.disabled = false;
+  }
+}
+
+async function verwijderGast(g) {
+  if (!window.confirm(`${g.ouder} van de lijst halen?`)) return;
+  try {
+    const { error } = await supabase.from("gasten").delete().eq("id", g.id);
+    if (error) throw error;
+    gastMelding(`${g.ouder} staat niet meer op de lijst.`, "success");
+    await tekenGasten();
+  } catch (err) {
+    gastMelding("Kon niet verwijderen: " + err.message, "error");
   }
 }

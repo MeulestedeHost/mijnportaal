@@ -270,8 +270,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .btn--verwijder { width: auto; margin: 0; margin-left: auto; color: var(--danger); font-weight: 500; text-decoration: underline; }
 .btn--verwijder:hover { background: var(--danger-light); }
 
-.sticker-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
-.sticker-lists .card h2 { margin-bottom: 1rem; font-size: 1.05rem; }
+.ruilkansen { margin-top: 1.5rem; }
+.ruilkansen > h2 { margin-bottom: 1rem; font-size: 1.05rem; }
+.ruilkansen__kolommen { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1rem; }
+.ruilkansen h3 { font-size: 0.95rem; margin-bottom: 0.6rem; }
+.sticker-item.kansen-persoon { flex-direction: column; align-items: stretch; gap: 0.35rem; }
+.kansen-persoon__kop { font-weight: 700; }
+.kansen-persoon__kop .sticker-item__bij { font-weight: 400; }
+.kansen-persoon__stickers { list-style: none; display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.kansen-persoon__stickers li { font-size: 0.85rem; padding: 0.15rem 0.5rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); }
 .sticker-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
 .sticker-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; gap: 0.5rem; flex-wrap: wrap; }
 /* Ster + code samen als één blok: anders duwt justify-content hierboven de
@@ -1704,3 +1711,6 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .aanwezig-vast { color: var(--success); font-weight: 700; }
 .aanwezig-leeg { color: var(--text-muted); }
 .aanwezig-gepland { color: var(--cf-blue-dark); font-weight: 700; }
+
+/* Bewerken en Verwijderen naast elkaar in de beurzenlijst (instellingen.html). */
+.aanwezig-tabel__acties { display: flex; flex-wrap: wrap; gap: 0.4rem; }

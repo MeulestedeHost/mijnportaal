@@ -42,8 +42,8 @@
       <section class="card">
         <p class="form-meta">
           Per verzamelaar en per ruilbeurs: <strong>gepland</strong> is wat de ouder zelf
-          aanduidde, <strong>aangemeld</strong> vink jij aan wanneer ze binnenkomen. Een
-          afgelopen beurs staat vast en toont enkel nog wie er was.
+          aanduidde, <strong>aangemeld</strong> vink jij aan wanneer ze binnenkomen. Bij een
+          afgelopen beurs vink je gewoon aan wie er was.
         </p>
         <p class="form-meta">
           Op de beursdag zelf zien de verzamelaars in hun ruilplanner enkel wie hier
@@ -64,6 +64,60 @@
         </div>
 
         <div id="aanw-message" class="message" role="status" aria-live="polite"></div>
+      </section>
+
+      <!-- Wie aan de inkom staat zonder account: een gast op de presentielijst
+           (sql/029). Geen verzamelaar in het portaal; met een e-mailadres krijgt
+           de ouder een inloglink om er daarna wél een van te maken. -->
+      <section class="card" id="aanw-gast-kaart">
+        <h2>Snel een gezin toevoegen</h2>
+        <p class="form-meta">
+          Voor wie aan de inkom staat zonder account: ouder en tot drie verzamelaars op de
+          lijst van deze beurs. Met een e-mailadres krijgt de ouder een link om daarna
+          zelf verder te gaan op het portaal.
+        </p>
+        <form id="aanw-gast-form" class="form-grid" novalidate>
+          <div class="form-group">
+            <label for="gast-event" class="form-label">Ruilbeurs</label>
+            <select id="gast-event" class="form-input"></select>
+          </div>
+          <div class="form-group">
+            <label for="gast-ouder" class="form-label">Ouder <span class="required">*</span></label>
+            <input type="text" id="gast-ouder" class="form-input" maxlength="80" autocomplete="off" placeholder="Voor- en familienaam" />
+          </div>
+          <div class="form-group">
+            <label for="gast-email" class="form-label">E-mail</label>
+            <input type="email" id="gast-email" class="form-input" maxlength="120" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="gast-gemeente" class="form-label">Wijk of gemeente</label>
+            <input type="text" id="gast-gemeente" class="form-input" maxlength="80" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="gast-kind-1" class="form-label">Verzamelaar 1 <span class="required">*</span></label>
+            <input type="text" id="gast-kind-1" class="form-input" maxlength="60" autocomplete="off" placeholder="Voornaam" />
+          </div>
+          <div class="form-group">
+            <label for="gast-kind-2" class="form-label">Verzamelaar 2</label>
+            <input type="text" id="gast-kind-2" class="form-input" maxlength="60" autocomplete="off" placeholder="Voornaam" />
+          </div>
+          <div class="form-group">
+            <label for="gast-kind-3" class="form-label">Verzamelaar 3</label>
+            <input type="text" id="gast-kind-3" class="form-input" maxlength="60" autocomplete="off" placeholder="Voornaam" />
+          </div>
+        </form>
+        <button type="button" class="btn btn--primary" id="gast-toevoegen">Toevoegen</button>
+        <div id="gast-message" class="message" role="status" aria-live="polite"></div>
+
+        <h3 class="aanwezig-event__titel">Toegevoegd voor deze beurs</h3>
+        <div class="aanwezig-tabel-wrap">
+          <table class="aanwezig-tabel">
+            <thead>
+              <tr><th>Ouder</th><th>Verzamelaars</th><th>Wijk / gemeente</th><th>E-mail</th><th>Actie</th></tr>
+            </thead>
+            <tbody id="gast-rijen"></tbody>
+          </table>
+        </div>
       </section>
 
       <section class="card">

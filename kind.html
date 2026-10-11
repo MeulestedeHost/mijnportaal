@@ -147,22 +147,24 @@
       <div id="sticker-message" class="message" role="alert" aria-live="polite"></div>
     </div>
 
-    <div class="sticker-lists">
-      <section class="card">
-        <h2>Zoek ik</h2>
-        <ul id="zoekt-list" class="sticker-list"></ul>
-      </section>
-      <section class="card">
-        <h2>Heb ik dubbel</h2>
-        <ul id="ruilt-list" class="sticker-list"></ul>
-      </section>
-      <section class="card">
-        <h2>Iemand heeft het dubbel</h2>
-        <p id="match-uitleg" class="form-meta"></p>
-        <ul id="match-list" class="sticker-list"></ul>
-        <a href="/ruilen.html" class="btn btn--outline btn--sm ruil-link">Alle ruilkansen →</a>
-      </section>
-    </div>
+    <!-- Eén overzicht in plaats van drie kolommen (Zoek ik / Heb ik dubbel /
+         Iemand heeft het dubbel): per verzamelaar wat die voor jou heeft en
+         wat jij voor hem hebt. Verwijderen en het aantal dubbels aanpassen kan
+         in de checklist per land hierboven. Gevuld door js/stickers.js. -->
+    <section class="card ruilkansen">
+      <h2>Ruilkansen</h2>
+      <div class="ruilkansen__kolommen">
+        <div>
+          <h3>Wie heeft wat ik zoek?</h3>
+          <ul id="kansen-krijg" class="sticker-list"></ul>
+        </div>
+        <div>
+          <h3>Aan wie kan ik mijn dubbels kwijt?</h3>
+          <ul id="kansen-geef" class="sticker-list"></ul>
+        </div>
+      </div>
+      <a href="/ruilen.html" class="btn btn--outline btn--sm ruil-link">Alle ruilkansen →</a>
+    </section>
   </main>
 
   <footer class="footer">

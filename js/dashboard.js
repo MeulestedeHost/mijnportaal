@@ -13,7 +13,7 @@
 import { requireAuth, supabase } from "./supabase.js";
 import { loadKinderen, addKind, updateKind, deleteKind, valideerKind, kindPayload } from "./kinderen.js";
 import { toonOrganisatorKnop } from "./whatsapp.js";
-import { haalKomendeEvents, datumVoluit, uur } from "./beurs.js";
+import { haalAlleEvents, datumVoluit, uur } from "./beurs.js";
 import { startWizard } from "./onboarding.js";
 
 let user;
@@ -146,7 +146,7 @@ async function refreshKinderen() {
 // (sql/025); daarvoor verandert er voor niemand iets. Dat staat er ook bij:
 // een vinkje waarvan je niet weet wat het doet, zet je niet.
 async function vulAanwezigheid(kinderen) {
-  const events = await haalKomendeEvents();
+  const events = await haalAlleEvents();
   if (!events.length) return;
 
   await laadAanwezigheid(events);
@@ -156,7 +156,8 @@ async function vulAanwezigheid(kinderen) {
     uitleg.textContent =
       "Duid per verzamelaar aan wie er meegaat. In de aanloop naar de beurs " +
       "zien andere verzamelaars enkel wie aangeduid heeft dat hij komt — en " +
-      "zie jij enkel hen.";
+      "zie jij enkel hen. Was iemand op een eerdere beurs, dan kan je dat " +
+      "achteraf nog aanduiden.";
     uitleg.classList.remove("hidden");
   }
 
@@ -198,7 +199,7 @@ function bouwAanwezigRij(ev, kind) {
   vinkje.addEventListener("change", () => zetAanwezigheid(ev, kind, vinkje));
 
   const tekst = document.createElement("span");
-  tekst.textContent = `Komt mee naar ${ev.naam} — ${datumVoluit(ev.start)}, ${uur(ev.start)}–${uur(ev.einde)}`;
+  tekst.textContent = `${ev.voorbij ? "Was mee naar" : "Komt mee naar"} ${ev.naam} — ${datumVoluit(ev.start)}, ${uur(ev.start)}–${uur(ev.einde)}`;
 
   label.append(vinkje, tekst);
   return label;

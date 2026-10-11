@@ -1169,9 +1169,6 @@ async function ververs({ herbouwChecklist = true } = {}) {
 
   statusPerCode = new Map(huidigeStickers.map((s) => [s.nummer, s.status]));
   aantalPerCode = new Map(huidigeStickers.map((s) => [s.nummer, s.aantal]));
-  huidigeStickers.sort(vergelijkStickers);
-  toonLijst("zoekt-list", huidigeStickers.filter((s) => s.status === "ZOEKT"), false);
-  toonLijst("ruilt-list", huidigeStickers.filter((s) => s.status === "RUILT"), true);
 
   // Herbouwen mag hier zonder risico: kiesLand() legt alles wat nog in
   // pendingChanges staat bovenop de databankstand, dus onbewaarde vinkjes
@@ -1181,187 +1178,95 @@ async function ververs({ herbouwChecklist = true } = {}) {
   await verversMatches();
 }
 
-// Dezelfde volgorde als de keuzelijst hierboven, zodat de samenvattingslijsten
-// niet ineens een andere ordening aanhouden dan de checklist.
-function vergelijkStickers(a, b) {
-  const ca = catalogusPerCode.get(a.nummer);
-  const cb = catalogusPerCode.get(b.nummer);
-  if (ca && cb) {
-    return vergelijkLanden(ca, cb, sorteerwijze) || ca.nummer - cb.nummer;
-  }
-  return String(a.nummer).localeCompare(String(b.nummer), "nl");
-}
-
-function toonLijst(lijstId, stickers, toonStepper) {
-  const ul = document.getElementById(lijstId);
-  ul.innerHTML = "";
-  if (stickers.length === 0) {
-    const leeg = document.createElement("li");
-    leeg.className = "sticker-item sticker-item--empty";
-    leeg.textContent = "Nog niets.";
-    ul.appendChild(leeg);
-    return;
-  }
-
-  stickers.forEach((sticker) => {
-    const uitCatalogus = catalogusPerCode.get(sticker.nummer);
-    const li = document.createElement("li");
-    li.className = "sticker-item";
-
-    // Ster + code + naam samen in één blokje: los van de code zou de ster
-    // door justify-content: space-between (.sticker-item) ver van de tekst
-    // komen te staan waar hij bij hoort.
-    const titel = document.createElement("div");
-    titel.className = "sticker-item__titel";
-    const richting = sticker.status === "ZOEKT" ? "jij_zoekt" : "jij_hebt_dubbel";
-    const ster = maakFavorietSter(sticker.nummer, uitCatalogus?.naam, richting);
-    if (ster) titel.appendChild(ster);
-
-    const label = document.createElement("span");
-    label.className = "sticker-item__nummer";
-    label.textContent = uitCatalogus ? omschrijving(uitCatalogus) : sticker.nummer;
-    titel.appendChild(label);
-    li.appendChild(titel);
-
-    // Enkel de dubbel-lijst krijgt een stapper: "gezocht" is een aan/uit-ding
-    // zonder aantal, dat regel je via de checklist hierboven.
-    if (toonStepper) li.appendChild(inlineStepper(sticker));
-
-    const acties = document.createElement("div");
-    acties.className = "sticker-item__actions";
-
-    const verwijder = document.createElement("button");
-    verwijder.className = "btn btn--danger btn--sm";
-    verwijder.textContent = "Verwijder";
-    verwijder.addEventListener("click", () => verwijderSticker(sticker.id));
-    acties.appendChild(verwijder);
-
-    li.appendChild(acties);
-    ul.appendChild(li);
-  });
-}
-
-// De ±-knopjes naast een dubbele sticker in de samenvattingslijst: sneller dan
-// terug naar de checklist van dat land te moeten gaan voor één cijfertje. Elke
-// klik is meteen een eigen databankaanroep — geen aparte "bewaar"-stap nodig
-// voor deze ene rij.
-function inlineStepper(sticker) {
-  const wrap = document.createElement("div");
-  wrap.className = "sticker-item__stepper";
-
-  const min = document.createElement("button");
-  min.type = "button";
-  min.className = "sticker-stepper__knop";
-  min.textContent = "−";
-  min.setAttribute("aria-label", "Eén dubbel minder");
-  min.disabled = (sticker.aantal || 1) <= 1;
-  min.addEventListener("click", () => pasAantalAan(sticker, -1));
-
-  const getal = document.createElement("span");
-  getal.className = "sticker-stepper__aantal";
-  getal.textContent = "×" + (sticker.aantal || 1);
-
-  const plus = document.createElement("button");
-  plus.type = "button";
-  plus.className = "sticker-stepper__knop";
-  plus.textContent = "+";
-  plus.setAttribute("aria-label", "Eén dubbel meer");
-  plus.addEventListener("click", () => pasAantalAan(sticker, 1));
-
-  wrap.appendChild(min);
-  wrap.appendChild(getal);
-  wrap.appendChild(plus);
-  return wrap;
-}
-
-async function pasAantalAan(sticker, delta) {
-  const nieuw = Math.max(1, (sticker.aantal || 1) + delta);
-  if (nieuw === sticker.aantal) return;
-  try {
-    const { error } = await supabase.from(TABEL).update({ aantal: nieuw }).eq("id", sticker.id);
-    if (error) throw error;
-    await ververs();
-  } catch (err) {
-    toonMelding("Fout bij bijwerken: " + err.message, "error");
-  }
-}
-
 // ---------- matches ----------
 
 // get_matches() draait als security definer in de database: enkel zo kan ze
 // de stickers van andere gezinnen zien. De voornaam komt er sinds sql/015
 // altijd bij — ook vóór de beurs, zodat buren elkaar meteen vinden. Enkel
 // e-mail en WhatsApp blijven wachten tot de beurs voorbij is (sql/014).
+//
+// Twee lijsten uit dezelfde rpc, per verzamelaar gegroepeerd:
+//   jij_zoekt        — wat die ander dubbel heeft en jij zoekt.
+//   jij_hebt_dubbel  — wat jij dubbel hebt en die ander zoekt (aantal = jouw
+//                      aantal, zie sql/012).
 async function verversMatches() {
-  const ul = document.getElementById("match-list");
-  const uitleg = document.getElementById("match-uitleg");
-  ul.innerHTML = "";
+  const krijg = document.getElementById("kansen-krijg");
+  const geef = document.getElementById("kansen-geef");
 
   let rijen;
   try {
     const { data, error } = await supabase.rpc("get_matches", { p_kind_id: kindId });
     if (error) throw error;
-    rijen = (data || []).filter((r) => r.richting === "jij_zoekt");
+    rijen = data || [];
   } catch (err) {
-    uitleg.textContent = "";
-    const leeg = document.createElement("li");
-    leeg.className = "sticker-item sticker-item--empty";
-    leeg.textContent = "Ruilkansen konden niet geladen worden.";
-    ul.appendChild(leeg);
-    return;
-  }
-
-  uitleg.textContent = "Stickers die jij zoekt en die iemand anders dubbel heeft.";
-
-  if (rijen.length === 0) {
-    const leeg = document.createElement("li");
-    leeg.className = "sticker-item sticker-item--empty";
-    leeg.textContent = "Nog geen ruilkansen.";
-    ul.appendChild(leeg);
-    return;
-  }
-
-  rijen.forEach((rij) => {
-    const li = document.createElement("li");
-    li.className = "sticker-item";
-
-    const label = document.createElement("span");
-    label.className = "sticker-item__nummer";
-    // ×N enkel tonen als het er meer dan één is: "×1" leert niemand iets bij.
-    const suffix = rij.aantal > 1 ? ` ×${rij.aantal}` : "";
-    label.textContent = (rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code) + suffix;
-
-    const bij = document.createElement("span");
-    bij.className = "sticker-item__bij";
-    if (rij.eigen_gezin) {
-      bij.textContent = `bij ${rij.ander_kind} — je eigen verzamelaar`;
-      bij.classList.add("sticker-item__bij--eigen");
-    } else {
-      // Wijk erbij als dat gezin ze invulde: dan zie je meteen of het een buur
-      // is met wie je nu al kan ruilen. Volledige contactgegevens staan op de
-      // ruilpagina.
-      bij.textContent = rij.ander_wijk
-        ? `bij ${rij.ander_kind} (${rij.ander_wijk})`
-        : `bij ${rij.ander_kind}`;
+    for (const ul of [krijg, geef]) {
+      ul.innerHTML = "";
+      ul.appendChild(maakLeegItem("Ruilkansen konden niet geladen worden."));
     }
+    return;
+  }
 
-    li.appendChild(label);
-    li.appendChild(bij);
-    ul.appendChild(li);
-  });
+  toonKansen(krijg, rijen.filter((r) => r.richting === "jij_zoekt"), "Nog niemand heeft iets dat jij zoekt.");
+  toonKansen(geef, rijen.filter((r) => r.richting === "jij_hebt_dubbel"), "Nog niemand zoekt iets dat jij dubbel hebt.");
 }
 
-// ---------- verwijderen ----------
+function maakLeegItem(tekst) {
+  const li = document.createElement("li");
+  li.className = "sticker-item sticker-item--empty";
+  li.textContent = tekst;
+  return li;
+}
 
-async function verwijderSticker(id) {
-  if (!confirm("Deze sticker verwijderen?")) return;
-  try {
-    const { error } = await supabase.from(TABEL).delete().eq("id", id);
-    if (error) throw error;
-    await ververs();
-  } catch (err) {
-    toonMelding("Fout bij verwijderen: " + err.message, "error");
+// Eén blokje per verzamelaar, met de meeste stickers bovenaan: wie je het
+// meest te bieden heeft, is de eerste om naar toe te stappen.
+function toonKansen(ul, rijen, leegTekst) {
+  ul.innerHTML = "";
+  if (rijen.length === 0) {
+    ul.appendChild(maakLeegItem(leegTekst));
+    return;
   }
+
+  const perPersoon = new Map();
+  rijen.forEach((rij) => {
+    if (!perPersoon.has(rij.ander_kind_id)) perPersoon.set(rij.ander_kind_id, []);
+    perPersoon.get(rij.ander_kind_id).push(rij);
+  });
+
+  [...perPersoon.values()]
+    .sort((a, b) => b.length - a.length || a[0].ander_kind.localeCompare(b[0].ander_kind, "nl"))
+    .forEach((stickers) => {
+      const eerste = stickers[0];
+      const li = document.createElement("li");
+      li.className = "sticker-item kansen-persoon";
+
+      const kop = document.createElement("div");
+      kop.className = "kansen-persoon__kop";
+      kop.textContent = eerste.ander_kind + " ";
+      const bij = document.createElement("span");
+      bij.className = "sticker-item__bij";
+      if (eerste.eigen_gezin) {
+        bij.textContent = "— je eigen verzamelaar";
+        bij.classList.add("sticker-item__bij--eigen");
+      } else if (eerste.ander_wijk) {
+        // Wijk erbij als dat gezin ze invulde: dan zie je meteen of het een
+        // buur is. Volledige contactgegevens staan op de ruilpagina.
+        bij.textContent = `(${eerste.ander_wijk})`;
+      }
+      kop.appendChild(bij);
+      li.appendChild(kop);
+
+      const lijst = document.createElement("ul");
+      lijst.className = "kansen-persoon__stickers";
+      stickers.forEach((rij) => {
+        const chip = document.createElement("li");
+        // ×N enkel tonen als het er meer dan één is: "×1" leert niemand iets bij.
+        const suffix = rij.aantal > 1 ? ` ×${rij.aantal}` : "";
+        chip.textContent = (rij.sticker_naam ? `${rij.code} — ${rij.sticker_naam}` : rij.code) + suffix;
+        lijst.appendChild(chip);
+      });
+      li.appendChild(lijst);
+      ul.appendChild(li);
+    });
 }
 
 function toonMelding(tekst, type) {

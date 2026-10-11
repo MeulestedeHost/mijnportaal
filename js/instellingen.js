@@ -79,6 +79,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("inst-form").addEventListener("submit", bewaar);
   document.getElementById("inst-reset-btn").addEventListener("click", vulFormulier);
   document.getElementById("inst-ev-toevoegen").addEventListener("click", voegEventToe);
+  document.getElementById("inst-ev-annuleren").addEventListener("click", stopBewerken);
 
   // Los van het instellingenformulier: bestaat public.events nog niet
   // (sql/025), dan verdwijnt de kaart en blijft de rest gewoon werken.
@@ -237,16 +238,59 @@ async function tekenEvents() {
     tot.textContent = opmaak.format(einde);
 
     const acties = document.createElement("td");
+    const knoppen = document.createElement("div");
+    knoppen.className = "aanwezig-tabel__acties";
+    acties.appendChild(knoppen);
+    const bewerk = document.createElement("button");
+    bewerk.type = "button";
+    bewerk.className = "btn btn--outline btn--sm";
+    bewerk.textContent = "Bewerken";
+    bewerk.addEventListener("click", () => startBewerken(ev));
+    knoppen.appendChild(bewerk);
     const weg = document.createElement("button");
     weg.type = "button";
     weg.className = "btn btn--outline btn--sm";
     weg.textContent = "Verwijderen";
     weg.addEventListener("click", () => verwijderEvent(ev));
-    acties.appendChild(weg);
+    knoppen.appendChild(weg);
 
     tr.append(naam, van, tot, acties);
     body.appendChild(tr);
   });
+}
+
+// Een bestaande beurs aanpassen gebruikt hetzelfde formulier als toevoegen:
+// de velden worden ingevuld en de knop wordt "Opslaan". Nodig voor wie bij het
+// overnemen van sql/025 een verkeerde startdatum meekreeg, of een beurs
+// verzet — verwijderen en opnieuw toevoegen zou de aanwezigheden wissen.
+let bewerkId = null;
+
+// datetime-local verwacht lokale tijd als "YYYY-MM-DDTHH:mm".
+function naarLokaleInvoer(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function startBewerken(ev) {
+  bewerkId = ev.id;
+  document.getElementById("inst-ev-naam").value = ev.naam;
+  document.getElementById("inst-ev-start").value = naarLokaleInvoer(new Date(ev.start));
+  document.getElementById("inst-ev-einde").value = naarLokaleInvoer(new Date(ev.einde));
+  document.getElementById("inst-ev-titel").textContent = "Ruilbeurs bewerken";
+  document.getElementById("inst-ev-toevoegen").textContent = "Opslaan";
+  document.getElementById("inst-ev-annuleren").classList.remove("hidden");
+  document.getElementById("inst-ev-naam").scrollIntoView({ block: "center" });
+  document.getElementById("inst-ev-naam").focus();
+}
+
+function stopBewerken() {
+  bewerkId = null;
+  document.getElementById("inst-ev-naam").value = "";
+  document.getElementById("inst-ev-start").value = "";
+  document.getElementById("inst-ev-einde").value = "";
+  document.getElementById("inst-ev-titel").textContent = "Ruilbeurs toevoegen";
+  document.getElementById("inst-ev-toevoegen").textContent = "Ruilbeurs toevoegen";
+  document.getElementById("inst-ev-annuleren").classList.add("hidden");
 }
 
 async function voegEventToe() {
@@ -279,21 +323,20 @@ async function voegEventToe() {
   const knop = document.getElementById("inst-ev-toevoegen");
   knop.disabled = true;
   try {
-    const { data, error } = await supabase
-      .from("events")
-      .insert({ naam, start: start.toISOString(), einde: einde.toISOString(), updated_by: userId })
-      .select("id");
+    const rij = { naam, start: start.toISOString(), einde: einde.toISOString(), updated_by: userId };
+    const aanpassen = bewerkId !== null;
+    const { data, error } = aanpassen
+      ? await supabase.from("events").update(rij).eq("id", bewerkId).select("id")
+      : await supabase.from("events").insert(rij).select("id");
     if (error) throw error;
     // RLS weigert stil: geen recht betekent nul rijen, geen fout.
     if (!data || data.length === 0) {
-      throw new Error("De database heeft niets toegevoegd — je account heeft geen beheerdersrecht.");
+      throw new Error("De database heeft niets bewaard — je account heeft geen beheerdersrecht.");
     }
-    document.getElementById("inst-ev-naam").value = "";
-    document.getElementById("inst-ev-start").value = "";
-    document.getElementById("inst-ev-einde").value = "";
-    await naEventWijziging(messageEl, `${naam} staat in de kalender.`);
+    stopBewerken();
+    await naEventWijziging(messageEl, aanpassen ? `${naam} is aangepast.` : `${naam} staat in de kalender.`);
   } catch (err) {
-    toonMelding(messageEl, "Kon de ruilbeurs niet toevoegen: " + err.message, "error");
+    toonMelding(messageEl, "Kon de ruilbeurs niet bewaren: " + err.message, "error");
   } finally {
     knop.disabled = false;
   }

@@ -103,6 +103,29 @@ export async function haalKomendeEvents() {
   }
 }
 
+// Alle events, ook de voorbije, met een voorbij-vlag. Voor het dashboard: een
+// ouder duidt daar ook aan wie er op een eerdere beurs was (sql/028). Komende
+// eerst (vroegste bovenaan), daarna de voorbije met de meest recente eerst.
+export async function haalAlleEvents() {
+  try {
+    const { data, error } = await supabase.from("events").select("id,naam,start,einde");
+    if (error) throw error;
+    const nu = new Date();
+    const events = (data || []).map((e) => ({
+      id: e.id,
+      naam: e.naam,
+      start: new Date(e.start),
+      einde: new Date(e.einde),
+      voorbij: new Date(e.einde) <= nu,
+    }));
+    const komend = events.filter((e) => !e.voorbij).sort((a, b) => a.start - b.start);
+    const voorbij = events.filter((e) => e.voorbij).sort((a, b) => b.start - a.start);
+    return [...komend, ...voorbij];
+  } catch (err) {
+    return [];
+  }
+}
+
 const DATUM = new Intl.DateTimeFormat("nl-BE", { dateStyle: "full" });
 const DATUM_KORT = new Intl.DateTimeFormat("nl-BE", { day: "2-digit", month: "2-digit" });
 const UUR = new Intl.DateTimeFormat("nl-BE", { timeStyle: "short" });

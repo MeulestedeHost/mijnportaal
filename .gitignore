@@ -6,3 +6,6 @@ version.json
 # Lokale werkbestanden van de Supabase CLI, als die ooit gebruikt wordt.
 supabase/.temp/
 supabase/.branches/
+
+# Lokale gegevens (o.a. gastenlijsten met persoonsgegevens) — nooit committen.
+data/
