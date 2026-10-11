@@ -50,7 +50,8 @@
            hoeveel, niet over wie. -->
       <p class="form-meta form-meta--plat">
         Op deze pagina staan <strong>geen namen van kinderen</strong>. Ook de ranglijst
-        toont alleen de volgorde met de bijhorende aantallen.
+        toont alleen de volgorde met de bijhorende aantallen. Enige uitzondering: het
+        deelnemersblok onderaan, dat enkel de organisatie te zien krijgt.
       </p>
     </div>
 
@@ -138,6 +139,52 @@
         <div class="stat-inzichten" id="stat-inzichten"></div>
       </section>
     </div>
+
+    <!-- Enkel voor de organisatie (js/deelnemers.js, migratie 030): wie kwam er
+         naar de beurzen. Buiten #stat-inhoud, want het hangt niet af van
+         stickerlijsten — gasten hebben er geen. -->
+    <section class="card hidden" id="deeln-kaart">
+      <h2>Deelnemers aan de ruilbeurzen <span id="deeln-titel-uitleg"></span></h2>
+      <p class="form-meta">
+        Enkel zichtbaar voor de organisatie — daarom staan hier wél namen.
+      </p>
+      <div class="stat-periodekiezer deeln-keuzes">
+        <div class="form-group">
+          <label for="deeln-event" class="form-label">Ruilbeurs</label>
+          <select id="deeln-event" class="form-input"></select>
+        </div>
+        <div class="form-group">
+          <label for="deeln-wie" class="form-label">Wie</label>
+          <select id="deeln-wie" class="form-input">
+            <option value="alle">Ingeschreven of aanwezig</option>
+            <option value="aanwezig">Enkel aanwezig</option>
+            <option value="afwezig">Ingeschreven, niet gekomen</option>
+          </select>
+        </div>
+      </div>
+      <div class="wr-cijfers" id="deeln-cijfers"></div>
+      <div class="stat-grafieken">
+        <div class="stat-grafiek" id="deeln-gemeente"></div>
+        <div class="stat-grafiek" id="deeln-leeftijd"></div>
+        <div class="stat-grafiek" id="deeln-kanaal"></div>
+        <div class="stat-grafiek" id="deeln-weken"></div>
+      </div>
+
+      <h3 class="deeln-tabeltitel">Alle kinderen in de selectie</h3>
+      <div class="aanwezig-balk">
+        <input type="search" id="deeln-zoek" class="form-input aanwezig-balk__zoek" placeholder="Zoek op naam, ouder, gemeente of kanaal" aria-label="Zoeken" />
+        <label for="deeln-sorteer" class="form-label form-label--inline">Sorteren op</label>
+        <select id="deeln-sorteer" class="form-input deeln-sorteer"></select>
+        <button type="button" class="btn btn--outline btn--sm" id="deeln-richting">↑ oplopend</button>
+        <span class="aanwezig-telling" id="deeln-telling"></span>
+      </div>
+      <div class="aanwezig-tabel-wrap">
+        <table class="aanwezig-tabel">
+          <thead><tr id="deeln-kop"></tr></thead>
+          <tbody id="deeln-rijen"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
@@ -151,5 +198,6 @@
   <script type="module" src="/js/snelruilen.js"></script>
   <script type="module" src="/js/acties.js"></script>
   <script type="module" src="/js/statistieken.js"></script>
+  <script type="module" src="/js/deelnemers.js"></script>
 </body>
 </html>

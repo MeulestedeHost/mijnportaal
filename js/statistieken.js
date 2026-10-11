@@ -31,7 +31,7 @@
 import { supabase, requireAuth } from "./supabase.js";
 import { landLabel, accentVoor, vlagVoor } from "./landen-data.js";
 
-const GETAL = new Intl.NumberFormat("nl-BE");
+export const GETAL = new Intl.NumberFormat("nl-BE");
 const KOMMA = new Intl.NumberFormat("nl-BE", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
@@ -127,7 +127,7 @@ function toonFout(tekst) {
 // Het ℹ️-knopje met zijn uitleg. Een <button>, niet een span met :hover: op
 // een touchscreen bestaat hover niet, en een knop krijgt bij aantikken altijd
 // focus — waar de CSS op inhaakt.
-function tooltip(tekst) {
+export function tooltip(tekst) {
   const wrap = document.createElement("span");
   wrap.className = "wr-tooltip-wrap";
 
@@ -180,7 +180,7 @@ function cijferKaart({ icoon, getal, label, uitleg }) {
   return vak;
 }
 
-function vulKaarten(id, kaarten) {
+export function vulKaarten(id, kaarten) {
   const doel = document.getElementById(id);
   doel.textContent = "";
   kaarten.forEach((k) => doel.appendChild(cijferKaart(k)));
@@ -844,7 +844,7 @@ function grafiekKop(titel, uitleg) {
 // Staafdiagram als gewone elementen: de vulling krijgt een breedte in procent
 // van de hoogste waarde. Schaalt vanzelf mee met de kolombreedte, dus er valt
 // niets te hertekenen bij het draaien van een telefoon.
-function staafGrafiek(id, { titel, uitleg, rijen }) {
+export function staafGrafiek(id, { titel, uitleg, rijen }) {
   const doel = document.getElementById(id);
   doel.textContent = "";
   doel.appendChild(grafiekKop(titel, uitleg));

@@ -405,6 +405,30 @@ Beide lopen via `security definer`-functies en niet via een policy, net als bij
 `ruilen` (`016`): een policy kan niet uit elkaar houden wie `komt` zet en wie
 `aangemeld_op` zet, want dat is een kolomverschil en RLS werkt per rij.
 
+### Gasten: kinderen zonder account (`029`, `030`)
+
+Wie via de Wix-site inschreef of aan de inkom zonder account toekomt, is een
+**gast**: een gezin in `gasten` (ouder, e-mail, gemeente, "hoe gevonden",
+inschrijvingsdatum, `bron` = `wix` of `manueel`), met zijn kinderen in
+`gast_kinderen` (naam, leeftijd) en per kind en beurs een rij in
+`gast_aanwezigheden` (`komt`, `komt_op`, `aangemeld_op`). Dat zijn dezelfde twee stappen als
+`aanwezigheden`, maar in een aparte tabel: daar betekent `kind_id` null "een
+verwijderde verzamelaar", en `get_matches()` leest ze — een gast hoort in geen
+van beide. Op `aanwezigheden.html` staan gast-kinderen tussen de verzamelaars,
+even af te vinken, en enkel zij hebben een actieve knop **Verwijderen**.
+
+`aanwezigheid_statistiek()` en `hoe_gevonden_statistiek()` tellen gasten mee.
+Een gast telt in "hoe gevonden" enkel met een antwoord, en niet als er een
+account op hetzelfde adres bestaat: dan telt dat gezin al.
+`deelnemers_overzicht()` levert het organisatieblok onderaan
+`statistieken.html` (gemeente, leeftijd, kanaal, inschrijving, opkomst, met een
+sorteerbare tabel). Het is het enige blok op die pagina met namen, en het staat
+er enkel voor beheerders.
+
+De eenmalige import van de Wix-lijsten staat in `data/` (gitignored, want het
+zijn persoonsgegevens): `python -I data/maak_import.py` maakt
+`data/import_gasten.sql` en een controlelijst.
+
 ### De startpagina
 
 `index.html` draait zonder login en mag `events` en `instellingen` dus niet

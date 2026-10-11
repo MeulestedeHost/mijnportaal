@@ -12,6 +12,13 @@
 // in de ruilplanners van anderen. Zoeken op de naam van de ouder zet de
 // gezinsleden wel onder elkaar, zodat het afvinken toch in één beweging gaat.
 //
+// GASTEN (sql/030) staan per kind in dezelfde tabel: wie via de website
+// inschreef of aan de inkom zonder account toekwam. Ze zijn op dezelfde manier
+// af te vinken, en — enkel zij — ook te verwijderen: de inschrijvingen zijn
+// met de hand overgenomen en er zit al eens een kind dubbel of verkeerd tussen.
+// Een verzamelaar met een account verwijder je hier nooit; daarom staat zijn
+// knop grijs in plaats van weg, zodat de kolom overal even breed blijft.
+//
 // De pagina is geen beveiliging: is_beheerder() wordt hier gecontroleerd om de
 // tabel al dan niet te tonen, maar aanmelden_zetten() (sql/025) controleert het
 // opnieuw. Wie de API rechtstreeks aanspreekt, komt er niet verder mee.
@@ -21,7 +28,7 @@ import { normaliseer } from "./landen-data.js";
 import { opschrift } from "./hoe-gevonden.js";
 
 let events = [];      // [{ id, naam, start, einde, voorbij }]
-let verzamelaars = []; // uit aanwezigheden_overzicht()
+let verzamelaars = []; // uit aanwezigheden_overzicht() en gast_kinderen_overzicht()
 let zoekterm = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -90,14 +97,38 @@ async function laadGegevens() {
 
   const ov = await supabase.rpc("aanwezigheden_overzicht");
   if (ov.error) throw ov.error;
-  verzamelaars = (ov.data || []).map((r) => ({
+  const echte = (ov.data || []).map((r) => ({
     id: r.kind_id,
+    gast: null,
     voornaam: r.voornaam,
     familienaam: r.familienaam,
     ouders: r.ouders || "",
     wijk: r.wijk || "",
     aanwezigheid: r.aanwezigheid || {},
   }));
+
+  // Bestaat pas na sql/030; zonder blijft de tabel gewoon zoals vroeger.
+  let gasten = [];
+  const gk = await supabase.rpc("gast_kinderen_overzicht");
+  if (!gk.error) {
+    gasten = (gk.data || []).map((r) => ({
+      id: r.gast_kind_id,
+      gast: { id: r.gast_id, leeftijd: r.leeftijd, heeftAccount: Boolean(r.heeft_account) },
+      voornaam: r.naam,
+      familienaam: "",
+      ouders: r.ouder || "",
+      wijk: r.gemeente || "",
+      aanwezigheid: r.aanwezigheid || {},
+    }));
+  }
+
+  verzamelaars = [...echte, ...gasten].sort((a, b) =>
+    volledigeNaam(a).localeCompare(volledigeNaam(b), "nl-BE")
+  );
+}
+
+function volledigeNaam(v) {
+  return `${v.voornaam} ${v.familienaam}`.trim();
 }
 
 function teken() {
@@ -129,6 +160,7 @@ function tekenKop() {
       );
     }
   });
+  rij.append(maak("th", "", "Actie"));
 }
 
 function past(v) {
@@ -146,7 +178,7 @@ function tekenRijen() {
   if (!zichtbaar.length) {
     const tr = maak("tr");
     const td = maak("td", "aanwezig-leeg", verzamelaars.length ? "Geen verzamelaar gevonden." : "Er zijn nog geen verzamelaars.");
-    td.colSpan = 3 + events.reduce((n, ev) => n + (ev.voorbij ? 1 : 2), 0);
+    td.colSpan = 4 + events.reduce((n, ev) => n + (ev.voorbij ? 1 : 2), 0);
     tr.appendChild(td);
     body.appendChild(tr);
   }
@@ -159,13 +191,15 @@ function tekenRijen() {
 function toonTelling(zichtbaar) {
   const el = document.getElementById("aanw-telling");
   const komend = events.find((ev) => !ev.voorbij);
+  const aantalGasten = zichtbaar.filter((v) => v.gast).length;
+  const wie = `${zichtbaar.length} verzamelaars` + (aantalGasten ? ` (waarvan ${aantalGasten} gast)` : "");
   if (!komend) {
-    el.textContent = `${zichtbaar.length} verzamelaars`;
+    el.textContent = wie;
     return;
   }
   const gepland = zichtbaar.filter((v) => stand(v, komend).komt).length;
   const binnen = zichtbaar.filter((v) => stand(v, komend).aangemeld).length;
-  el.textContent = `${zichtbaar.length} verzamelaars — ${gepland} gepland, ${binnen} aangemeld voor ${komend.naam}`;
+  el.textContent = `${wie} — ${gepland} gepland, ${binnen} aangemeld voor ${komend.naam}`;
 }
 
 function stand(v, ev) {
@@ -174,9 +208,13 @@ function stand(v, ev) {
 
 function bouwRij(v) {
   const tr = maak("tr");
+  const naam = maak("td", "aanwezig-tabel__naam", volledigeNaam(v));
+  if (v.gast) {
+    naam.append(" ", maak("span", "aanwezig-gast", v.gast.leeftijd ? `gast · ${v.gast.leeftijd} j` : "gast"));
+  }
   tr.append(
-    maak("td", "aanwezig-tabel__naam", `${v.voornaam} ${v.familienaam}`),
-    maak("td", "aanwezig-tabel__ouder", v.ouders),
+    naam,
+    maak("td", "aanwezig-tabel__ouder", v.gast?.heeftAccount ? `${v.ouders} · heeft een account` : v.ouders),
     maak("td", "aanwezig-tabel__ouder", v.wijk)
   );
 
@@ -194,13 +232,25 @@ function bouwRij(v) {
     tr.appendChild(bouwVinkje(v, ev, s.aangemeld));
   });
 
+  const acties = maak("td");
+  const weg = maak("button", "btn btn--outline btn--sm", "Verwijderen");
+  weg.type = "button";
+  if (v.gast) {
+    weg.addEventListener("click", () => verwijderGastKind(v));
+  } else {
+    weg.disabled = true;
+    weg.title = "Een verzamelaar met een account beheert zijn gezin zelf.";
+  }
+  acties.appendChild(weg);
+  tr.appendChild(acties);
+
   return tr;
 }
 
 function bouwVinkje(v, ev, aangemeld) {
   const td = maak("td", "aanwezig-kol");
   const label = maak("label");
-  label.setAttribute("aria-label", `${v.voornaam} ${v.familienaam} aangemeld voor ${ev.naam}`);
+  label.setAttribute("aria-label", `${volledigeNaam(v)} aangemeld voor ${ev.naam}`);
   const vinkje = document.createElement("input");
   vinkje.type = "checkbox";
   vinkje.checked = aangemeld;
@@ -218,11 +268,9 @@ async function zetAangemeld(v, ev, vinkje) {
   const aan = vinkje.checked;
   vinkje.disabled = true;
   try {
-    const { error } = await supabase.rpc("aanmelden_zetten", {
-      p_kind_id: v.id,
-      p_event_id: ev.id,
-      p_aangemeld: aan,
-    });
+    const { error } = v.gast
+      ? await supabase.rpc("gast_aanmelden_zetten", { p_gast_kind_id: v.id, p_event_id: ev.id, p_aangemeld: aan })
+      : await supabase.rpc("aanmelden_zetten", { p_kind_id: v.id, p_event_id: ev.id, p_aangemeld: aan });
     if (error) throw error;
 
     const s = { ...stand(v, ev), aangemeld: aan };
@@ -230,8 +278,8 @@ async function zetAangemeld(v, ev, vinkje) {
     v.aanwezigheid[ev.id] = s;
 
     melding.textContent = aan
-      ? `${v.voornaam} ${v.familienaam} is aangemeld voor ${ev.naam}.`
-      : `${v.voornaam} ${v.familienaam} staat niet meer aangemeld voor ${ev.naam}.`;
+      ? `${volledigeNaam(v)} is aangemeld voor ${ev.naam}.`
+      : `${volledigeNaam(v)} staat niet meer aangemeld voor ${ev.naam}.`;
     melding.className = "message message--show message--success";
     tekenRijen();
   } catch (err) {
@@ -240,6 +288,32 @@ async function zetAangemeld(v, ev, vinkje) {
     melding.className = "message message--show message--error";
   } finally {
     vinkje.disabled = false;
+  }
+}
+
+// Eén kind weg, niet het hele gezin: de overgenomen lijsten hebben eerder een
+// kind te veel dan te weinig. Is het het laatste kind, dan gaat de gast mee —
+// een ouder zonder kinderen is een regel die nergens meer verschijnt.
+async function verwijderGastKind(v) {
+  if (!window.confirm(`${volledigeNaam(v)} (gast) van de lijst halen?`)) return;
+  const melding = document.getElementById("aanw-message");
+  try {
+    const { error } = await supabase.from("gast_kinderen").delete().eq("id", v.id);
+    if (error) throw error;
+    const laatste = !verzamelaars.some((w) => w.gast && w.gast.id === v.gast.id && w.id !== v.id);
+    if (laatste) {
+      const { error: fout } = await supabase.from("gasten").delete().eq("id", v.gast.id);
+      if (fout) throw fout;
+    }
+    verzamelaars = verzamelaars.filter((w) => w.id !== v.id);
+    melding.textContent = `${volledigeNaam(v)} staat niet meer op de lijst.`;
+    melding.className = "message message--show message--success";
+    tekenRijen();
+    void tekenGasten();
+    void tekenStatistiek();
+  } catch (err) {
+    melding.textContent = "Kon niet verwijderen: " + err.message;
+    melding.className = "message message--show message--error";
   }
 }
 
@@ -262,7 +336,8 @@ async function tekenStatistiek() {
       maak("td", "", `${r.naam} — ${datumKort(start)}, ${uur(start)}`),
       maak("td", "aanwezig-kol", String(r.gepland)),
       maak("td", "aanwezig-kol", String(r.aangemeld)),
-      maak("td", "aanwezig-kol", String(r.anoniem))
+      maak("td", "aanwezig-kol", String(r.anoniem)),
+      maak("td", "aanwezig-kol", String(r.gasten ?? 0))
     );
     body.appendChild(tr);
   });
@@ -404,22 +479,15 @@ async function voegGastToe() {
   const knop = document.getElementById("gast-toevoegen");
   knop.disabled = true;
   try {
-    const { data: gebruiker } = await supabase.auth.getUser();
-    const { data, error } = await supabase
-      .from("gasten")
-      .insert({
-        event_id: document.getElementById("gast-event").value,
-        ouder,
-        gemeente: gemeente || null,
-        email: email || null,
-        kinderen,
-        created_by: gebruiker?.user?.id ?? null,
-      })
-      .select("id");
+    // Eén RPC (sql/030), zodat gezin, kinderen en "komt" samen bewaard worden of niet.
+    const { data: gastId, error } = await supabase.rpc("gast_toevoegen", {
+      p_event_id: document.getElementById("gast-event").value,
+      p_ouder: ouder,
+      p_email: email || null,
+      p_gemeente: gemeente || null,
+      p_kinderen: kinderen,
+    });
     if (error) throw error;
-    if (!data || data.length === 0) {
-      throw new Error("De database heeft niets bewaard — je account heeft geen beheerdersrecht.");
-    }
 
     let tekst = `${ouder} met ${kinderen.join(", ")} staat op de lijst.`;
     let type = "success";
@@ -434,7 +502,7 @@ async function voegGastToe() {
         tekst += ` De uitnodiging kon niet verstuurd worden: ${mailFout.message}`;
         type = "error";
       } else {
-        await supabase.from("gasten").update({ uitgenodigd: true }).eq("id", data[0].id);
+        await supabase.from("gasten").update({ uitgenodigd: true }).eq("id", gastId);
         tekst += ` Een inloglink is gemaild naar ${email}.`;
       }
     }
@@ -445,6 +513,9 @@ async function voegGastToe() {
     document.getElementById("gast-ouder").focus();
     gastMelding(tekst, type);
     await tekenGasten();
+    // Ook in de grote tabel, om ze straks aan de inkom te kunnen afvinken.
+    await laadGegevens();
+    tekenRijen();
   } catch (err) {
     gastMelding("Kon niet toevoegen: " + err.message, "error");
   } finally {
@@ -459,6 +530,8 @@ async function verwijderGast(g) {
     if (error) throw error;
     gastMelding(`${g.ouder} staat niet meer op de lijst.`, "success");
     await tekenGasten();
+    await laadGegevens();
+    tekenRijen();
   } catch (err) {
     gastMelding("Kon niet verwijderen: " + err.message, "error");
   }

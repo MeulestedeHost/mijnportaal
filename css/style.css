@@ -1712,5 +1712,18 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .aanwezig-leeg { color: var(--text-muted); }
 .aanwezig-gepland { color: var(--cf-blue-dark); font-weight: 700; }
 
+/* Een gast (sql/030) staat tussen de verzamelaars; dit etiket zegt waarom hij
+   geen familienaam heeft en wél verwijderd kan worden. */
+/* Deelnemersblok op statistieken.html (js/deelnemers.js): twee keuzelijsten
+   naast elkaar, en kolomkoppen die knoppen zijn om op te sorteren. */
+.deeln-keuzes { display: flex; flex-wrap: wrap; gap: 0.75rem; max-width: 34rem; margin-bottom: 1rem; }
+.deeln-keuzes .form-group { flex: 1 1 14rem; }
+.deeln-sorteer { width: auto; }
+.deeln-tabeltitel { margin: 1.75rem 0 0.75rem; }
+.form-label--inline { margin: 0; }
+.deeln-kopknop { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; white-space: nowrap; }
+.deeln-kopknop:hover, .deeln-kopknop:focus-visible { color: var(--cf-blue-primary); }
+.aanwezig-gast { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 0.45rem; white-space: nowrap; }
+
 /* Bewerken en Verwijderen naast elkaar in de beurzenlijst (instellingen.html). */
 .aanwezig-tabel__acties { display: flex; flex-wrap: wrap; gap: 0.4rem; }
