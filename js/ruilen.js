@@ -56,6 +56,7 @@ import {
   herstelMelding,
 } from "./ruilbundel.js";
 import { openSnelruilen } from "./snelruilen.js";
+import { KETTING_EVENT, tekenKetting } from "./ruilketting.js";
 import { ACTIES_EVENT, wachtOpMij } from "./acties.js";
 import { haalEvent, wanneer, datumVoluit, uur } from "./beurs.js";
 import {
@@ -172,6 +173,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   loading.classList.add("hidden");
   teken();
+  toonKetting();
+  document.addEventListener(KETTING_EVENT, toonKetting);
   paginaKlaar = true;
   // De inhoud komt pas na het laden, dus springt de browser zelf niet naar
   // het anker uit de link (#ruil-te-bevestigen).
@@ -241,6 +244,18 @@ async function verversNaWijziging() {
   teken();
   document.dispatchEvent(new CustomEvent(ACTIES_EVENT));
   await toonBeheer();
+}
+
+// De kring hoort bij de gekozen verzamelaar; de rest (groep, lijsten,
+// vastleggen) staat in js/ruilketting.js, gedeeld met Snelruilen.
+function toonKetting() {
+  const kind = actiefKind();
+  document.getElementById("ruil-ketting").classList.remove("hidden");
+  void tekenKetting(document.getElementById("ruil-ketting-inhoud"), {
+    eigenKind: { id: kind.id, voornaam: kind.voornaam },
+    groepKnoppen: true,
+    opSnelruilen: () => void openSnelruilen({ kindId: kind.id }),
+  });
 }
 
 function actieveMatches() {
@@ -347,6 +362,7 @@ function koppelFilters() {
       return;
     }
     teken();
+    toonKetting();
     void toonAanwezigheidsMelding();
   });
 

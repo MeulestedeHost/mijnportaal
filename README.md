@@ -376,6 +376,12 @@ halen hun verzamelaars **allemaal uit `get_matches()`**. Eén CTE (`zichtbaar`)
 dekt dus alle zes de schermen, en de filter zit in de databank — wie de API
 rechtstreeks aanspreekt, komt er niet omheen.
 
+Eén uitzondering op "één CTE": de 🔗 Kettingruil (`032`) moet weten of een
+verzamelaar zichtbaar is zonder `get_matches()` te draaien, en heeft daarvoor
+`_tegenpartij_zichtbaar()` — dezelfde regel, apart geschreven om
+`get_matches()` niet te hoeven herschrijven. **Pas je de regel aan, pas dan
+beide aan.**
+
 Wat bewust **niet** meefiltert:
 
 - **Je eigen gezin.** Broer en zus ruilen thuis; die hebben geen beurs nodig.
@@ -1394,6 +1400,50 @@ openstaand paar gewoon terug.
   (`021`): meer van een ander gezin tonen we bewust niet. Wie geen account
   heeft, voeg je toe als nieuwe ruiler; bij hem beslis je per code zelf met
   een knop, want het portaal weet niet wat hij heeft.
+
+### 🔗 Kettingruil (`032`)
+
+Vaak klopt een ruil maar in één richting: Sol wil jouw dubbel, maar heeft niets
+voor jou. Een **kring van 3 of 4** lost dat op: iedereen geeft aan de volgende
+(jij → Sol → Jules → jij). `get_matches()` kan dat niet tonen, want die kent
+enkel wat tussen jou en één ander past. Het blok **Kettingruil** op
+`ruilen.html` en de link "kettingruil" in Snelruilen delen één module
+(`js/ruilketting.js`).
+
+- **Groep kiezen.** 2 of 3 anderen, uit `ketting_kandidaten()`: iedereen die in
+  de huidige fase zichtbaar is en iets op zijn lijst heeft — niet enkel wie in
+  `get_matches()` staat, want in een kring van vier hoeft de derde met jou
+  rechtstreeks niets te kunnen. De groep staat in `sessionStorage`: een
+  refresh laat hem staan, een nieuw tabblad begint leeg.
+- **Lijsten.** `ketting_lijsten()` geeft één keer de vrije Zoek ik- en
+  dubbellijst van de groep (vrij zoals in `023`: gereserveerd telt niet).
+  Daarna gaat er per code niets meer over het netwerk. Dat is meer dan
+  `get_matches()` prijsgeeft — bewust, want met een gast moet je voor elke
+  getypte code weten wie hem zoekt of heeft. Begrensd tot 3 anderen, enkel wie
+  zichtbaar is, en enkel voornaam + letter.
+- **Kringen.** Alle volgordes die bij je eigen verzamelaar beginnen (2 bij drie
+  deelnemers, 6 bij vier, plus de kringen van drie binnen een groep van vier).
+  Een ronde is: elk geeft één sticker aan de volgende. Het aantal rondes is dus
+  de kleinste pijl, en iedereen geeft en krijgt er evenveel. Volledige kringen
+  eerst, dan het meeste rondes. Geen optimalisatie over alles heen (zie
+  `Todo.md`): met hoogstens 12 kringen is elke kring in één zin uit te leggen.
+- **Hoogstens één gast.** Van een gast kent het portaal niets. In Snelruilen
+  staat onder elk antwoord per lid van de groep "zoekt hem" of "n dubbels", en bij
+  de gast twee knoppen: *heeft hem dubbel* en *zoekt hem*. Met twee gasten zou
+  de pijl tussen hen door niemand te kennen zijn. Zolang de kring loopt, wijkt
+  de gewone bundel ("Ruil met: …") in Snelruilen.
+- **Vastleggen zonder nieuwe ruilvorm.** Elke deelnemer legt zijn eigen deel
+  vast als één eenzijdige ruil (`eenzijdig_registreren`, `023`): "kreeg X van
+  Jules, gaf Y aan Sol". Dat werkt meteen de eigen lijst bij — dezelfde regel
+  als elders — en er blijft niets hangen omdat één schakel niet antwoordt. Een
+  broer of zus in dezelfde kring wordt meteen mee vastgelegd; de andere gezinnen
+  doen het vanaf hun eigen account, met dezelfde groep. De keerzijde: er is geen
+  reservering tussen het vastleggen van de eerste en de laatste, en de
+  organisatie ziet de kring niet als één geheel. Een echt kettingdossier kan
+  later, als de beurs uitwijst dat dit gebruikt wordt.
+
+Zolang `032` niet gedraaid is, zegt het blok dat bij het kiezen van een groep;
+de rest van de pagina merkt er niets van.
 
 ### 🔔 Openstaande acties
 

@@ -117,6 +117,21 @@
     <div id="ruil-loading" class="loading">Ruilkansen zoeken…</div>
     <div id="ruil-inhoud"></div>
 
+    <!-- Kettingruil (js/ruilketting.js): voor als het met één ruiler maar in
+         één richting klopt. Onder de ruilkansen: eerst kijk je naar wie
+         rechtstreeks kan, pas daarna zoek je een kring. -->
+    <section class="card hidden" id="ruil-ketting">
+      <h2>🔗 Kettingruil</h2>
+      <p class="form-meta">
+        Wil iemand jouw dubbel, maar heeft hij niets voor jou? Zoek dan een kring van
+        <strong>3 of 4</strong> verzamelaars waarin iedereen aan de volgende geeft:
+        jij → Sol → Jules → jij. Er mag <strong>één gast zonder account</strong> meedoen;
+        wat die heeft en zoekt, typ je in ⚡ Snelruilen. Elke deelnemer legt achteraf
+        zijn eigen deel vast — dat werkt meteen de eigen lijst bij.
+      </p>
+      <div id="ruil-ketting-inhoud"></div>
+    </section>
+
     <!-- Geregistreerde ruilen. Bewust een aparte kaart onder de ruilkansen:
          het is een logboek van gemaakte afspraken, geen zoeklijst. -->
     <section class="card hidden" id="ruil-afspraken">

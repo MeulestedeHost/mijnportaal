@@ -50,6 +50,18 @@ import {
   herstelMelding,
 } from "./ruilbundel.js";
 import { vlagVoor } from "./landen-data.js";
+import {
+  KETTING_EVENT,
+  huidigeKetting,
+  kiesKettingGroep,
+  stopKetting,
+  groepNamen,
+  haalKettingLijsten,
+  kettingAntwoord,
+  zetGastWeet,
+  tekenKetting,
+  vergeetLijsten as vergeetKettingLijsten,
+} from "./ruilketting.js";
 
 const HISTORIEK_MAX = 20;
 
@@ -98,6 +110,19 @@ document.addEventListener(BUNDEL_EVENT, () => {
   tekenRuilerVak();
   tekenBundel();
   tekenHistoriek();
+});
+
+// 🔗 Kettingruil (js/ruilketting.js): een andere groep, of iets ingevuld over
+// de gast. Na het vastleggen is ook de eigen lijst veranderd.
+document.addEventListener(KETTING_EVENT, (e) => {
+  if (!venster) return;
+  tekenRuilerVak();
+  tekenBundel();
+  tekenKettingVak();
+  if (e.detail && e.detail.geregistreerd) {
+    lijstGeladen = false;
+    laadGegevens().then(tekenWaarschuwing, () => {});
+  }
 });
 
 // Boekte het scanvenster iets in voor deze verzamelaar, dan klopt de lijst in
@@ -244,6 +269,9 @@ function kiesStartKind() {
 async function open() {
   if (!venster) venster = bouwVenster();
   gewijzigd = false;
+  // Net als de eigen lijst: wie aan tafel net iets vastlegde, moet dat bij
+  // de volgende opening terugzien.
+  vergeetKettingLijsten();
   venster.dialoog.showModal();
   tekenModus();
   venster.invoer.focus();
@@ -263,6 +291,7 @@ async function open() {
   vulKindKeuze();
   tekenRuilerVak();
   tekenBundel();
+  tekenKettingVak();
   tekenWaarschuwing();
   // Typte iemand al een korte code terwijl de catalogus nog laadde, dan kon
   // meteenVerwerken() dat nog niet beslissen. Nu wel.
@@ -316,15 +345,20 @@ function bouwVenster() {
   const ruilerTekst = maak("span", "snelruil__ruiler-tekst");
   const ruilerKies = maak("button", "snelruil__ruiler-wijzig", "kies ruiler");
   ruilerKies.type = "button";
-  ruilerKies.addEventListener("click", () => void kiesEenRuiler());
+  ruilerKies.addEventListener("click", () => void (kettingActief() ? kiesEenKetting() : kiesEenRuiler()));
   const ruilerStop = maak("button", "snelruil__ruiler-wijzig hidden", "stoppen");
   ruilerStop.type = "button";
-  ruilerStop.title = "Niet meer met deze ruiler bezig — de gekozen ruilen worden gewist";
   ruilerStop.addEventListener("click", () => {
-    vergeetRuiler();
+    if (kettingActief()) stopKetting();
+    else vergeetRuiler();
     venster.invoer.focus();
   });
-  ruilerVak.append(ruilerTekst, ruilerKies, ruilerStop);
+  // Een kring van 3 of 4 in plaats van één ruiler. Zolang die loopt, wijkt de
+  // gewone bundel: twee soorten ruilen tegelijk aan één tafel is er één te veel.
+  const kettingKies = maak("button", "snelruil__ruiler-wijzig", "kettingruil");
+  kettingKies.type = "button";
+  kettingKies.addEventListener("click", () => void kiesEenKetting());
+  ruilerVak.append(ruilerTekst, ruilerKies, kettingKies, ruilerStop);
 
   const invoerLabel = maak("label", "form-label", "Stickercode");
   invoerLabel.htmlFor = "snelruil-invoer";
@@ -379,10 +413,13 @@ function bouwVenster() {
   const bundelVak = maak("section", "snelruil__bundel hidden");
   bundelVak.setAttribute("aria-label", "Voorgestelde ruilen");
 
+  const kettingVak = maak("section", "snelruil__bundel snelruil__ketting hidden");
+  kettingVak.setAttribute("aria-label", "Kettingruil");
+
   const historiekKop = maak("h3", "snelruil__historiek-kop hidden", "Recent");
   const historiekLijst = maak("ul", "snelruil__historiek");
 
-  dialoog.append(kop, ruilerVak, modi, uitleg, waarschuwing, kindVak, invoerKop, invoer, onder, resultaat, bundelVak, historiekKop, historiekLijst);
+  dialoog.append(kop, ruilerVak, modi, uitleg, waarschuwing, kindVak, invoerKop, invoer, onder, resultaat, bundelVak, kettingVak, historiekKop, historiekLijst);
 
   // Klik op de donkere achtergrond sluit ook: de dialoog zelf vult enkel het
   // kader, dus een klik die op het element zelf landt, viel erbuiten.
@@ -402,7 +439,7 @@ function bouwVenster() {
   document.body.appendChild(dialoog);
   return {
     dialoog, modusKnoppen, uitleg, waarschuwing, kindVak, kindKeuze, ruilerVak, ruilerTekst, ruilerKies, ruilerStop,
-    bundelVak, invoerLabel, invoer, scanKnop,
+    kettingKies, bundelVak, kettingVak, invoerLabel, invoer, scanKnop,
     hint, ongedaanKnop, resultaat, historiekKop, historiekLijst,
   };
 }
@@ -438,6 +475,7 @@ async function wisselKind(kindId) {
   tekenOngedaanKnop();
   tekenRuilerVak();
   tekenBundel();
+  tekenKettingVak();
   tekenWaarschuwing();
   venster.resultaat.textContent = "";
   venster.invoer.focus();
@@ -504,7 +542,8 @@ function controleer(code) {
   const antwoord = bekijkSticker(code);
   tekenResultaat(antwoord);
   voegToeAanHistoriek({ soort: "controle", ...antwoord });
-  void koppelAanBundel(antwoord);
+  if (kettingActief()) void toonKettingAntwoord(code);
+  else void koppelAanBundel(antwoord);
 }
 
 // Lokaal meteen bijwerken en tekenen, daarna op de achtergrond wegschrijven.
@@ -599,6 +638,7 @@ function tekenModus() {
   tekenOngedaanKnop();
   tekenRuilerVak();
   tekenBundel();
+  tekenKettingVak();
   tekenWaarschuwing();
 }
 
@@ -621,16 +661,109 @@ function tekenOngedaanKnop() {
 // Enkel in Controleren: in Inboeken ruil je niet, je verwerkt pakjes.
 function tekenRuilerVak() {
   if (!venster) return;
-  const { ruilerVak, ruilerTekst, ruilerKies, ruilerStop } = venster;
+  const { ruilerVak, ruilerTekst, ruilerKies, ruilerStop, kettingKies } = venster;
+  ruilerVak.classList.toggle("hidden", modus !== "controleren");
+  const ketting = kettingActief() ? huidigeKetting(actiefKindId) : null;
+  kettingKies.classList.toggle("hidden", Boolean(ketting));
+  if (ketting) {
+    ruilerTekst.textContent = "Kettingruil met: ";
+    ruilerTekst.append(maak("strong", "", groepNamen(ketting)));
+    ruilerKies.textContent = "wijzig";
+    ruilerStop.classList.remove("hidden");
+    ruilerStop.title = "Niet meer met deze kring bezig — wat je over de gast invulde, wordt gewist";
+    return;
+  }
   const bundel = huidigeBundel(actiefKindId);
   const ruiler = bundel && bundel.ruiler;
-  ruilerVak.classList.toggle("hidden", modus !== "controleren");
   ruilerTekst.textContent = "Ruil met: ";
   if (ruiler) {
     ruilerTekst.append(maak("strong", "", ruilerLabel(ruiler) + (ruiler.tijdelijk ? " (zonder account)" : "")));
   }
   ruilerKies.textContent = ruiler ? "wijzig" : "kies ruiler";
   ruilerStop.classList.toggle("hidden", !ruiler);
+  ruilerStop.title = "Niet meer met deze ruiler bezig — de gekozen ruilen worden gewist";
+}
+
+// ---------- kettingruil ----------
+
+function kettingActief() {
+  return Boolean(kinderen && actiefKindId && huidigeKetting(actiefKindId));
+}
+
+function eigenKindVoorKetting() {
+  const kind = kinderen.find((k) => k.id === actiefKindId);
+  return { id: kind.id, voornaam: kind.voornaam };
+}
+
+async function kiesEenKetting() {
+  if (!kinderen || !actiefKindId) return;
+  try {
+    await kiesKettingGroep({ eigenKind: eigenKindVoorKetting() });
+  } catch (err) {
+    toonFout(err.message);
+  }
+  venster.invoer.focus();
+}
+
+function tekenKettingVak() {
+  if (!venster) return;
+  const { kettingVak } = venster;
+  const toon = modus === "controleren" && kettingActief();
+  kettingVak.classList.toggle("hidden", !toon);
+  if (!toon) {
+    kettingVak.textContent = "";
+    return;
+  }
+  void tekenKetting(kettingVak, { eigenKind: eigenKindVoorKetting() });
+}
+
+// Onder het eigen antwoord: wat de rest van de groep met deze code kan. Bij de
+// gast vraagt het portaal het aan jou — hij heeft geen lijst — met twee knoppen
+// die aan en uit gaan.
+async function toonKettingAntwoord(code) {
+  const ketting = huidigeKetting(actiefKindId);
+  if (!ketting) return;
+  let perKind;
+  try {
+    perKind = await haalKettingLijsten(ketting);
+  } catch (err) {
+    toonHint(err.message);
+    return;
+  }
+  const { resultaat } = venster;
+  if (resultaat.dataset.code !== code || !resultaat.querySelector(".snelruil__antwoorden")) return;
+  const nu = huidigeKetting(actiefKindId);
+  if (!nu) return;
+  resultaat.querySelector(".snelruil__groep")?.remove();
+  const blok = maak("ul", "snelruil__groep");
+  blok.setAttribute("aria-label", "De rest van de kring");
+  kettingAntwoord(nu, perKind, code).forEach((rij) => {
+    const li = maak("li", "snelruil__groep-rij");
+    li.append(maak("strong", "snelruil__groep-naam", rij.naam + (rij.gast ? " (gast)" : "")));
+    if (rij.gast) {
+      [
+        ["heeft", "heeft hem dubbel", rij.dubbel > 0],
+        ["zoekt", "zoekt hem", rij.zoekt],
+      ].forEach(([soort, tekst, aan]) => {
+        const knop = maak("button", "snelruil__gast-knop", (aan ? "✓ " : "") + tekst);
+        knop.type = "button";
+        knop.dataset.soort = soort;
+        knop.setAttribute("aria-pressed", String(aan));
+        knop.addEventListener("click", () => {
+          zetGastWeet(actiefKindId, soort, code, !aan);
+          void toonKettingAntwoord(code);
+          venster.invoer.focus();
+        });
+        li.append(knop);
+      });
+    } else {
+      const stand = rij.zoekt ? true : rij.dubbel > 0 ? "dub" : false;
+      const tekst = rij.zoekt ? "✓ zoekt hem" : rij.dubbel > 0 ? `✓ ${dubbelTekst(rij.dubbel).toLowerCase()}` : "✗ zoekt niet, geen dubbel";
+      li.append(maak("span", "snelruil__groep-stand " + standKlasse(stand), tekst));
+    }
+    blok.append(li);
+  });
+  resultaat.append(blok);
 }
 
 function kopVoor(sticker, code) {
@@ -687,7 +820,7 @@ async function startRuilFlow(code) {
 // een controle dus niet vanzelf mee; een knop laat je zelf beslissen.
 async function koppelAanBundel({ code, zoekt, dubbel }, { handmatig = false } = {}) {
   const bundel = huidigeBundel(actiefKindId);
-  if (!bundel || !bundel.ruiler || modus !== "controleren") return;
+  if (!bundel || !bundel.ruiler || modus !== "controleren" || kettingActief()) return;
   if (!zoekt && !(dubbel > 0)) return;
   const kant = zoekt ? "ik" : "ander";
   const naam = bundel.ruiler.naam;
@@ -747,7 +880,7 @@ function tekenBundel() {
   bundelVak.textContent = "";
   const bundel = huidigeBundel(actiefKindId);
   const herstel = modus === "controleren" ? teHerstellen() : null;
-  const toon = Boolean(bundel && bundel.ruiler && bundel.ruilen.length && modus === "controleren");
+  const toon = Boolean(bundel && bundel.ruiler && bundel.ruilen.length && modus === "controleren" && !kettingActief());
   bundelVak.classList.toggle("hidden", !toon && !herstel);
   if (herstel) {
     bundelVak.append(
@@ -880,7 +1013,7 @@ function tekenResultaat({ code, sticker, zoekt, dubbel }) {
   resultaat.dataset.code = code;
   resultaat.append(...kopVoor(sticker, code), antwoorden);
   const bundel = huidigeBundel(actiefKindId);
-  if (zoekt && !(bundel && bundel.ruiler)) resultaat.append(ruilKnop(code));
+  if (zoekt && !(bundel && bundel.ruiler) && !kettingActief()) resultaat.append(ruilKnop(code));
 }
 
 function tekenInboeking(regel) {
@@ -950,7 +1083,7 @@ function tekenHistoriek() {
       const kant = regel.zoekt ? "ik" : regel.dubbel > 0 ? "ander" : null;
       const nummer = kant ? ruilNummer(bundel, kant, regel.code) : 0;
       if (nummer) li.append(maak("span", "ruilbadge snelruil__regel-badge", `Ruil ${nummer}`));
-      else if (regel.zoekt && !(bundel && bundel.ruiler)) li.append(ruilKnop(regel.code));
+      else if (regel.zoekt && !(bundel && bundel.ruiler) && !kettingActief()) li.append(ruilKnop(regel.code));
     }
     historiekLijst.append(li);
   });
