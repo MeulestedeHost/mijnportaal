@@ -84,6 +84,16 @@ export function zetGastWeet(eigenKindId, soort, code, aan) {
   schrijf({ ...ketting, gast: { ...ketting.gast, [soort]: [...lijst], [ander]: [...andere] } });
 }
 
+// Wiens stickers worden er in Snelruilen getypt? null = je eigen verzamelaar
+// (zoals altijd), een kind_id = een lid van de groep, "gast" = de gast.
+// Aan tafel blader je door de stapel van één persoon tegelijk; zo hoeft niet
+// bij elke code opnieuw gezegd te worden van wie hij is.
+export function zetStapel(eigenKindId, wie) {
+  const ketting = huidigeKetting(eigenKindId);
+  if (!ketting || (ketting.stapel || null) === (wie || null)) return;
+  schrijf({ ...ketting, stapel: wie || null });
+}
+
 export function groepNamen(ketting) {
   const namen = ketting.leden.map((l) => l.naam + (l.letter ? ` ${l.letter}.` : ""));
   if (ketting.gast) namen.push(`${ketting.gast.naam} (gast)`);
@@ -445,7 +455,14 @@ export async function kiesKettingGroep({ eigenKind }) {
         eigenKindId: eigenKind.id,
         leden: kandidaten.filter((k) => gekozen.has(k.id)),
         gast: v.gastVink.checked ? (zelfdeGast ? vorige.gast : { naam: gastNaam, heeft: [], zoekt: [] }) : null,
+        stapel: null,
       };
+      // Wiens stapel er getypt werd, blijft staan zolang die persoon nog in
+      // de groep zit.
+      const vorigeStapel = vorige && vorige.stapel;
+      if (vorigeStapel === "gast" ? groep.gast && zelfdeGast : groep.leden.some((l) => l.id === vorigeStapel)) {
+        groep.stapel = vorigeStapel;
+      }
       vergeetLijsten();
       melding = null; // die ging over de vorige groep
       schrijf(groep);

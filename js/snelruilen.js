@@ -59,6 +59,7 @@ import {
   haalKettingLijsten,
   kettingAntwoord,
   zetGastWeet,
+  zetStapel,
   tekenKetting,
   vergeetLijsten as vergeetKettingLijsten,
 } from "./ruilketting.js";
@@ -360,6 +361,16 @@ function bouwVenster() {
   kettingKies.addEventListener("click", () => void kiesEenKetting());
   ruilerVak.append(ruilerTekst, ruilerKies, kettingKies, ruilerStop);
 
+  // Enkel tijdens een kettingruil: van wie is de stapel waar je door bladert?
+  const stapelVak = maak("div", "snelruil__stapel hidden");
+  const stapelLabel = maak("p", "form-label snelruil__stapel-label", "Wiens stickers typ je?");
+  stapelLabel.id = "snelruil-stapel-label";
+  const stapelKnoppen = maak("div", "snelruil__stapel-knoppen");
+  stapelKnoppen.setAttribute("role", "group");
+  stapelKnoppen.setAttribute("aria-labelledby", "snelruil-stapel-label");
+  const stapelUitleg = maak("p", "form-meta form-meta--plat snelruil__stapel-uitleg");
+  stapelVak.append(stapelLabel, stapelKnoppen, stapelUitleg);
+
   const invoerLabel = maak("label", "form-label", "Stickercode");
   invoerLabel.htmlFor = "snelruil-invoer";
   // Een hele stapel uit een pakje: één foto in plaats van elke code te typen.
@@ -419,7 +430,7 @@ function bouwVenster() {
   const historiekKop = maak("h3", "snelruil__historiek-kop hidden", "Recent");
   const historiekLijst = maak("ul", "snelruil__historiek");
 
-  dialoog.append(kop, ruilerVak, modi, uitleg, waarschuwing, kindVak, invoerKop, invoer, onder, resultaat, bundelVak, kettingVak, historiekKop, historiekLijst);
+  dialoog.append(kop, ruilerVak, stapelVak, modi, uitleg, waarschuwing, kindVak, invoerKop, invoer, onder, resultaat, bundelVak, kettingVak, historiekKop, historiekLijst);
 
   // Klik op de donkere achtergrond sluit ook: de dialoog zelf vult enkel het
   // kader, dus een klik die op het element zelf landt, viel erbuiten.
@@ -439,7 +450,7 @@ function bouwVenster() {
   document.body.appendChild(dialoog);
   return {
     dialoog, modusKnoppen, uitleg, waarschuwing, kindVak, kindKeuze, ruilerVak, ruilerTekst, ruilerKies, ruilerStop,
-    kettingKies, bundelVak, kettingVak, invoerLabel, invoer, scanKnop,
+    kettingKies, stapelVak, stapelKnoppen, stapelUitleg, bundelVak, kettingVak, invoerLabel, invoer, scanKnop,
     hint, ongedaanKnop, resultaat, historiekKop, historiekLijst,
   };
 }
@@ -535,6 +546,7 @@ async function verwerk(code, oorspronkelijk, gekozenModus) {
     return;
   }
   if (gekozenModus === "inboeken") inboek(code);
+  else if (stapelActief()) void controleerStapel(code);
   else controleer(code);
 }
 
@@ -544,6 +556,100 @@ function controleer(code) {
   voegToeAanHistoriek({ soort: "controle", ...antwoord });
   if (kettingActief()) void toonKettingAntwoord(code);
   else void koppelAanBundel(antwoord);
+}
+
+// De code komt uit de stapel van een ánder lid van de kring. Dan is de vraag
+// niet "zoek ik hem?" maar "heeft die hem echt dubbel, en wie zoekt hem?". Bij
+// de gast is het typen zelf het antwoord: wat je uit zijn stapel typt, heeft
+// hij dubbel — zonder dat je daar nog op moet tikken.
+async function controleerStapel(code) {
+  const ketting = huidigeKetting(actiefKindId);
+  if (ketting.stapel === "gast") zetGastWeet(actiefKindId, "heeft", code, true);
+  const stand = await stapelStand(code);
+  if (!stand) return;
+  tekenStapelResultaat(stand);
+  voegToeAanHistoriek({ soort: "stapel", code, eigenaar: stand.eigenaar, zoekers: stand.zoekers });
+  void toonKettingAntwoord(code);
+}
+
+async function stapelStand(code) {
+  const ketting = huidigeKetting(actiefKindId);
+  if (!ketting || !ketting.stapel) return null;
+  let perKind;
+  try {
+    perKind = await haalKettingLijsten(ketting);
+  } catch (err) {
+    toonFout(err.message);
+    return null;
+  }
+  const nu = huidigeKetting(actiefKindId);
+  if (!nu || !nu.stapel) return null;
+  const vanGast = nu.stapel === "gast";
+  const eigen = kinderen.find((k) => k.id === actiefKindId);
+  const lid = vanGast ? null : nu.leden.find((l) => l.id === nu.stapel);
+  if (!vanGast && !lid) return null;
+  const eigenaar = vanGast ? nu.gast.naam : lid.naam;
+  const zoekt = (id) => Boolean(perKind.get(id) && perKind.get(id).zoekt.has(code));
+  const zoekers = [
+    ...(zoekt(actiefKindId) ? [eigen.voornaam] : []),
+    ...nu.leden.filter((l) => l.id !== nu.stapel && zoekt(l.id)).map((l) => l.naam),
+    ...(!vanGast && nu.gast && nu.gast.zoekt.includes(code) ? [nu.gast.naam] : []),
+  ];
+  const dubbel = vanGast ? (nu.gast.heeft.includes(code) ? 1 : 0) : (perKind.get(lid.id) && perKind.get(lid.id).dubbel.get(code)) || 0;
+  return { code, sticker: catalogusPerCode.get(code), eigenaar, vanGast, dubbel, zoekers };
+}
+
+function tekenStapelResultaat({ code, sticker, eigenaar, vanGast, dubbel, zoekers }) {
+  const { resultaat } = venster;
+  resultaat.textContent = "";
+  toonHint("");
+  const antwoorden = maak("div", "snelruil__antwoorden");
+  const heeftTekst = vanGast
+    ? dubbel ? "Genoteerd als dubbel" : "Niet als dubbel genoteerd"
+    : dubbel ? dubbelTekst(dubbel) : "Geen vrije dubbel";
+  antwoorden.append(
+    antwoordVak(`Heeft ${eigenaar} hem dubbel?`, dubbel > 0 ? "dub" : false, heeftTekst),
+    antwoordVak("Wie zoekt hem?", zoekers.length > 0, zoekers.length ? zoekers.join(", ") : "Niemand in de kring")
+  );
+  resultaat.dataset.code = code;
+  resultaat.append(...kopVoor(sticker, code), antwoorden);
+}
+
+function stapelActief() {
+  return Boolean(kettingActief() && huidigeKetting(actiefKindId).stapel);
+}
+
+function tekenStapelVak() {
+  if (!venster) return;
+  const { stapelVak, stapelKnoppen, stapelUitleg } = venster;
+  const ketting = kettingActief() ? huidigeKetting(actiefKindId) : null;
+  stapelVak.classList.toggle("hidden", !ketting || modus !== "controleren");
+  stapelKnoppen.textContent = "";
+  if (!ketting) return;
+  const eigen = kinderen.find((k) => k.id === actiefKindId);
+  const keuzes = [
+    [null, eigen.voornaam],
+    ...ketting.leden.map((l) => [l.id, l.naam]),
+    ...(ketting.gast ? [["gast", `${ketting.gast.naam} (gast)`]] : []),
+  ];
+  keuzes.forEach(([wie, naam]) => {
+    const knop = maak("button", "snelruil__stapel-knop", naam);
+    knop.type = "button";
+    knop.setAttribute("aria-pressed", String((ketting.stapel || null) === wie));
+    knop.addEventListener("click", () => {
+      zetStapel(actiefKindId, wie);
+      venster.resultaat.textContent = "";
+      delete venster.resultaat.dataset.code;
+      venster.invoer.focus();
+    });
+    stapelKnoppen.append(knop);
+  });
+  const naam = ketting.stapel === "gast" ? ketting.gast.naam : (ketting.leden.find((l) => l.id === ketting.stapel) || {}).naam;
+  stapelUitleg.textContent = !ketting.stapel
+    ? `Je typt de stickers van ${eigen.voornaam}: zoek je hem, heb je hem dubbel?`
+    : ketting.stapel === "gast"
+    ? `Elke code die je typt, wordt genoteerd als dubbel van ${naam}. Je ziet meteen wie in de kring hem zoekt.`
+    : `Je typt de stickers van ${naam}: je ziet of ${naam} hem echt dubbel heeft en wie in de kring hem zoekt.`;
 }
 
 // Lokaal meteen bijwerken en tekenen, daarna op de achtergrond wegschrijven.
@@ -661,6 +767,7 @@ function tekenOngedaanKnop() {
 // Enkel in Controleren: in Inboeken ruil je niet, je verwerkt pakjes.
 function tekenRuilerVak() {
   if (!venster) return;
+  tekenStapelVak();
   const { ruilerVak, ruilerTekst, ruilerKies, ruilerStop, kettingKies } = venster;
   ruilerVak.classList.toggle("hidden", modus !== "controleren");
   const ketting = kettingActief() ? huidigeKetting(actiefKindId) : null;
@@ -751,7 +858,17 @@ async function toonKettingAntwoord(code) {
         knop.setAttribute("aria-pressed", String(aan));
         knop.addEventListener("click", () => {
           zetGastWeet(actiefKindId, soort, code, !aan);
-          void toonKettingAntwoord(code);
+          // In een stapel verandert dit ook het antwoord bovenaan ("wie
+          // zoekt hem?", "genoteerd als dubbel").
+          if (stapelActief()) {
+            void stapelStand(code).then((stand) => {
+              if (!stand || venster.resultaat.dataset.code !== code) return;
+              tekenStapelResultaat(stand);
+              void toonKettingAntwoord(code);
+            });
+          } else {
+            void toonKettingAntwoord(code);
+          }
           venster.invoer.focus();
         });
         li.append(knop);
@@ -1090,6 +1207,10 @@ function tekenHistoriek() {
 }
 
 function historiekRegel(regel) {
+  if (regel.soort === "stapel") {
+    const tekst = regel.zoekers.length ? `van ${regel.eigenaar} → gezocht door ${regel.zoekers.join(", ")}` : `van ${regel.eigenaar} → niemand zoekt hem`;
+    return { stand: regel.zoekers.length > 0, tekst: (regel.zoekers.length ? "✓ " : "✗ ") + tekst, klasse: "" };
+  }
   if (regel.soort === "controle") {
     const { zoekt, dubbel } = regel;
     const stand = zoekt ? true : dubbel > 0 ? "dub" : false;

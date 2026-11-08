@@ -1397,6 +1397,14 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .snelruil__gast-knop { min-height: 2.25rem; padding: 0.2rem 0.7rem; border: 1.5px solid var(--border); border-radius: 6px; background: var(--surface); font: inherit; font-weight: 600; color: var(--text); cursor: pointer; }
 .snelruil__gast-knop[aria-pressed="true"] { border-color: var(--cf-blue-primary); background: var(--cf-blue-light); color: var(--cf-blue-dark); }
 .snelruil__gast-knop:focus-visible { outline: 3px solid var(--cf-blue-dark); outline-offset: 1px; }
+/* Wiens stapel: dezelfde vorm als de gastknoppen, want het is dezelfde soort
+   aan/uit-keuze. Eén staat altijd aan. */
+.snelruil__stapel { margin-bottom: 0.75rem; }
+.snelruil__stapel-label { margin-bottom: 0.3rem; }
+.snelruil__stapel-knoppen { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.3rem; }
+.snelruil__stapel-knop { min-height: 2.25rem; padding: 0.2rem 0.8rem; border: 1.5px solid var(--border); border-radius: 999px; background: var(--surface); font: inherit; font-weight: 600; color: var(--text); cursor: pointer; }
+.snelruil__stapel-knop[aria-pressed="true"] { border-color: var(--cf-blue-primary); background: var(--cf-blue-primary); color: #fff; }
+.snelruil__stapel-knop:focus-visible { outline: 3px solid var(--cf-blue-dark); outline-offset: 1px; }
 .ketting__groep { margin-bottom: 0.5rem; }
 .ketting__gast-hint { margin-bottom: 0.5rem; }
 .ketting__snelruilen { margin-bottom: 0.75rem; }

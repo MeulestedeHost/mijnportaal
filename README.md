@@ -1432,6 +1432,13 @@ enkel wat tussen jou en één ander past. Het blok **Kettingruil** op
   de gast twee knoppen: *heeft hem dubbel* en *zoekt hem*. Met twee gasten zou
   de pijl tussen hen door niemand te kennen zijn. Zolang de kring loopt, wijkt
   de gewone bundel ("Ruil met: …") in Snelruilen.
+- **Wiens stickers typ je?** Aan tafel blader je door de stapel van één
+  persoon. In Snelruilen kies je daarom van wie: je eigen verzamelaar (de
+  gewone vragen), een lid van de groep, of de gast. Bij een ander toont het
+  antwoord "Heeft Sara hem dubbel?" en "Wie zoekt hem?". Bij de gast is typen
+  genoeg: elke code wordt meteen als zijn dubbel genoteerd, zonder tikken; de
+  knop *heeft hem dubbel* zet het terug als je je vergiste. De keuze zit in de
+  groep (`stapel`) en overleeft dus een refresh.
 - **Vastleggen zonder nieuwe ruilvorm.** Elke deelnemer legt zijn eigen deel
   vast als één eenzijdige ruil (`eenzijdig_registreren`, `023`): "kreeg X van
   Jules, gaf Y aan Sol". Dat werkt meteen de eigen lijst bij — dezelfde regel
