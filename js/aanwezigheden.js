@@ -19,6 +19,10 @@
 // Een verzamelaar met een account verwijder je hier nooit; daarom staat zijn
 // knop grijs in plaats van weg, zodat de kolom overal even breed blijft.
 //
+// Elke kolomkop sorteert. Zoeken sorteert eerst op HOE iemand past — op de
+// naam van het kind, dan op de ouder, dan op de wijk — en pas daarbinnen op de
+// gekozen kolom. Aanmaak en laatste wijziging komen uit migratie 031.
+//
 // De pagina is geen beveiliging: is_beheerder() wordt hier gecontroleerd om de
 // tabel al dan niet te tonen, maar aanmelden_zetten() (sql/025) controleert het
 // opnieuw. Wie de API rechtstreeks aanspreekt, komt er niet verder mee.
@@ -30,6 +34,13 @@ import { opschrift } from "./hoe-gevonden.js";
 let events = [];      // [{ id, naam, start, einde, voorbij }]
 let verzamelaars = []; // uit aanwezigheden_overzicht() en gast_kinderen_overzicht()
 let zoekterm = "";
+// Klik op een kolomkop sorteert; nog eens klikken draait de richting om.
+let sortering = { sleutel: "naam", op: true };
+
+// Dag en uur: bij "laatste wijziging" aan de inkom is het uur het verschil
+// tussen "net afgevinkt" en "vanmorgen".
+const TIJDSTIP = new Intl.DateTimeFormat("nl-BE", { dateStyle: "short", timeStyle: "short" });
+const TIJDSTIP_LANG = new Intl.DateTimeFormat("nl-BE", { dateStyle: "full", timeStyle: "medium" });
 
 document.addEventListener("DOMContentLoaded", async () => {
   const paneel = document.getElementById("aanw-paneel");
@@ -69,10 +80,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   loading.classList.add("hidden");
   paneel.classList.remove("hidden");
 
-  document.getElementById("aanw-zoek").addEventListener("input", (e) => {
+  const zoek = document.getElementById("aanw-zoek");
+  zoek.addEventListener("input", (e) => {
     zoekterm = normaliseer(e.target.value.trim());
     tekenRijen();
   });
+  // Op een laptop aan de inkom meteen kunnen typen. Niet op een telefoon: daar
+  // schuift het toetsenbord de halve tabel weg voor je iets gezien hebt.
+  if (window.matchMedia("(min-width: 1100px) and (pointer: fine)").matches) zoek.focus();
 
   teken();
   initGasten();
@@ -105,6 +120,7 @@ async function laadGegevens() {
     ouders: r.ouders || "",
     wijk: r.wijk || "",
     aanwezigheid: r.aanwezigheid || {},
+    ...tijdstippen(r),
   }));
 
   // Bestaat pas na sql/030; zonder blijft de tabel gewoon zoals vroeger.
@@ -119,16 +135,30 @@ async function laadGegevens() {
       ouders: r.ouder || "",
       wijk: r.gemeente || "",
       aanwezigheid: r.aanwezigheid || {},
+      ...tijdstippen(r),
     }));
   }
 
-  verzamelaars = [...echte, ...gasten].sort((a, b) =>
-    volledigeNaam(a).localeCompare(volledigeNaam(b), "nl-BE")
-  );
+  verzamelaars = [...echte, ...gasten];
+}
+
+// Pas na migratie 031; daarvoor blijven beide kolommen leeg in plaats van dat
+// de pagina faalt.
+function tijdstippen(r) {
+  return {
+    aangemaakt: r.aangemaakt_op ? new Date(r.aangemaakt_op) : null,
+    gewijzigd: r.gewijzigd_op ? new Date(r.gewijzigd_op) : null,
+  };
 }
 
 function volledigeNaam(v) {
   return `${v.voornaam} ${v.familienaam}`.trim();
+}
+
+function tijdstipCel(d) {
+  const td = maak("td", "aanwezig-tabel__tijd", d ? TIJDSTIP.format(d) : "");
+  if (d) td.title = TIJDSTIP_LANG.format(d);
+  return td;
 }
 
 function teken() {
@@ -143,42 +173,102 @@ function maak(tag, klasse, tekst) {
   return el;
 }
 
-function tekenKop() {
-  const rij = document.getElementById("aanw-kop");
-  rij.textContent = "";
-  rij.append(maak("th", "", "Verzamelaar"), maak("th", "", "Ouder"), maak("th", "", "Wijk / gemeente"));
-
+// Elke kolom van de tabel, in volgorde, met de waarde waarop ze sorteert. Een
+// vinkje sorteert als 0/1 zodat oplopend "wie aangevinkt is" eerst zet: dat is
+// wat je zoekt als je op die kop klikt.
+function kolommen() {
+  const lijst = [
+    { sleutel: "naam", titel: "Verzamelaar", waarde: (v) => volledigeNaam(v) },
+    { sleutel: "ouder", titel: "Ouder", waarde: (v) => v.ouders },
+    { sleutel: "wijk", titel: "Wijk / gemeente", waarde: (v) => v.wijk },
+  ];
   events.forEach((ev) => {
     if (ev.voorbij) {
       // Een afgelopen beurs heeft aan één kolom genoeg: wie er was, was er —
       // en die kolom is een vinkje, voor wie achteraf nog moet invullen.
-      rij.append(maak("th", "aanwezig-kol", `${datumKort(ev.start)} aanwezig`));
+      lijst.push({ sleutel: `${ev.id}|aangemeld`, titel: `${datumKort(ev.start)} aanwezig`, kol: true,
+                   waarde: (v) => (stand(v, ev).aangemeld ? 0 : 1) });
     } else {
-      rij.append(
-        maak("th", "aanwezig-kol", `${datumKort(ev.start)} gepland`),
-        maak("th", "aanwezig-kol", `${datumKort(ev.start)} aangemeld`)
+      lijst.push(
+        { sleutel: `${ev.id}|komt`, titel: `${datumKort(ev.start)} gepland`, kol: true,
+          waarde: (v) => (stand(v, ev).komt ? 0 : 1) },
+        { sleutel: `${ev.id}|aangemeld`, titel: `${datumKort(ev.start)} aangemeld`, kol: true,
+          waarde: (v) => (stand(v, ev).aangemeld ? 0 : 1) }
       );
     }
   });
-  rij.append(maak("th", "", "Actie"));
+  lijst.push(
+    { sleutel: "aangemaakt", titel: "Aangemaakt", waarde: (v) => v.aangemaakt },
+    { sleutel: "gewijzigd", titel: "Laatste wijziging", waarde: (v) => v.gewijzigd },
+    // Gasten (verwijderbaar) eerst.
+    { sleutel: "actie", titel: "Actie", waarde: (v) => (v.gast ? 0 : 1) }
+  );
+  return lijst;
 }
 
-function past(v) {
-  if (!zoekterm) return true;
-  return normaliseer(`${v.voornaam} ${v.familienaam} ${v.ouders} ${v.wijk}`).includes(zoekterm);
+function tekenKop() {
+  const rij = document.getElementById("aanw-kop");
+  rij.textContent = "";
+  const { sleutel, op } = sortering;
+  kolommen().forEach((k) => {
+    const th = maak("th", k.kol ? "aanwezig-kol" : "");
+    th.setAttribute("aria-sort", k.sleutel === sleutel ? (op ? "ascending" : "descending") : "none");
+    const knop = maak("button", "aanwezig-kopknop", k.titel);
+    knop.type = "button";
+    if (k.sleutel === sleutel) knop.appendChild(maak("span", "aanwezig-kopknop__pijl", op ? " ▲" : " ▼"));
+    knop.addEventListener("click", () => {
+      sortering = { sleutel: k.sleutel, op: k.sleutel === sleutel ? !op : true };
+      teken();
+    });
+    th.appendChild(knop);
+    rij.appendChild(th);
+  });
+}
+
+// Hoe goed past een rij bij de zoekterm: 0 = op de naam van het kind, 1 = op
+// de ouder, 2 = op de wijk, null = niet. Aan de inkom typt de organisator een
+// voornaam; wie dan een kind mét die naam zoekt, wil het niet tussen de
+// ouders die toevallig zo heten moeten uitpikken.
+function treffer(v) {
+  if (!zoekterm) return 0;
+  if (normaliseer(volledigeNaam(v)).includes(zoekterm)) return 0;
+  if (normaliseer(v.ouders).includes(zoekterm)) return 1;
+  if (normaliseer(v.wijk).includes(zoekterm)) return 2;
+  return null;
+}
+
+function vergelijk(x, y) {
+  if (x instanceof Date || typeof x === "number") return x - y;
+  return String(x).localeCompare(String(y), "nl-BE", { sensitivity: "base" });
+}
+
+function gesorteerd() {
+  const kolom = kolommen().find((k) => k.sleutel === sortering.sleutel) || kolommen()[0];
+  const leeg = (w) => w == null || w === "";
+  return verzamelaars
+    .map((v) => ({ v, t: treffer(v), w: kolom.waarde(v) }))
+    .filter((r) => r.t !== null)
+    .sort((a, b) => {
+      if (a.t !== b.t) return a.t - b.t;
+      // Leeg altijd achteraan, welke richting ook — zoals op statistieken.html.
+      if (leeg(a.w) !== leeg(b.w)) return leeg(a.w) ? 1 : -1;
+      const c = leeg(a.w) ? 0 : vergelijk(a.w, b.w);
+      return (sortering.op ? c : -c) || vergelijk(volledigeNaam(a.v), volledigeNaam(b.v));
+    })
+    .map((r) => r.v);
 }
 
 function tekenRijen() {
   const body = document.getElementById("aanw-rijen");
   body.textContent = "";
 
-  const zichtbaar = verzamelaars.filter(past);
+  const zichtbaar = gesorteerd();
   zichtbaar.forEach((v) => body.appendChild(bouwRij(v)));
 
   if (!zichtbaar.length) {
     const tr = maak("tr");
     const td = maak("td", "aanwezig-leeg", verzamelaars.length ? "Geen verzamelaar gevonden." : "Er zijn nog geen verzamelaars.");
-    td.colSpan = 4 + events.reduce((n, ev) => n + (ev.voorbij ? 1 : 2), 0);
+    td.colSpan = kolommen().length;
     tr.appendChild(td);
     body.appendChild(tr);
   }
@@ -232,6 +322,8 @@ function bouwRij(v) {
     tr.appendChild(bouwVinkje(v, ev, s.aangemeld));
   });
 
+  tr.append(tijdstipCel(v.aangemaakt), tijdstipCel(v.gewijzigd));
+
   const acties = maak("td");
   const weg = maak("button", "btn btn--outline btn--sm", "Verwijderen");
   weg.type = "button";
@@ -276,6 +368,9 @@ async function zetAangemeld(v, ev, vinkje) {
     const s = { ...stand(v, ev), aangemeld: aan };
     if (aan) s.komt = true; // aanmelden_zetten() doet hetzelfde in de databank
     v.aanwezigheid[ev.id] = s;
+    // De databank zet dit ook (trigger, migratie 031); hier enkel om niet de
+    // hele tabel te moeten herladen. Pas na 031 is er een kolom om te tonen.
+    if (v.aangemaakt) v.gewijzigd = new Date();
 
     melding.textContent = aan
       ? `${volledigeNaam(v)} is aangemeld voor ${ev.naam}.`

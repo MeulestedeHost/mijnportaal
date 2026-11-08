@@ -1721,8 +1721,21 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 .deeln-sorteer { width: auto; }
 .deeln-tabeltitel { margin: 1.75rem 0 0.75rem; }
 .form-label--inline { margin: 0; }
-.deeln-kopknop { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; white-space: nowrap; }
-.deeln-kopknop:hover, .deeln-kopknop:focus-visible { color: var(--cf-blue-primary); }
+.deeln-kopknop, .aanwezig-kopknop { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; white-space: nowrap; }
+.deeln-kopknop:hover, .deeln-kopknop:focus-visible,
+.aanwezig-kopknop:hover, .aanwezig-kopknop:focus-visible { color: var(--cf-blue-primary); }
+.aanwezig-tabel__tijd { white-space: nowrap; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* aanwezigheden.html op een laptop aan de inkom: de tabel heeft met een kolom
+   per beurs plus aanmaak en wijziging veel meer nodig dan de 960px van de
+   rest van de site. Enkel deze pagina wordt breed; de tekstkaarten eronder
+   lezen nog prima op die breedte. De kop blijft staan bij het scrollen, zodat
+   je bij rij veertig nog weet welke kolom "aangemeld" is. */
+@media (min-width: 1100px) {
+  .pagina-breed .container { max-width: min(1600px, 100%); }
+  .aanwezig-tabel-wrap--hoofd { max-height: 70vh; overflow-y: auto; }
+  .aanwezig-tabel-wrap--hoofd thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); box-shadow: inset 0 -1px 0 var(--border); }
+}
 .aanwezig-gast { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 0.45rem; white-space: nowrap; }
 
 /* Bewerken en Verwijderen naast elkaar in de beurzenlijst (instellingen.html). */
