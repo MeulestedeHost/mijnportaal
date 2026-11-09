@@ -97,6 +97,47 @@
         <div id="inst-events-message" class="message" role="alert" aria-live="polite"></div>
       </section>
 
+      <!-- Ruilmomenten (migratie 033): twee uur tijdens de openingsuren van
+           het CC Meulestede om stickers af te geven of op te halen. Bewust een
+           eigen tabel en geen ruilbeurs: geen sperperiode, geen aanwezigheden.
+           js/ruilmomenten-beheer.js. -->
+      <section class="card" id="inst-momenten-kaart">
+        <h2>Ruilmomenten in het CC Meulestede</h2>
+        <p class="form-meta">
+          Bij het bevestigen van een online ruil kiezen gezinnen een van deze momenten om
+          stickers af te geven of op te halen. Een ruilmoment start <strong>geen</strong>
+          sperperiode: online ruilen loopt gewoon door. Komende momenten staan ook op de startpagina.
+        </p>
+        <div class="aanwezig-tabel-wrap">
+          <table class="aanwezig-tabel">
+            <thead><tr><th>Wanneer</th><th>Opmerking</th><th>Actie</th></tr></thead>
+            <tbody id="inst-momenten-rijen"></tbody>
+          </table>
+        </div>
+        <h3 class="aanwezig-event__titel">Ruilmoment toevoegen</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="inst-mo-start" class="form-label">Start <span class="required">*</span></label>
+            <input type="datetime-local" id="inst-mo-start" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label for="inst-mo-duur" class="form-label">Duur</label>
+            <select id="inst-mo-duur" class="form-input">
+              <option value="60">1 uur</option>
+              <option value="120" selected>2 uur</option>
+              <option value="180">3 uur</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="inst-mo-opmerking" class="form-label">Opmerking</label>
+            <input type="text" id="inst-mo-opmerking" class="form-input" maxlength="120"
+                   placeholder="aan de onthaalbalie" autocomplete="off" />
+          </div>
+        </div>
+        <button type="button" class="btn btn--primary" id="inst-mo-toevoegen">Ruilmoment toevoegen</button>
+        <div id="inst-momenten-message" class="message" role="alert" aria-live="polite"></div>
+      </section>
+
       <form id="inst-form" novalidate>
         <section class="card">
           <h2>Filter op aanwezigen</h2>
@@ -253,6 +294,7 @@
   <script type="module" src="/js/supabase.js"></script>
   <script type="module" src="/js/auth.js"></script>
   <script type="module" src="/js/instellingen.js"></script>
+  <script type="module" src="/js/ruilmomenten-beheer.js"></script>
   <script type="module" src="/js/versie.js"></script>
 </body>
 </html>

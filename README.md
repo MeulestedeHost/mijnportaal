@@ -462,6 +462,112 @@ kent. `js/onboarding.js` vangt die ene fout op (`23514`) door opnieuw te
 bewaren zónder het antwoord: wijk en naam gaan niet verloren omdat een
 constraint achterloopt.
 
+## 7d. Online ruilen (`033`)
+
+Na de laatste beurs (8 november 2026) gaat het ruilen online verder. Aan de
+ruiltafel wisselen stickers meteen van hand en registreer je achteraf (§7b).
+Online komt de afspraak eerst en de stickers dagen later, soms met de post.
+Daarom krijgt een online ruil **fases** en een **gesprek**. De ruiltafel
+(`public.ruilen`, registreren, Snelruilen) blijft ongewijzigd voor de
+ruilbeursmodus. Voor de ouders staat alles in gewone taal op `regels.html`.
+
+### Eén model voor ruil en kring
+
+`public.afspraken` (fase, wijze, termijnen), `afspraak_deelnemers` (2 bij een
+ruil, 3 of 4 bij een kettingruil) en `afspraak_items`: "`van_kind` geeft
+`sticker` aan `naar_kind`". Een gewone ruil is een kring van twee. Er is dus
+geen apart kettingdossier nodig, en het gesprek werkt voor beide hetzelfde.
+
+```
+VOORGESTELD ─(elk gezin antwoordde)─► GERESERVEERD ─► VRIJGEGEVEN
+                                          │
+                                  (wat + hoe vastgelegd)
+                                          ▼
+                                      BEVESTIGD ─► AFGESPRONGEN
+                                          │        (GESCHIL als iemand al ontving)
+                               (elke kant: "ontvangen")
+                                          ▼
+                                    GEREALISEERD
+plus VERVALLEN: 14 dagen geen antwoord, 14 dagen niet bevestigd, of 30 dagen
+na bevestigen nog niets ontvangen (_afspraak_termijn()).
+```
+
+- **Reserveren** start bij het eerste bericht van elk ander gezin.
+  `_afspraak_reserveren()` haalt eruit wat intussen niet meer kan, met een
+  systeembericht. Bewust "antwoorden = akkoord" en geen aparte knop: zo werkt
+  een gesprek. De knop 👍 Akkoord is gewoon een bericht.
+- **`_gereserveerd()` telt de afspraken mee.** Daardoor volgen `get_matches()`,
+  `ruil_registreren()`, het favorietenbudget en `ketting_lijsten()` vanzelf.
+  Geen status op `stickers`, om dezelfde reden als in `023`. Een afspraak over
+  haar termijn reserveert niets meer, ook als ze nog niet opgeruimd is
+  (`_afspraak_loopt()`).
+- **Ontvangen = je eigen lijst verwerken** (`_afspraak_kant_verwerken`):
+  dezelfde regel als `023`, per item bijgehouden (`van_dubbels_voor`,
+  `naar_zoekt_weg`). Terugzetten gebeurt enkel als de lijst nog exact klopt;
+  anders `nazien_op`.
+- **Geschil.** "Afgesprongen" nadat iemand al ontving, of 30 dagen na
+  bevestigen met maar één kant rond, wordt `GESCHIL`. De beheerder leest het
+  gesprek op `gesprekken.html` en beslist met `afspraak_geschil_beslissen()`.
+  Bij *gerealiseerd* wordt de andere kant **niet** automatisch verwerkt, want
+  het portaal weet niet wat er in die map zit; die kant krijgt `nazien`. Bij
+  *afgesprongen* gaat terug wat veilig terug kan.
+- **Opruimen** gebeurt zonder geplande taak, zoals `023`:
+  `afspraken_verlopen_verwerken()` bij elke paginalading (bel, gesprekken), en
+  `afspraak_detail()` handelt de geopende afspraak af. Berichten van een
+  afspraak die 90 dagen gesloten is, gaan weg, tenzij er een open melding is.
+
+### Gesprekken
+
+- Het account is van het **gezin**: kinderen chatten, ouders lezen mee en
+  kiezen "Ouder" bij *Wie schrijft er?*. `auteur_naam` wordt vastgelegd bij het
+  schrijven. Gelezen houdt het portaal per gezin bij (`afspraak_gelezen`).
+- **@-vermeldingen** zijn enkel weergave: de voornamen van de kinderen in het
+  gesprek en van de ouders (`gezin_leden.voornaam`). Er wordt niets extra
+  opgeslagen.
+- Systeemberichten dragen het gezin dat de actie deed, zodat "Guus bevestigde"
+  niet ongelezen staat bij Guus.
+- **Melden** (`bericht_meldingen`) en **blokkeren** (`blokkades`, in beide
+  richtingen). Een blokkade weigert nieuwe voorstellen en sluit een lopende,
+  nog niet bevestigde afspraak. De ruilpagina laat geblokkeerde gezinnen weg
+  (`mijn_blokkades()`). Beheerders lezen enkel mee bij een melding of geschil
+  (`_afspraak_toegang(…, true)`).
+- **Geen realtime.** De pagina ververst het open gesprek elke 20 seconden.
+  Voor een ruil per post is dat ruim genoeg, en het vraagt geen extra dienst.
+- **Mail naar de ouders**: Edge Function `berichten-mail`, zie
+  `supabase/README.md`, "Mailmeldingen". Zonder de geheimen daar gaat er niets
+  uit. De bel 🔔 toont het wel altijd.
+
+### Ruilbeursmodus en ruilmomenten
+
+- In de fase `voor`/`tijdens` (§7c) weigert `afspraak_voorstellen()` nieuwe
+  voorstellen. `_online_schrijven_tot()` = start van de aanloop + 1 dag:
+  tot dan kan je in lopende gesprekken nog schrijven, met een verwittiging in
+  het gesprek. Afronden (vrijgeven, ontvangen, afgesprongen) kan altijd.
+  Aanwezigheid stuurt wat je voorgesteld krijgt, niet wat mag.
+- **Ruilmomenten** (`public.ruilmomenten`) zijn bewust **geen** events: 
+  `huidig_event()`, de aanwezigheden, statistieken en gasten lezen elke event
+  als beurs, en een vergeten uitzondering start een sperperiode. Beheer staat
+  op `instellingen.html` (`js/ruilmomenten-beheer.js`). De startpagina toont
+  de komende momenten via `ruilmomenten_info()` (anon).
+
+### Sterren en de ruilplanner
+
+`beoordelingen`: per gezin, 1–5, één keer per afspraak per richting
+(aanpassen mag), enkel na `GEREALISEERD` of `AFGESPRONGEN` en nooit binnen het
+eigen gezin. `gezin_sterren()` geeft het gemiddelde, het aantal en het aantal
+gerealiseerde online ruilen. Onder 3 beoordelingen toont `js/online.js` het
+woord "nieuw".
+
+De ruilplanner rangschikt **sinds `033` ook op vertrouwen**, als stap 2b in de
+keten van `groepeerEnRangschikRuilers()`: na tweerichting en vóór schaarste,
+in drie grove niveaus (`vertrouwen()`: 4+ / neutraal of nieuw / onder 2,5).
+Dat heropent bewust de beslissing "ranken op reputatie, nee" uit `Todo.md`. De
+remmen tegen het Mattheüseffect daar zijn de drie niveaus, "nieuw" als
+neutraal, en de plaats in de keten.
+
+Zolang `033` niet gedraaid is: geen sterren, geen knop die werkt (een
+duidelijke melding), en de bel en de ruilpagina zoals vroeger.
+
 ## 8. FIFA Wereldreis
 
 Een wereldkaart bovenop dezelfde stickerlijst: elk land van het album staat op

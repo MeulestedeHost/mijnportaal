@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panini Ruilportaal Meulestede — Berichten</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="/dashboard.html" class="brand">
+        <span class="brand__logo">◆</span>
+        <span class="brand__name">Panini Ruilportaal Meulestede</span>
+      </a>
+      <div class="navbar__actions">
+        <a href="/dashboard.html" class="btn btn--outline btn--sm">← Dashboard</a>
+        <a href="/ruilen.html" class="btn btn--outline btn--sm">Ruilen</a>
+        <button type="button" class="btn btn--outline btn--sm" id="logout-btn">Uitloggen</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main">
+    <div class="dashboard-header">
+      <h1>💬 Berichten</h1>
+    </div>
+
+    <p class="form-meta form-meta--plat gesprekken__intro">
+      Hier spreek je online ruilen af. Kinderen chatten met elkaar, ouders lezen en
+      schrijven mee. Lees zeker eens de <a href="/regels.html">platformregels</a>.
+    </p>
+
+    <!-- Enkel voor de organisatie: geschillen en meldingen. De databank
+         controleert dat opnieuw; deze pagina beveiligt niets. -->
+    <section class="card hidden" id="gesprekken-beheer">
+      <h2>Organisatie: geschillen en meldingen</h2>
+      <div id="gesprekken-beheer-lijst"></div>
+    </section>
+
+    <div class="gesprekken">
+      <section class="card gesprekken__lijst" aria-labelledby="gesprekken-lijst-titel">
+        <h2 id="gesprekken-lijst-titel">Mijn ruilgesprekken</h2>
+        <div id="gesprekken-lijst"><p class="form-meta form-meta--plat">Laden…</p></div>
+      </section>
+
+      <section class="card gesprek hidden" id="gesprek" aria-live="polite"></section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Panini Ruilportaal Meulestede — <a href="/regels.html">Platformregels</a> — <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/supabase.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/gesprekken.js"></script>
+  <script type="module" src="/js/acties.js"></script>
+  <script type="module" src="/js/versie.js"></script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panini Ruilportaal Meulestede — Platformregels</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="/" class="brand">
+        <span class="brand__logo">◆</span>
+        <span class="brand__name">Panini Ruilportaal Meulestede</span>
+      </a>
+      <div class="navbar__actions">
+        <a href="/dashboard.html" class="btn btn--outline btn--sm">Naar het portaal</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Statische pagina, geen login nodig: een ouder moet de regels kunnen
+       lezen vóór hij zich inschrijft. De termijnen hieronder staan ook in
+       supabase/migrations/…_033_online_ruilen.sql (_afspraak_termijn). Pas
+       je daar iets aan, pas het hier mee aan. -->
+  <main class="container main regels">
+    <h1>📜 Platformregels</h1>
+    <p>
+      Het Ruilportaal is gemaakt voor kinderen die Panini-stickers verzamelen, en voor
+      hun ouders. Online ruilen werkt alleen als iedereen erop kan vertrouwen dat
+      afspraken nagekomen worden en dat het gezellig en veilig blijft. Daarom deze
+      regels. Ze zijn kort, lees ze samen met je kind.
+    </p>
+
+    <h2 id="kort">In het kort</h2>
+    <ol>
+      <li><strong>Het gaat over stickers.</strong> Chat over ruilen, niet over andere dingen.</li>
+      <li><strong>Een ouder is altijd mee verantwoordelijk.</strong> Het account is van de ouder; die leest mee en mag mee schrijven.</li>
+      <li><strong>Afspraak is afspraak.</strong> Wat je bevestigt, kom je na. Lukt het niet, zeg het meteen.</li>
+      <li><strong>Deel zo weinig mogelijk persoonlijke gegevens.</strong> Je adres enkel in het gesprek en enkel als je per post ruilt.</li>
+      <li><strong>Afspreken doe je met een ouder erbij</strong>, op een openbare plek of op een ruilmoment in het CC Meulestede.</li>
+      <li><strong>Iets niet ok?</strong> Meld het bericht of blokkeer het gezin. De organisatie kijkt mee.</li>
+    </ol>
+
+    <h2 id="fases">Hoe een online ruil verloopt</h2>
+    <ol>
+      <li><strong>Voorstel.</strong> Op de ruilpagina kies je een ruiler en de stickers, en tik je op <em>💬 Online voorstellen</em>. Er opent een gesprek.</li>
+      <li><strong>Gereserveerd.</strong> Zodra de andere kant antwoordt in het gesprek, liggen de stickers voor jullie opzij: niemand anders krijgt ze nog voorgesteld. Bij een kettingruil gebeurt dat zodra iedereen geantwoord heeft.</li>
+      <li><strong>Bevestigd.</strong> Jullie leggen vast <em>hoe</em> je ruilt: verzenden per post, afspreken, of afhalen op een ruilmoment in het CC Meulestede.</li>
+      <li><strong>Gerealiseerd.</strong> Heb je je stickers ontvangen, duid dat dan aan. Op dat moment wordt <em>jouw</em> lijst bijgewerkt (wat je kreeg gaat uit “zoek ik”, wat je gaf gaat van je dubbels af). Als iedereen ontvangen heeft, is de ruil gerealiseerd.</li>
+    </ol>
+    <p>
+      Gaat het niet door vóór het bevestigen? Dan <strong>geef je de reservatie vrij</strong>.
+      Ging het na het bevestigen mis? Dan duid je aan dat de ruil <strong>afgesprongen</strong> is.
+    </p>
+
+    <h2 id="termijnen">Termijnen</h2>
+    <ul>
+      <li><strong>14 dagen</strong> om te antwoorden op een voorstel. Daarna vervalt het.</li>
+      <li><strong>14 dagen</strong> om een gereserveerde ruil te bevestigen. Daarna komen de stickers weer vrij.</li>
+      <li><strong>30 dagen</strong> om na het bevestigen te ruilen en “ontvangen” aan te duiden. Heeft niemand iets ontvangen, dan vervalt de ruil. Heeft één kant wel ontvangen en de andere niet, dan kijkt de organisatie mee.</li>
+    </ul>
+
+    <h2 id="gesprekken">Veilig chatten</h2>
+    <ul>
+      <li>Kinderen chatten met kinderen. <strong>Ouders lezen altijd mee</strong>, ze kunnen mee schrijven en kiezen dan bij “Wie schrijft er?” voor <em>Ouder</em>.</li>
+      <li>Met <strong>@</strong> spreek je iemand uit het gesprek aan, bijvoorbeeld <em>@Sol</em> of de voornaam van een ouder.</li>
+      <li>Een mail over nieuwe berichten gaat <strong>enkel naar de ouders</strong>, hoogstens om de paar uur.</li>
+      <li>Schrijf vriendelijk, ook als iets misloopt. Geen scheldwoorden, geen druk zetten, geen geld vragen.</li>
+      <li>Geef nooit je telefoonnummer, school of sociale media door. Je adres enkel als je per post ruilt, en enkel in het gesprek.</li>
+      <li>Vraagt iemand iets dat niet over stickers gaat, of voelt iets niet goed? Tik bij het bericht op <strong>Melden</strong>. De organisatie leest dat gesprek dan mee. Je kan een gezin ook <strong>blokkeren</strong>: dan zien jullie elkaar niet meer bij de ruilkansen.</li>
+      <li>De organisatie leest <strong>enkel</strong> mee bij een melding of een geschil, nooit zomaar.</li>
+      <li>Berichten worden <strong>90 dagen</strong> na het afsluiten van de ruil gewist (behalve wanneer er een melding over loopt).</li>
+    </ul>
+
+    <h2 id="ruilen">Verzenden, afspreken of afhalen</h2>
+    <ul>
+      <li><strong>📮 Verzenden.</strong> Spreek af wie eerst verstuurt. Bij een eerste ruil met een gezin is het eerlijk dat het gezin met de minste sterren eerst stuurt, of dat jullie tegelijk posten. Een postzegel loont vooral bij een bundel van meerdere stickers.</li>
+      <li><strong>🤝 Afspreken.</strong> Met een ouder erbij, op een openbare plek. Buren kunnen vaak gewoon even langs elkaar.</li>
+      <li><strong>🏠 Afhalen in het CC Meulestede.</strong> Op een <em>ruilmoment</em>: twee uur tijdens de openingsuren. Je kiest het moment bij het bevestigen. Een ruilmoment is geen beurs: er is geen inschrijving en geen sperperiode.</li>
+    </ul>
+
+    <h2 id="geschil">Als het misloopt: een geschil</h2>
+    <p>
+      Duidt de ene kant aan dat hij ontvangen heeft en de andere dat de ruil afgesprongen
+      is, dan staan twee verhalen tegenover elkaar. De ruil gaat dan naar de
+      <strong>platformverantwoordelijke</strong>, die het gesprek leest en beslist:
+    </p>
+    <ul>
+      <li><strong>Gerealiseerd</strong> — de ruil telt als gedaan. Wie nog niet aanduidde dat hij ontving, kijkt zijn lijst zelf na: het portaal weet niet wat er in je map zit.</li>
+      <li><strong>Afgesprongen</strong> — wat al verwerkt was, wordt teruggezet (tenzij je lijst intussen veranderde; dan krijg je een melding om zelf na te kijken).</li>
+    </ul>
+
+    <h2 id="sterren">Sterren</h2>
+    <ul>
+      <li>Na een gerealiseerde of afgesprongen ruil geef je het <strong>andere gezin</strong> 1 tot 5 sterren. Je kan je beoordeling nog aanpassen. Binnen je eigen gezin beoordeel je niet.</li>
+      <li>Naast elke naam staat het gemiddelde, op een halve ster afgerond, met het aantal beoordelingen erbij: <em>★★★★½ 4,5 (7)</em>.</li>
+      <li>Onder de <strong>3 beoordelingen</strong> staat er <em>nieuw</em>: één beoordeling zegt nog niets, en één boze score mag geen reputatie kapotmaken.</li>
+      <li>Geef sterren voor hoe de ruil verliep: kwam alles op tijd, zoals afgesproken, en was het gesprek vriendelijk? Niet voor hoe zeldzaam de stickers waren.</li>
+    </ul>
+
+    <h3>Sterren en de volgorde in de ruilplanner</h3>
+    <p>
+      De ruilplanner zet bovenaan met wie je best eerst ruilt. Dat is geen puntentotaal maar
+      een vaste reeks vragen, in deze volgorde:
+    </p>
+    <ol>
+      <li>Heb je bij deze ruiler een <strong>favoriet</strong> aangeduid?</li>
+      <li>Kunnen jullie <strong>in twee richtingen</strong> ruilen?</li>
+      <li><strong>Vertrouwen:</strong> is dit gezin <em>betrouwbaar</em> (gemiddeld 4 sterren of meer), <em>neutraal of nieuw</em>, of <em>laag</em> (onder 2,5)? Pas vanaf 3 beoordelingen telt dit mee.</li>
+      <li>Ligt er een sticker die je <strong>bij niemand anders</strong> vindt?</li>
+      <li>Hoeveel stickers kunnen er <strong>in één keer</strong>?</li>
+    </ol>
+    <p>
+      Waarom zo grof, en waarom pas na “twee richtingen”? Een nieuw gezin begint daardoor
+      <em>naast</em> een gezin met goede sterren en niet eronder, anders krijgt wie begint
+      nooit een kans. En sterren beslissen nooit over iemand met wie je toch niets kan ruilen.
+      Een gezin met lage sterren verdwijnt niet: het komt enkel later in de lijst.
+    </p>
+
+    <h2 id="ruilbeurs">Als er een ruilbeurs komt</h2>
+    <p>
+      Organiseren we toch nog een grote ruilbeurs, dan schakelt het portaal in de aanloop
+      over op <strong>ruilbeursmodus</strong>. Je ziet dan enkel nog verzamelaars die
+      aanduidden dat ze komen, en op de dag zelf wie aan de inkom aangemeld is. Nieuwe online
+      ruilen voorstellen kan dan niet. Lopende gesprekken krijgen een melding en lopen
+      <strong>nog één dag</strong> door. Een lopende ruil afronden (ontvangen, vrijgeven,
+      afgesprongen) kan altijd. Na de beurs gaat het online ruilen gewoon verder.
+    </p>
+
+    <h2 id="contact">Vragen?</h2>
+    <p>
+      Mail de organisatie op <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a>.
+      Hoe we met je gegevens omgaan, staat in de <a href="/privacy.html">privacyverklaring</a>.
+    </p>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Panini Ruilportaal Meulestede — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a> — <a href="/privacy.html">Privacy</a></p>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/versie.js"></script>
+</body>
+</html>

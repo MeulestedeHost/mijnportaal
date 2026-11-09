@@ -18,54 +18,93 @@
 
   <main class="container main">
     <section class="hero" id="landing-hero">
-      <p class="hero__eyebrow">3de en laatste editie · vzw Meulestede</p>
+      <p class="hero__eyebrow">Online ruilen · vzw Meulestede</p>
 
-      <h1>Panini Ruilbeurs Meulestede</h1>
-
-      <p class="hero__event">
-        <strong>zondag 8 november 2026, 11 tot 16 uur</strong><br>
-        CC Meulestede, op de binnenkoer · Meulesteedsesteenweg 515, 9000 Gent
-      </p>
+      <h1>Panini Ruilportaal Meulestede</h1>
 
       <p class="hero__subtitle">
-        Schrijf je hier in voor de ruilbeurs en beheer meteen de
-        Panini-verzamelingen van je kinderen. Duid aan welke stickers je zoekt
-        en welke je dubbel hebt. Op de dag zelf zie je wie een match heeft
-        voor jouw verzameling, zodat je gericht kan ruilen. Na de beurs kan je
-        digitaal verder ruilen. De contactgegevens zullen dan zichtbaar zijn.
+        Drie ruilbeurzen in het CC Meulestede zijn achter de rug. Vanaf nu gaat
+        het ruilen online verder: je vindt in het portaal wie de stickers heeft
+        die jij zoekt, je spreekt samen af wat je ruilt en hoe, en je verstuurt
+        de stickers of je ziet elkaar.
       </p>
 
       <p class="hero__note">
-        Inschrijven is gratis. Let op: de info op de afbeeldingen en
-        ruilfiches kan fout zijn, ga uit van de gegevens op deze pagina.
+        Inschrijven is gratis. Een ouder maakt het account aan en beheert de
+        verzameling van elk kind.
       </p>
 
       <a href="/login.html" class="btn btn--primary btn--lg">Inschrijven of aanmelden</a>
     </section>
 
-    <!-- Statisch, geen JavaScript: enkel een link naar het PDF-bestand in
-         print/. Kom je aan een nieuw ruilblad, vervang dan gewoon dat bestand
-         en houd de bestandsnaam hieronder gelijk — of pas de href aan. -->
-  
+    <!-- De stappen hieronder beschrijven de online werkwijze (migratie 033).
+         Komt er iets bij dat nog niet in het portaal zit, zet er dan
+         <span class="binnenkort">binnenkort</span> achter: een ouder die het
+         probeert, mag niet op een knop zoeken die er nog niet is. -->
+    <section class="uitleg" aria-labelledby="uitleg-titel">
+      <div class="uitleg__kop">
+        <h2 id="uitleg-titel">🔄 Zo werkt online ruilen</h2>
+        <p>Van lijst tot ruil in zeven stappen. Lees ook de <a href="/regels.html">platformregels</a>.</p>
+      </div>
 
-    <!-- Magic link stond hier vroeger als eerste kaart. Die uitleg hoort beter
-         thuis op login.html zelf — wie hier nog niet aangemeld is, heeft er
-         niets aan, en wie wél aanmeldt ziet ze daar op het juiste moment. In
-         de plaats komt, als derde kaart, een korte uitleg over de
-         ruilvoorstellen: dat is wat een nieuwe bezoeker overtuigt, niet hoe
-         het inloggen werkt. -->
-    <section class="features">
-      <div class="feature-card">
-        <h3>🧒 Meerdere verzamelaars</h3>
-        <p>Voeg al je kinderen toe en beheer de Panini-verzameling van elk kind apart.</p>
+      <ol class="stappen">
+        <li class="feature-card">
+          <h3>1. 📋 Vul je lijst in</h3>
+          <p>Duid per kind aan welke stickers het zoekt en welke het dubbel heeft. Hoe vollediger, hoe beter de voorstellen.</p>
+        </li>
+        <li class="feature-card">
+          <h3>2. 🔍 Vind je ruilers</h3>
+          <p>De ruilplanner toont met wie je kan ruilen, welke stickers precies, en met wie je best eerst praat.</p>
+        </li>
+        <li class="feature-card">
+          <h3>3. 💬 Spreek af</h3>
+          <p>Tik bij een ruiler op <strong>💬 Online voorstellen</strong> en chat in het portaal. Kinderen chatten met elkaar, ouders lezen en schrijven mee. Met <strong>@</strong> spreek je iemand aan. Ook met drie of vier samen, bij een kettingruil.</p>
+        </li>
+        <li class="feature-card">
+          <h3>4. 🔒 Gereserveerd</h3>
+          <p>Zodra je ruiler antwoordt, liggen de stickers voor jullie opzij: niemand anders kan ze nog vragen. Gaat het niet door, dan geef je de reservatie weer vrij.</p>
+        </li>
+        <li class="feature-card">
+          <h3>5. 🤝 Ruil bevestigd</h3>
+          <p>Jullie leggen vast wat je ruilt en hoe: <strong>verzenden</strong> per post, <strong>afspreken</strong>, of <strong>afhalen</strong> op een ruilmoment in het CC Meulestede.</p>
+        </li>
+        <li class="feature-card">
+          <h3>6. ✅ Gerealiseerd</h3>
+          <p>Stickers ontvangen? Duid de ruil aan als gerealiseerd en je lijst wordt meteen bijgewerkt. Ging het toch niet door, dan duid je aan dat de ruil afgesprongen is.</p>
+        </li>
+        <li class="feature-card">
+          <h3>7. ⭐ Beoordeel elkaar</h3>
+          <p>Na een ruil geef je het andere gezin tot vijf sterren. Zo zie je naast elke naam hoe betrouwbaar een ruiler is, en betrouwbare gezinnen komen hoger in je ruilplanner.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="uitleg" aria-labelledby="modi-titel">
+      <div class="uitleg__kop">
+        <h2 id="modi-titel">📅 Online, ruilmoment of ruilbeurs</h2>
       </div>
-      <div class="feature-card">
-        <h3>🔄 Ruilen</h3>
-        <p>Houd bij welke stickers je hebt, zoekt of kan ruilen — enkel jij ziet jouw gegevens.</p>
-      </div>
-      <div class="feature-card">
-        <h3>📋 Ruilvoorstellen per verzamelaar</h3>
-        <p>Zie per ruiler meteen welke ruil mogelijk is — geen rekenwerk, gewoon klikken en registreren.</p>
+
+      <div class="features">
+        <div class="feature-card">
+          <h3>💻 Online ruilen</h3>
+          <p>De gewone werking. Je ziet alle ruilers en spreekt zelf af hoe je ruilt.</p>
+        </div>
+        <div class="feature-card">
+          <h3>🏠 Ruilmoment in het CCM</h3>
+          <p>Twee uur tijdens de openingsuren van het CC Meulestede. Kies bij een bevestigde ruil zo'n datum om er stickers af te geven of op te halen. Online ruilen loopt gewoon door.</p>
+          <!-- Gevuld door js/beurs-uitleg.js (public.ruilmomenten_info, ook zonder login). -->
+          <ul class="ruilmomenten-lijst" id="ruilmomenten-lijst"></ul>
+        </div>
+        <div class="feature-card">
+          <h3>🎪 Ruilbeurs</h3>
+          <p>
+            Komt er toch nog een grote ruilbeurs, dan toont het portaal vanaf
+            <strong><span class="beurs-filter-dagen">14</span> dagen</strong> vooraf enkel
+            wie aanduidde dat hij komt, en op de dag zelf wie aan de inkom
+            aangemeld is. Lopende gesprekken krijgen nog één dag om af te ronden.
+            Na de beurs gaat het online ruilen weer verder.
+          </p>
+        </div>
       </div>
     </section>
 
@@ -84,10 +123,44 @@
 
       <div class="nieuws__lijst">
 
-        <article class="nieuws-item nieuws-item--uitgelicht" id="nieuws-ruilbeurs-8-november" data-deel-titel="Laatste Panini-ruilbeurs in Meulestede op zondag 8 november">
+        <article class="nieuws-item nieuws-item--uitgelicht" id="nieuws-online-ruilen" data-deel-titel="Na de ruilbeurzen: Panini-ruilen gaat online verder in Meulestede">
+          <div class="nieuws-item__kop">
+            <time class="nieuws-item__datum" datetime="2026-11-09">9 november 2026</time>
+            <span class="nieuws-item__badge">✨ NIEUW</span>
+          </div>
+          <h3 class="nieuws-item__titel">💻 De beurzen zijn voorbij, het ruilen gaat online verder</h3>
+          <div class="nieuws-item__tekst">
+            <p>
+              Bedankt aan iedereen die op een van de drie ruilbeurzen kwam ruilen, meehielp of
+              het verder vertelde! Wie zijn album nog niet vol heeft, kan nu online verder ruilen
+              via het portaal.
+            </p>
+            <p>
+              Online gaat het anders dan aan de ruiltafel: je zoekt een ruiler, jullie spreken
+              samen af wat je ruilt, en je verstuurt de stickers of je ziet elkaar. Hoe dat precies
+              gaat, staat hierboven onder <a href="#uitleg-titel">Zo werkt online ruilen</a>.
+            </p>
+            <ul>
+              <li>💬 <strong>Berichten in het portaal:</strong> stel een ruil voor en spreek af, met z'n tweeën of in een kettingruil met drie of vier.</li>
+              <li>🔒 <strong>Reserveren:</strong> zodra je ruiler antwoordt, liggen de stickers voor jullie opzij.</li>
+              <li>⭐ <strong>Sterren:</strong> na een ruil beoordeel je elkaar, zodat iedereen ziet op wie hij kan rekenen.</li>
+              <li>🏠 <strong>Ruilmomenten</strong> in het CC Meulestede om stickers af te geven of op te halen.</li>
+            </ul>
+            <p>
+              👪 Ouders lezen altijd mee en krijgen een mail bij nieuwe berichten. Geef je adres
+              enkel door als je per post ruilt, en lees samen met je kind even de
+              <a href="/regels.html">platformregels</a>.
+            </p>
+          </div>
+          <div class="nieuws-item__knoppen">
+            <a class="btn btn--ruilfiche btn--lg" href="/login.html">🔄 Naar het Ruilportaal</a>
+          </div>
+          <footer class="nieuws-item__delen"></footer>
+        </article>
+
+        <article class="nieuws-item" id="nieuws-ruilbeurs-8-november" data-deel-titel="Laatste Panini-ruilbeurs in Meulestede op zondag 8 november">
           <div class="nieuws-item__kop">
             <time class="nieuws-item__datum" datetime="2026-11-08">8 november 2026</time>
-            <span class="nieuws-item__badge">✨ NIEUW</span>
           </div>
           <h3 class="nieuws-item__titel">🏆 Vandaag: de laatste ruilbeurs, zondag 8 november van 11u tot 16u</h3>
           <div class="nieuws-item__tekst">
@@ -149,7 +222,7 @@
                  pagina ook zonder JavaScript of databank iets zinnigs zegt. -->
             <p id="beurs-aanwezigheid">
               🗓️ <strong>Duid in het portaal aan dat je komt.</strong> Vanaf
-              <strong><span id="beurs-filter-dagen">14</span> dagen</strong> voor de beurs
+              <strong><span class="beurs-filter-dagen">14</span> dagen</strong> voor de beurs
               tonen de ruilplanner, de ruilvoorstellen, de beste ruilkansen en ⚡ Snelruilen
               enkel nog verzamelaars die aangeduid hebben dat ze komen — op de beursdag zelf
               enkel wie aan de inkom aangemeld is. Zo plan je je ruilronde met mensen die er
@@ -279,7 +352,7 @@
 
   <footer class="footer">
     <div class="container">
-      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a> — <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>
+      <p>Panini Ruilportaal Meulestede — Gebouwd door Valentijn Rombaut op Cloudflare Pages &amp; Supabase — <a href="mailto:hostmaster@meulestede.gent">hostmaster@meulestede.gent</a> — <a href="/regels.html">Platformregels</a> — <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>
     </div>
   </footer>
 

@@ -59,6 +59,19 @@ a { color: var(--cf-blue-primary); text-decoration: none; }
 .feature-card h3 { margin-bottom: 0.5rem; font-size: 1.1rem; }
 .feature-card p { color: var(--text-muted); font-size: 0.95rem; }
 
+/* Uitleg op de startpagina: dezelfde kaarten als .features, maar als
+   genummerde lijst van stappen. */
+.uitleg { margin-top: 3rem; }
+.uitleg__kop { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.uitleg__kop h2 { font-size: 1.6rem; color: var(--cf-blue-dark); }
+.uitleg__kop p { color: var(--text-muted); font-size: 0.95rem; }
+.uitleg .features { margin-top: 0; }
+.stappen { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
+
+/* Label voor wat beschreven staat maar nog niet in het portaal zit. Weghalen
+   zodra de functie online komt. */
+.binnenkort { display: inline-block; vertical-align: middle; margin-left: 0.25rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: var(--cf-blue-light); color: var(--cf-blue-dark); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em; }
+
 /* De ruilfiche-oproep op de startpagina: een gouden rand in plaats van de
    gewone kaartschaduw, zodat ze meteen opvalt tussen de andere kaarten. */
 .ruilfiche-blok { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; border: 2px solid #e8b923; background: linear-gradient(135deg, #fffbea 0%, var(--surface) 55%); }
@@ -1780,3 +1793,99 @@ button.wr-hero__stat { border: none; font-family: inherit; cursor: pointer; }
 
 /* Bewerken en Verwijderen naast elkaar in de beurzenlijst (instellingen.html). */
 .aanwezig-tabel__acties { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+/* ============================================================
+   Online ruilen (migratie 033): sterren, gesprekken, fases, chat
+   ============================================================ */
+.message--warning { display: block; background: #fff6e0; color: #7a5200; }
+
+/* Vijf sterren: vol, half of leeg. De halve ster is één teken met een
+   verloop dat halverwege stopt — geen afbeelding, geen inline stijl (CSP). */
+.sterren { display: inline-flex; align-items: center; gap: 0.1rem; font-size: 0.9rem; white-space: nowrap; color: var(--text-muted); }
+.sterren--klein { font-size: 0.8rem; }
+.sterren--nieuw { font-size: 0.72rem; border: 1px solid var(--border); border-radius: 999px; padding: 0 0.45rem; }
+.ster { color: #e8b923; }
+.ster--leeg { color: #d8dee9; }
+.ster--half { background: linear-gradient(90deg, #e8b923 50%, #d8dee9 50%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sterren__tekst { margin-left: 0.15rem; }
+.ruiler-kaart__kopregel .sterren { margin-left: 0.25rem; }
+
+.gesprekken__intro { margin-bottom: 1rem; }
+.gesprekken { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+@media (max-width: 800px) { .gesprekken { grid-template-columns: minmax(0, 1fr); } }
+.gesprekken__items { list-style: none; padding: 0; margin: 0.5rem 0 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.gesprekken__item { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.6rem 0.7rem; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); }
+.gesprekken__item:hover { background: var(--cf-blue-light); }
+.gesprekken__item--open { border-color: var(--cf-blue-primary); background: var(--cf-blue-light); }
+.gesprekken__links { min-width: 0; }
+.gesprekken__naam { font-weight: 700; overflow-wrap: anywhere; }
+.gesprekken__sub { font-size: 0.8rem; color: var(--text-muted); }
+.gesprekken__rechts { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
+.gesprekken__nieuw { background: var(--danger); color: #fff; border-radius: 999px; font-size: 0.7rem; font-weight: 700; padding: 0 0.45rem; }
+.gesprekken__archief { margin-top: 0.75rem; }
+.gesprekken__archief summary { cursor: pointer; color: var(--text-muted); font-size: 0.9rem; }
+.gesprekken__beheer { padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+
+.status-chip--wacht { color: #7a5200; background: #fff6e0; border-color: #f0d48a; }
+.status-chip--bezig { color: var(--cf-blue-dark); background: var(--cf-blue-light); border-color: #b9d4f6; }
+.status-chip--klaar { color: var(--success); background: #eaf7ee; border-color: #b5e0c2; }
+.status-chip--geschil { color: var(--danger); background: var(--danger-light); border-color: #f3b9bb; }
+
+.gesprek { display: flex; flex-direction: column; gap: 0.9rem; min-width: 0; }
+.gesprek__kop { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.gesprek__kop h2 { margin: 0; overflow-wrap: anywhere; }
+.gesprek__deelnemers { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.3rem 1.1rem; font-size: 0.9rem; }
+.gesprek__vinkje { color: var(--text-muted); font-size: 0.8rem; }
+.gesprek__vinkje--aan { color: var(--success); }
+.gesprek__subkop { font-weight: 700; margin-bottom: 0.35rem; }
+.gesprek__items ul { padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.2rem; }
+.gesprek__afspraak { background: var(--bg); border-radius: var(--radius); padding: 0.7rem 0.9rem; }
+.gesprek__acties { display: flex; flex-direction: column; gap: 0.6rem; border-top: 1px solid var(--border); padding-top: 0.8rem; }
+.gesprek__acties details summary, .gesprek__problemen summary { cursor: pointer; font-weight: 600; }
+.gesprek__formulier { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; }
+.gesprek__formulier fieldset { border: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.gesprek__formulier legend { font-weight: 600; margin-bottom: 0.3rem; }
+.gesprek__keuze { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.9rem; }
+.gesprek__keuze input { margin-top: 0.3rem; }
+.gesprek__moment select, .chat__auteur select { margin-left: 0.3rem; max-width: 100%; }
+.gesprek__veld { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; }
+.gesprek__veld textarea, .chat__veldvak textarea { width: 100%; font: inherit; padding: 0.5rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius); resize: vertical; }
+.gesprek__problemen { border-top: 1px solid var(--border); padding-top: 0.6rem; font-size: 0.9rem; }
+
+/* Fasebalk: vier stappen op een rij, de huidige in het blauw. */
+.fasebalk { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.3rem; counter-reset: fase; }
+.fasebalk__stap { counter-increment: fase; font-size: 0.78rem; padding: 0.2rem 0.6rem; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); background: var(--surface); }
+.fasebalk__stap::before { content: counter(fase) ". "; }
+.fasebalk__stap--gedaan { color: var(--success); border-color: #b5e0c2; background: #eaf7ee; }
+.fasebalk__stap--nu { color: #fff; background: var(--cf-blue-primary); border-color: var(--cf-blue-primary); font-weight: 700; }
+.fasebalk__stap--einde { color: var(--danger); border-color: #f3b9bb; background: var(--danger-light); }
+.fasebalk__stap--einde::before { content: "✕ "; }
+
+.chat { border-top: 1px solid var(--border); padding-top: 0.8rem; }
+.chat__berichten { list-style: none; padding: 0.25rem; margin: 0 0 0.75rem; max-height: 26rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; }
+.chat__bericht { align-self: flex-start; max-width: 85%; background: var(--bg); border-radius: 12px 12px 12px 4px; padding: 0.45rem 0.7rem; }
+.chat__bericht--eigen { align-self: flex-end; background: var(--cf-blue-light); border-radius: 12px 12px 4px 12px; }
+.chat__bericht--systeem { align-self: center; max-width: 95%; background: transparent; border: 1px dashed var(--border); color: var(--text-muted); font-size: 0.85rem; text-align: center; }
+.chat__wie { display: block; font-size: 0.75rem; font-weight: 700; color: var(--cf-blue-dark); }
+.chat__tekst { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat__tijd { display: block; font-size: 0.7rem; color: var(--text-muted); }
+.chat__meld { background: none; border: 0; padding: 0; font-size: 0.7rem; color: var(--text-muted); text-decoration: underline; cursor: pointer; }
+.chat__meldvak { margin-top: 0.4rem; }
+.vermelding { color: var(--cf-blue-primary); }
+.chat__schrijf { display: flex; flex-direction: column; gap: 0.5rem; }
+.chat__auteur { font-size: 0.9rem; }
+.chat__veldvak { position: relative; }
+.chat__suggesties { position: absolute; left: 0; bottom: 100%; z-index: 10; list-style: none; margin: 0 0 0.25rem; padding: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); min-width: 10rem; }
+.chat__suggestie { padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer; }
+.chat__suggestie--actief, .chat__suggestie:hover { background: var(--cf-blue-light); }
+
+.beoordeling__sterren { display: flex; gap: 0.2rem; }
+.beoordeling__ster { background: none; border: 0; font-size: 1.8rem; line-height: 1; color: #d8dee9; cursor: pointer; padding: 0.1rem; }
+.beoordeling__ster--aan { color: #e8b923; }
+
+/* Platformregels en ruilmomenten op de startpagina. */
+.regels { max-width: 760px; }
+.regels h2 { margin-top: 1.75rem; color: var(--cf-blue-dark); }
+.regels ul, .regels ol { padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.regels p { margin: 0.5rem 0; }
+.ruilmomenten-lijst { list-style: none; padding: 0; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.9rem; }

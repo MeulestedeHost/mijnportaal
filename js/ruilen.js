@@ -59,6 +59,7 @@ import { openSnelruilen } from "./snelruilen.js";
 import { KETTING_EVENT, tekenKetting } from "./ruilketting.js";
 import { ACTIES_EVENT, wachtOpMij } from "./acties.js";
 import { haalEvent, wanneer, datumVoluit, uur } from "./beurs.js";
+import { stelOnlineVoor, haalSterren, haalBlokkades, vertrouwen, sterrenElement } from "./online.js";
 import {
   zetLandLabel,
   accentVoor,
@@ -71,6 +72,11 @@ let kinderen = [];
 let actiefKindId = "";
 const matchesPerKind = new Map(); // kind_id -> rijen uit get_matches
 let afspraken = []; // rijen uit mijn_ruilen()
+
+// Online ruilen (migratie 033): sterren per ruiler en gezinnen waarmee je niet
+// (meer) ruilt. Leeg zolang 033 niet gedraaid is — dan is alles zoals vroeger.
+const sterren = new Map(); // ander_kind_id -> { gemiddelde, aantal, gerealiseerd }
+let blokkades = new Set(); // ander_kind_id's
 
 // FAVORIETEN (sql/018). Eén regel, en al de rest volgt eruit: een favoriet is
 // een RESERVERING van één exemplaar — "deze sticker wil ik bij DEZE ruiler
@@ -191,6 +197,7 @@ async function laadGegevens() {
     haalAfspraken(),
     haalFavorieten(actiefKindId),
     haalEenzijdige(actiefKindId),
+    haalBlokkades().then((b) => (blokkades = b)),
   ]);
 }
 
@@ -202,6 +209,8 @@ async function haalMatches(kindId) {
   const { data, error } = await supabase.rpc("get_matches", { p_kind_id: kindId });
   if (error) throw error;
   matchesPerKind.set(kindId, data || []);
+  const nieuw = (data || []).map((r) => r.ander_kind_id).filter((id) => !sterren.has(id));
+  (await haalSterren(nieuw)).forEach((v, k) => sterren.set(k, v));
   return data || [];
 }
 
@@ -258,8 +267,11 @@ function toonKetting() {
   });
 }
 
+// Wie je blokkeerde (of wie jou blokkeerde) verdwijnt uit de ruilkansen. De
+// databank weigert een voorstel toch al; zo hoef je er ook niet tegenaan te lopen.
 function actieveMatches() {
-  return matchesPerKind.get(actiefKindId) || [];
+  const alles = matchesPerKind.get(actiefKindId) || [];
+  return blokkades.size ? alles.filter((r) => !blokkades.has(r.ander_kind_id)) : alles;
 }
 
 function actiefKind() {
@@ -879,7 +891,7 @@ function ruilplanner(groepen) {
   const uitleg = document.createElement("p");
   uitleg.className = "form-meta";
   uitleg.textContent =
-    "Met wie ga je best eerst praten? De volgorde is die van de kaarten hieronder: eerst je eigen favorieten, dan de ruilers waar het langs twee kanten klopt, dan wat je nergens anders krijgt, en pas daarna wie er het meeste heeft. Er staat geen puntentotaal bij — enkel cijfers die je kan natellen.";
+    "Met wie ga je best eerst praten? De volgorde is die van de kaarten hieronder: eerst je eigen favorieten, dan de ruilers waar het langs twee kanten klopt, dan wie betrouwbaar is volgens de sterren, dan wat je nergens anders krijgt, en pas daarna wie er het meeste heeft. Er staat geen puntentotaal bij — enkel cijfers die je kan natellen.";
   sectie.appendChild(uitleg);
 
   if (zoekterm) {
@@ -1028,6 +1040,11 @@ function tekenPerRuiler(doel, rijen) {
 //   2. TWEERICHTING — wil die persoon ook iets van jou? Dit weegt zwaar, want
 //      sql/016 laat een ruil pas registreren als het langs twee kanten klopt.
 //      Eenrichting is geen ruil.
+//   2b. VERTROUWEN — de sterren van dat gezin (migratie 033), in drie grove
+//      niveaus: betrouwbaar (4+), neutraal of nieuw, laag (onder 2,5). Bewust
+//      grof en NA tweerichting: een nieuw gezin begint naast een goed gezin,
+//      niet eronder, en een ster beslist nooit over iemand met wie je niets
+//      kan ruilen. Uitleg voor de ouders: regels.html, "Sterren".
 //   3. ENIGE KANS — ligt hier iets dat bij niemand anders van jouw ruilers
 //      ligt? Dat kan morgen weg zijn; een extra sticker in de bundel niet.
 //      Persoonlijke schaarste, zie berekenKansen() voor waarom niet globaal.
@@ -1077,6 +1094,9 @@ function groepeerEnRangschikRuilers(rijen, favorietenBron) {
     const tweeA = a.heeft.length && a.wil.length ? 1 : 0;
     const tweeB = b.heeft.length && b.wil.length ? 1 : 0;
     if (tweeA !== tweeB) return tweeB - tweeA;
+    const vertrouwenA = vertrouwen(sterren.get(a.info.ander_kind_id));
+    const vertrouwenB = vertrouwen(sterren.get(b.info.ander_kind_id));
+    if (vertrouwenA !== vertrouwenB) return vertrouwenB - vertrouwenA;
     if (a.enige !== b.enige) return b.enige - a.enige;
     const somA = a.heeft.length + a.wil.length;
     const somB = b.heeft.length + b.wil.length;
@@ -1278,6 +1298,7 @@ function ruilerKaart(groep) {
   toggle.setAttribute("aria-controls", inhoud.id);
   titel.appendChild(toggle);
   regel.appendChild(titel);
+  if (!info.eigen_gezin && sterren.size) regel.appendChild(sterrenElement(sterren.get(info.ander_kind_id), { klein: true }));
 
   if (info.ander_wijk) {
     const wijk = document.createElement("span");
@@ -1615,7 +1636,7 @@ function bundelBlok(groep, paren, bundel) {
     const paar = document.createElement("p");
     paar.className = "ruilvoorstel__paar";
     paar.textContent = `${h.code} ⇄ ${w.code}`;
-    vak.append(paar, registreerKnop(info, [{ ik: h.code, ander: w.code }]), snelruilKnop(info));
+    vak.append(paar, registreerKnop(info, [{ ik: h.code, ander: w.code }]), onlineKnop(info, [{ ik: h.code, ander: w.code }]), snelruilKnop(info));
     const hulp = document.createElement("p");
     hulp.className = "ruilvoorstel__hulp";
     hulp.textContent = "Meerdere ruilen tegelijk? Tik om beurt een sticker links en rechts aan: ze krijgen samen \"Ruil 1\", daarna \"Ruil 2\", …";
@@ -1674,7 +1695,7 @@ function bundelBlok(groep, paren, bundel) {
   wis.className = "btn btn--outline btn--sm";
   wis.textContent = "Alles wissen";
   wis.addEventListener("click", () => leegRuilen(actiefKindId));
-  acties.append(registreerKnop(info, volledigeParen(bundel)), snelruilKnop(info), wis);
+  acties.append(registreerKnop(info, volledigeParen(bundel)), onlineKnop(info, volledigeParen(bundel)), snelruilKnop(info), wis);
   vak.appendChild(acties);
   return vak;
 }
@@ -1698,6 +1719,46 @@ function registreerKnop(info, paren) {
     }
   }
   knop.addEventListener("click", () => openRegistratie(info, paren));
+  return knop;
+}
+
+// Online ruilen (migratie 033): dezelfde paren, maar als voorstel met een
+// gesprek in plaats van een registratie achteraf. Registreren hoort bij de
+// ruiltafel — de stickers zijn al van hand gewisseld. Online komt de afspraak
+// eerst, en de stickers later. Binnen het eigen gezin ruil je thuis.
+function onlineKnop(info, paren) {
+  const knop = document.createElement("button");
+  knop.type = "button";
+  knop.className = "btn btn--outline btn--sm";
+  knop.textContent = "💬 Online voorstellen";
+  knop.title = "Stuur dit voorstel naar het gezin van " + info.ander_kind + " en spreek af hoe jullie ruilen.";
+  if (!paren.length || info.eigen_gezin) {
+    knop.disabled = true;
+    if (info.eigen_gezin) knop.title = "Binnen je eigen gezin ruil je gewoon thuis.";
+    return knop;
+  }
+  knop.addEventListener("click", async () => {
+    knop.disabled = true;
+    knop.textContent = "Voorstel wordt verstuurd…";
+    try {
+      const items = paren.flatMap((p) => [
+        { van: info.ander_kind_id, naar: actiefKindId, sticker: p.ik },
+        { van: actiefKindId, naar: info.ander_kind_id, sticker: p.ander },
+      ]);
+      await stelOnlineVoor({ eigenKindId: actiefKindId, soort: "ruil", items });
+      leegRuilen(actiefKindId);
+    } catch (err) {
+      knop.disabled = false;
+      knop.textContent = "💬 Online voorstellen";
+      // Naast de knop, niet onderaan de pagina: daar ziet niemand het.
+      const fout = document.createElement("p");
+      fout.className = "message message--show message--error";
+      fout.setAttribute("role", "alert");
+      fout.textContent = err.message;
+      knop.parentElement?.querySelector(":scope > .message--error")?.remove();
+      knop.parentElement?.appendChild(fout);
+    }
+  });
   return knop;
 }
 

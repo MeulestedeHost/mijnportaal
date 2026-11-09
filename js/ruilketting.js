@@ -23,6 +23,7 @@
 // in sessionStorage: een refresh laat hem staan, een nieuw tabblad begint leeg
 // — een kring hoort bij één moment aan één tafel.
 import { supabase } from "./supabase.js";
+import { stelOnlineVoor } from "./online.js";
 import { normaliseer } from "./landen-data.js";
 import { GEREGISTREERD_EVENT } from "./ruilregistratie.js";
 
@@ -680,8 +681,39 @@ function kringBlok(kring, index, deelnemers, ketting) {
     vak.append(acties);
   });
   vak.append(knop, melding);
+  const online = onlineKringKnop(kring, deelnemers, melding);
+  if (online) vak.append(online);
   li.append(vak);
   return li;
+}
+
+// Online (migratie 033): dezelfde kring als voorstel met een groepsgesprek,
+// in plaats van vastleggen achteraf. Niet met een gast — die heeft geen
+// account om mee te praten — en niet als iedereen uit het eigen gezin komt.
+function onlineKringKnop(kring, deelnemers, melding) {
+  const leden = kring.leden.map((i) => deelnemers[i]);
+  if (leden.some((d) => d.gast || !d.sleutel) || leden.every((d) => d.eigenGezin)) return null;
+  const knop = maak("button", "btn btn--outline btn--sm", "💬 Online voorstellen");
+  knop.type = "button";
+  knop.title = "Stuur deze kring als voorstel naar de andere gezinnen en spreek samen af hoe jullie ruilen.";
+  knop.addEventListener("click", async () => {
+    knop.disabled = true;
+    try {
+      const items = kring.pijlen.flatMap((p) =>
+        p.gekozen.map((sticker) => ({ van: deelnemers[p.van].sleutel, naar: deelnemers[p.naar].sleutel, sticker }))
+      );
+      await stelOnlineVoor({
+        eigenKindId: deelnemers[0].sleutel,
+        soort: kring.leden.length > 2 ? "ketting" : "ruil",
+        items,
+      });
+    } catch (err) {
+      knop.disabled = false;
+      melding.textContent = err.message;
+      melding.className = "message message--show message--error";
+    }
+  });
+  return knop;
 }
 
 // Na het vastleggen tekent het blok zich opnieuw (de lijsten veranderden). De

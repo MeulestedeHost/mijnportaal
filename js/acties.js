@@ -20,6 +20,9 @@ import { BUNDEL_EVENT, eigenBundel, teHerstellen, ruilerLabel } from "./ruilbund
 export const ACTIES_EVENT = "acties:verversen";
 
 let afspraken = null; // null = nog niet opgehaald
+// Online afspraken (migratie 033), uit mijn_afspraken(). Leeg zolang 033 niet
+// gedraaid is.
+let online = [];
 let bel = null;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -54,6 +57,14 @@ async function ververs() {
   } catch (err) {
     // Geen verbinding of databank onbereikbaar: toon wat er lokaal bekend is.
     afspraken = afspraken || [];
+  }
+  try {
+    await supabase.rpc("afspraken_verlopen_verwerken");
+    const { data, error } = await supabase.rpc("mijn_afspraken");
+    if (error) throw error;
+    online = Array.isArray(data) ? data : [];
+  } catch {
+    /* 033 nog niet gedraaid: enkel de ruiltafel-acties */
   }
   teken();
 }
@@ -114,7 +125,39 @@ export function berekenActies(rijen) {
     });
   });
 
+  onlineActies(online).forEach((a) => (a.teDoen ? teDoen : infoAnder).push(a));
+
   return { teDoen, infoMij, infoAnder };
+}
+
+// Wat een online afspraak van jouw gezin vraagt. Een ongelezen bericht is ook
+// iets voor jou: in een gesprek wacht de ander op je antwoord.
+const ONLINE_ACTIE = {
+  antwoorden: "antwoord om de stickers te reserveren",
+  bevestigen: "spreek af hoe jullie ruilen en bevestig",
+  ontvangen: "duid aan wanneer je stickers binnen zijn",
+  beoordelen: "geef het andere gezin sterren",
+};
+
+const nieuweBerichten = (n) => (n === 1 ? "1 nieuw bericht" : `${n} nieuwe berichten`);
+
+export function onlineActies(rijen) {
+  const uit = [];
+  (rijen || []).forEach((a) => {
+    const anderen = (a.deelnemers || []).filter((d) => !d.eigen_gezin).map((d) => d.naam);
+    const met = anderen.length ? anderen.join(", ") : "een ander gezin";
+    const href = `/gesprekken.html?id=${encodeURIComponent(a.id)}`;
+    const soort = a.soort === "ketting" ? "Kettingruil" : "Ruil";
+    if (a.actie && ONLINE_ACTIE[a.actie]) {
+      const nieuw = a.ongelezen ? ` · ${nieuweBerichten(a.ongelezen)}` : "";
+      uit.push({ teDoen: true, tekst: `💬 ${soort} met ${met}: ${ONLINE_ACTIE[a.actie]}${nieuw}`, href });
+    } else if (a.ongelezen) {
+      uit.push({ teDoen: true, tekst: `💬 ${nieuweBerichten(a.ongelezen)} van ${met}`, href });
+    } else if (["VOORGESTELD", "GERESERVEERD", "BEVESTIGD", "GESCHIL"].includes(a.status)) {
+      uit.push({ teDoen: false, tekst: `💬 ${soort} met ${met} wacht op de anderen`, href });
+    }
+  });
+  return uit;
 }
 
 // ---------- tekenen ----------
@@ -196,7 +239,26 @@ function bouwBel() {
 
   houder.append(knop, paneel);
   const uitloggen = document.getElementById("logout-btn");
-  balk.insertBefore(houder, uitloggen && uitloggen.parentElement === balk ? uitloggen : null);
+  const voor = uitloggen && uitloggen.parentElement === balk ? uitloggen : null;
+  // De gesprekken (migratie 033) hebben één vaste ingang op elke pagina met de
+  // bel — niet enkel via de bel, want wie gewoon een bericht wil teruglezen,
+  // heeft niets "te doen". Op de gesprekkenpagina zelf niet.
+  if (!location.pathname.endsWith("/gesprekken.html")) {
+    const berichten = document.createElement("a");
+    berichten.href = "/gesprekken.html";
+    berichten.className = "btn btn--outline btn--sm";
+    berichten.setAttribute("aria-label", "Berichten");
+    const ic = document.createElement("span");
+    ic.className = "snelruil-knop__icoon";
+    ic.setAttribute("aria-hidden", "true");
+    ic.textContent = "💬";
+    const tk = document.createElement("span");
+    tk.className = "snelruil-knop__tekst";
+    tk.textContent = "Berichten";
+    berichten.append(ic, tk);
+    balk.insertBefore(berichten, voor);
+  }
+  balk.insertBefore(houder, voor);
 
   const zet = (open) => {
     paneel.classList.toggle("hidden", !open);

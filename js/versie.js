@@ -8,8 +8,8 @@
 // een oude pagina uit zijn cache haalt.
 //
 // De regels om het op te hogen staan in CLAUDE.md ("Versienummer").
-export const VERSIE = "1.4.0";
-export const VERSIE_DATUM = "2026-11-08";
+export const VERSIE = "1.5.0";
+export const VERSIE_DATUM = "2026-11-09";
 
 document.addEventListener("DOMContentLoaded", () => {
   const regel = document.querySelector("footer.footer p");
