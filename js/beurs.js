@@ -103,9 +103,10 @@ export async function haalKomendeEvents() {
   }
 }
 
-// Alle events, ook de voorbije, met een voorbij-vlag. Voor het dashboard: een
-// ouder duidt daar ook aan wie er op een eerdere beurs was (sql/028). Komende
-// eerst (vroegste bovenaan), daarna de voorbije met de meest recente eerst.
+// Alle events, ook de voorbije, met een voorbij-vlag. Komende eerst (vroegste
+// bovenaan), daarna de voorbije met de meest recente eerst. Het dashboard
+// gebruikte dit tot 1.5.1 om achteraf aanwezigheid aan te duiden (sql/028);
+// sindsdien toont het enkel komende beurzen (haalKomendeEvents).
 export async function haalAlleEvents() {
   try {
     const { data, error } = await supabase.from("events").select("id,naam,start,einde");

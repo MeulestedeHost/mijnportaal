@@ -13,7 +13,7 @@
 import { requireAuth, supabase } from "./supabase.js";
 import { loadKinderen, addKind, updateKind, deleteKind, valideerKind, kindPayload } from "./kinderen.js";
 import { toonOrganisatorKnop } from "./whatsapp.js";
-import { haalAlleEvents, datumVoluit, uur } from "./beurs.js";
+import { haalKomendeEvents, datumVoluit, uur } from "./beurs.js";
 import { startWizard } from "./onboarding.js";
 
 let user;
@@ -145,8 +145,15 @@ async function refreshKinderen() {
 // De keuze telt pas echt vanaf filter_dagen_vooraf dagen voor de beurs
 // (sql/025); daarvoor verandert er voor niemand iets. Dat staat er ook bij:
 // een vinkje waarvan je niet weet wat het doet, zet je niet.
+//
+// ENKEL KOMENDE OF LOPENDE BEURZEN. Sinds het ruilen online verdergaat
+// (migratie 033), is er meestal geen beurs, en een rij vinkjes voor beurzen
+// die al voorbij zijn, zegt een ouder niets meer. Staat er een nieuwe beurs in
+// de kalender, dan verschijnt haar vinkje vanzelf. Achteraf aanduiden wie er
+// op een voorbije beurs was (sql/028) kan dus niet meer vanaf het dashboard;
+// de organisatie ziet de opkomst op aanwezigheden.html.
 async function vulAanwezigheid(kinderen) {
-  const events = await haalAlleEvents();
+  const events = await haalKomendeEvents();
   if (!events.length) return;
 
   await laadAanwezigheid(events);
@@ -156,8 +163,7 @@ async function vulAanwezigheid(kinderen) {
     uitleg.textContent =
       "Duid per verzamelaar aan wie er meegaat. In de aanloop naar de beurs " +
       "zien andere verzamelaars enkel wie aangeduid heeft dat hij komt — en " +
-      "zie jij enkel hen. Was iemand op een eerdere beurs, dan kan je dat " +
-      "achteraf nog aanduiden.";
+      "zie jij enkel hen.";
     uitleg.classList.remove("hidden");
   }
 

@@ -400,9 +400,11 @@ Wat bewust **niet** meefiltert:
 ### Wie duidt wat aan
 
 De **ouder** zet "komt mee" op het dashboard, één vinkje per verzamelaar per
-beurs (`aanwezigheid_zetten`) — ook voor een voorbije, zodat wie er op 6 september
-was alsnog in de historiek komt (`028`; dat heeft geen invloed op het filteren, want
-`huidig_event()` kijkt enkel naar de lopende of eerstvolgende beurs). De **organisatie** vinkt aan de inkom af
+beurs (`aanwezigheid_zetten`), enkel voor een komende of lopende beurs. Tot 1.5.1
+stonden daar ook de voorbije beurzen, om achteraf aan te duiden wie er was (`028`).
+Sinds het ruilen online verdergaat, is er meestal geen beurs, en een rij vinkjes
+voor voorbije beurzen zei niets meer. De databank laat het nog toe; enkel het
+dashboard toont het niet meer. De **organisatie** vinkt aan de inkom af
 op `aanwezigheden.html` (`aanmelden_zetten`, enkel voor beheerders). Aanmelden
 zet `komt` mee aan — wie binnenstapt, komt — maar het vinkje uithalen betekent
 "toch niet binnengekomen", niet "komt niet".
